@@ -445,7 +445,7 @@ function BlockPill({
           ) : null}
         </div>
       </div>
-      <div className="absolute right-1 top-1 opacity-0 group-hover:opacity-100 transition flex gap-0.5">
+      <div className="absolute right-1 top-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition flex gap-0.5">
         <button
           type="button"
           onClick={onEdit}

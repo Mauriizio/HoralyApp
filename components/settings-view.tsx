@@ -126,7 +126,19 @@ export function SettingsView({ store }: { store: ScheduleStore }) {
               <Select
                 value={settings.fontFamily}
                 onValueChange={(v) =>
-                  updateSettings({ fontFamily: v as "sans" | "serif" | "mono" })
+                  updateSettings({
+                    fontFamily: v as
+                      | "sans"
+                      | "serif"
+                      | "mono"
+                      | "system"
+                      | "rounded"
+                      | "display"
+                      | "clean"
+                      | "friendly"
+                      | "classic"
+                      | "tech",
+                  })
                 }
               >
                 <SelectTrigger id="font">
@@ -136,6 +148,13 @@ export function SettingsView({ store }: { store: ScheduleStore }) {
                   <SelectItem value="sans">{t("settings.fontSans")}</SelectItem>
                   <SelectItem value="serif">{t("settings.fontSerif")}</SelectItem>
                   <SelectItem value="mono">{t("settings.fontMono")}</SelectItem>
+                  <SelectItem value="system">{t("settings.fontSystem")}</SelectItem>
+                  <SelectItem value="rounded">{t("settings.fontRounded")}</SelectItem>
+                  <SelectItem value="display">{t("settings.fontDisplay")}</SelectItem>
+                  <SelectItem value="clean">{t("settings.fontClean")}</SelectItem>
+                  <SelectItem value="friendly">{t("settings.fontFriendly")}</SelectItem>
+                  <SelectItem value="classic">{t("settings.fontClassic")}</SelectItem>
+                  <SelectItem value="tech">{t("settings.fontTech")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>

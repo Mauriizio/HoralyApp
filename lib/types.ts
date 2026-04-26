@@ -41,12 +41,12 @@ export interface TimeModule {
 }
 
 export const DEFAULT_MODULES: TimeModule[] = [
-  { id: "m1", start: "13:40", end: "14:25", label: "Módulo 1" },
-  { id: "m2", start: "14:25", end: "15:10", label: "Módulo 2" },
-  { id: "m3", start: "15:10", end: "15:55", label: "Módulo 3" },
-  { id: "m4", start: "16:10", end: "16:55", label: "Módulo 4" },
-  { id: "m5", start: "16:55", end: "17:40", label: "Módulo 5" },
-  { id: "m6", start: "17:40", end: "18:10", label: "Módulo 6" },
+  { id: "m1", start: "13:41", end: "14:20", label: "Módulo 1" },
+  { id: "m2", start: "14:21", end: "15:10", label: "Módulo 2" },
+  { id: "m3", start: "15:11", end: "15:50", label: "Módulo 3" },
+  { id: "m4", start: "16:01", end: "16:40", label: "Módulo 4" },
+  { id: "m5", start: "16:41", end: "17:20", label: "Módulo 5" },
+  { id: "m6", start: "17:31", end: "18:10", label: "Módulo 6" },
 ]
 
 // Quick presets the user can apply with one click.
@@ -65,12 +65,12 @@ export const MODULE_PRESETS: { id: "morning" | "afternoon" | "evening"; modules:
   {
     id: "afternoon",
     modules: [
-      { id: "pm1", start: "13:40", end: "14:25", label: "Módulo 1" },
-      { id: "pm2", start: "14:25", end: "15:10", label: "Módulo 2" },
-      { id: "pm3", start: "15:10", end: "15:55", label: "Módulo 3" },
-      { id: "pm4", start: "16:10", end: "16:55", label: "Módulo 4" },
-      { id: "pm5", start: "16:55", end: "17:40", label: "Módulo 5" },
-      { id: "pm6", start: "17:40", end: "18:10", label: "Módulo 6" },
+      { id: "pm1", start: "13:41", end: "14:20", label: "Módulo 1" },
+      { id: "pm2", start: "14:21", end: "15:10", label: "Módulo 2" },
+      { id: "pm3", start: "15:11", end: "15:50", label: "Módulo 3" },
+      { id: "pm4", start: "16:01", end: "16:40", label: "Módulo 4" },
+      { id: "pm5", start: "16:41", end: "17:20", label: "Módulo 5" },
+      { id: "pm6", start: "17:31", end: "18:10", label: "Módulo 6" },
     ],
   },
   {
