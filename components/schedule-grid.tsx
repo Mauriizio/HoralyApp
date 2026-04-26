@@ -1,26 +1,32 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import * as Icons from "lucide-react"
-import { Plus, Trash2, Pencil, GripVertical } from "lucide-react"
+import { Plus, Trash2, Pencil, GripVertical, Bell, StickyNote } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
 import {
   DAYS,
+  DAY_KEYS,
   type DayKey,
+  type Reminder,
   type ScheduleBlock,
   type Subject,
   type TimeModule,
 } from "@/lib/types"
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
 import { cn } from "@/lib/utils"
+import { getLucideIcon } from "@/lib/icons"
 
 interface ScheduleGridProps {
   store: ScheduleStore
   onNewSubject: () => void
   onEditSubject: (subject: Subject) => void
   restrictedDay?: DayKey // focus mode
+  showSaturday?: boolean
+  timeFormat?: "12h" | "24h"
+  reminders?: Reminder[]
+  onOpenReminders?: () => void
 }
 
 export function ScheduleGrid({
@@ -28,20 +34,27 @@ export function ScheduleGrid({
   onNewSubject,
   onEditSubject,
   restrictedDay,
+  showSaturday = false,
+  timeFormat = "24h",
+  reminders = [],
+  onOpenReminders,
 }: ScheduleGridProps) {
   const { data, upsertBlock, deleteBlock, moveBlock, subjectsById } = store
   const { subjects, blocks, studyBlocks, modules } = data
 
-  const daysToShow = restrictedDay ? DAYS.filter((d) => d.key === restrictedDay) : DAYS
+  const classDays = useMemo(
+    () =>
+      DAYS.filter((d) =>
+        showSaturday
+          ? d.key !== "domingo"
+          : ["lunes", "martes", "miercoles", "jueves", "viernes"].includes(d.key),
+      ),
+    [showSaturday],
+  )
+  const daysToShow = restrictedDay ? classDays.filter((d) => d.key === restrictedDay) : classDays
 
   const cognitiveLoadByDay = useMemo(() => {
-    const map: Record<DayKey, number> = {
-      lunes: 0,
-      martes: 0,
-      miercoles: 0,
-      jueves: 0,
-      viernes: 0,
-    }
+    const map = Object.fromEntries(DAY_KEYS.map((day) => [day, 0])) as Record<DayKey, number>
     for (const b of blocks) {
       const subject = subjectsById.get(b.subjectId)
       if (!subject) continue
@@ -77,13 +90,9 @@ export function ScheduleGrid({
   }, [blocks, modules])
 
   const studyBlocksByDay = useMemo(() => {
-    const map: Record<DayKey, typeof studyBlocks> = {
-      lunes: [],
-      martes: [],
-      miercoles: [],
-      jueves: [],
-      viernes: [],
-    }
+    const map = Object.fromEntries(
+      DAY_KEYS.map((day) => [day, [] as typeof studyBlocks]),
+    ) as Record<DayKey, typeof studyBlocks>
     for (const sb of studyBlocks) map[sb.day].push(sb)
     for (const key of Object.keys(map) as DayKey[]) {
       map[key].sort((a, b) => a.start.localeCompare(b.start))
@@ -92,6 +101,16 @@ export function ScheduleGrid({
   }, [studyBlocks])
 
   // Desktop grid with explicit placement to support rowspan correctly.
+  const formatTime = (value: string) => {
+    if (timeFormat === "24h") return value
+    const [hRaw, minute] = value.split(":")
+    const hour = Number(hRaw)
+    if (Number.isNaN(hour)) return value
+    const suffix = hour >= 12 ? "PM" : "AM"
+    const normalized = hour % 12 || 12
+    return `${normalized}:${minute} ${suffix}`
+  }
+
   return (
     <div className="w-full">
       {/* Cognitive load header (desktop) */}
@@ -179,8 +198,8 @@ export function ScheduleGrid({
             style={{ gridRow: mi + 2, gridColumn: 1 }}
             className="flex flex-col justify-center px-2 py-2 text-xs text-muted-foreground border-r border-border"
           >
-            <div className="font-mono font-medium text-foreground">{mod.start}</div>
-            <div className="font-mono text-[11px]">{mod.end}</div>
+            <div className="font-mono font-medium text-foreground">{formatTime(mod.start)}</div>
+            <div className="font-mono text-[11px]">{formatTime(mod.end)}</div>
             <div className="text-[10px] uppercase tracking-wide mt-0.5">{mod.label}</div>
           </div>
         ))}
@@ -205,9 +224,10 @@ export function ScheduleGrid({
                   <BlockPill
                     block={info.block}
                     subject={subject}
-                    modulesCount={info.span}
+                    reminderCount={reminders.filter((r) => r.subjectId === subject.id).length}
                     onEdit={() => onEditSubject(subject)}
                     onDelete={() => deleteBlock(info.block.id)}
+                    onOpenReminders={onOpenReminders}
                   />
                 </div>
               )
@@ -267,7 +287,7 @@ export function ScheduleGrid({
                       <span className="truncate">{sb.title}</span>
                     </div>
                     <div className="text-muted-foreground mt-0.5">
-                      {sb.start} – {sb.end}
+                      {formatTime(sb.start)} – {formatTime(sb.end)}
                     </div>
                   </div>
                 )
@@ -301,17 +321,18 @@ export function ScheduleGrid({
                   return (
                     <div key={mod.id} className="flex items-stretch">
                       <div className="w-20 shrink-0 px-3 py-2 text-xs text-muted-foreground bg-muted/40">
-                        <div>{mod.start}</div>
-                        <div className="text-[10px]">{mod.end}</div>
+                        <div>{formatTime(mod.start)}</div>
+                        <div className="text-[10px]">{formatTime(mod.end)}</div>
                       </div>
                       <div className="flex-1 p-2">
                         {info && subject ? (
                           <BlockPill
                             block={info.block}
                             subject={subject}
-                            modulesCount={info.span}
+                            reminderCount={reminders.filter((r) => r.subjectId === subject.id).length}
                             onEdit={() => onEditSubject(subject)}
                             onDelete={() => deleteBlock(info.block.id)}
+                            onOpenReminders={onOpenReminders}
                           />
                         ) : (
                           <EmptyCell
@@ -331,8 +352,8 @@ export function ScheduleGrid({
                   return (
                     <div key={sb.id} className="flex items-stretch">
                       <div className="w-20 shrink-0 px-3 py-2 text-xs text-muted-foreground bg-muted/40">
-                        <div>{sb.start}</div>
-                        <div className="text-[10px]">{sb.end}</div>
+                        <div>{formatTime(sb.start)}</div>
+                        <div className="text-[10px]">{formatTime(sb.end)}</div>
                       </div>
                       <div className="flex-1 p-2">
                         <div className="rounded-md border border-dashed border-border px-2 py-1.5 text-sm">
@@ -363,18 +384,19 @@ export function ScheduleGrid({
 function BlockPill({
   block,
   subject,
-  modulesCount,
+  reminderCount,
   onEdit,
   onDelete,
+  onOpenReminders,
 }: {
   block: ScheduleBlock
   subject: Subject
-  modulesCount: number
+  reminderCount: number
   onEdit: () => void
   onDelete: () => void
+  onOpenReminders?: () => void
 }) {
-  const Icon = subject.icon ? (Icons as Record<string, unknown>)[subject.icon] : null
-  const IconComp = typeof Icon === "function" ? (Icon as React.ComponentType<{ className?: string; style?: React.CSSProperties }>) : null
+  const IconComp = getLucideIcon(subject.icon)
   return (
     <div
       draggable
@@ -399,14 +421,29 @@ function BlockPill({
         </div>
         <GripVertical className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition" />
       </div>
-      {subject.notes && modulesCount > 1 && (
+      {subject.notes && (
         <p className="mt-1 text-[11px] text-muted-foreground line-clamp-2">{subject.notes}</p>
       )}
       <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
-        <span>
-          {modulesCount} {modulesCount === 1 ? "módulo" : "módulos"}
-        </span>
-        <span className="opacity-70">Dif. {subject.difficulty}</span>
+        <div className="flex items-center gap-1.5">
+          <span className="opacity-70">Dif. {subject.difficulty}</span>
+          {subject.notes ? (
+            <span title="Tiene notas">
+              <StickyNote className="h-3 w-3" />
+            </span>
+          ) : null}
+          {reminderCount > 0 ? (
+            <button
+              type="button"
+              onClick={onOpenReminders}
+              className="inline-flex items-center gap-0.5 hover:text-foreground transition"
+              title="Ver recordatorios de esta materia"
+            >
+              <Bell className="h-3 w-3" />
+              <span>{reminderCount}</span>
+            </button>
+          ) : null}
+        </div>
       </div>
       <div className="absolute right-1 top-1 opacity-0 group-hover:opacity-100 transition flex gap-0.5">
         <button

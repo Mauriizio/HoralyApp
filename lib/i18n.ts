@@ -53,6 +53,7 @@ export const TRANSLATIONS = {
 
     // Schedule
     "schedule.weekTitle": "Semana de lunes a viernes",
+    "schedule.weekTitleWithSaturday": "Semana de lunes a sábado",
     "schedule.todayTitle": "Hoy, {day}",
     "schedule.help":
       "Arrastra los bloques para moverlos o haz clic en una celda vacía para agregar una materia.",
@@ -77,11 +78,15 @@ export const TRANSLATIONS = {
     "day.miercoles": "Miércoles",
     "day.jueves": "Jueves",
     "day.viernes": "Viernes",
+    "day.sabado": "Sábado",
+    "day.domingo": "Domingo",
     "day.lunes.short": "Lun",
     "day.martes.short": "Mar",
     "day.miercoles.short": "Mié",
     "day.jueves.short": "Jue",
     "day.viernes.short": "Vie",
+    "day.sabado.short": "Sáb",
+    "day.domingo.short": "Dom",
 
     // Difficulty
     "difficulty.1": "Muy fácil",
@@ -308,6 +313,7 @@ export const TRANSLATIONS = {
     "header.newGrade": "New grade",
 
     "schedule.weekTitle": "Monday to Friday",
+    "schedule.weekTitleWithSaturday": "Monday to Saturday",
     "schedule.todayTitle": "Today, {day}",
     "schedule.help": "Drag blocks to move them, or click an empty cell to add a subject.",
     "schedule.blockCount.one": "{n} block",
@@ -329,11 +335,15 @@ export const TRANSLATIONS = {
     "day.miercoles": "Wednesday",
     "day.jueves": "Thursday",
     "day.viernes": "Friday",
+    "day.sabado": "Saturday",
+    "day.domingo": "Sunday",
     "day.lunes.short": "Mon",
     "day.martes.short": "Tue",
     "day.miercoles.short": "Wed",
     "day.jueves.short": "Thu",
     "day.viernes.short": "Fri",
+    "day.sabado.short": "Sat",
+    "day.domingo.short": "Sun",
 
     "difficulty.1": "Very easy",
     "difficulty.2": "Easy",

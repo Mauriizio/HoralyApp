@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import * as Icons from "lucide-react"
 import { Plus, MoreVertical, Pencil, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -15,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { DIFFICULTY_LABELS, type Subject } from "@/lib/types"
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
 import { SubjectForm } from "@/components/subject-form"
+import { getLucideIcon } from "@/lib/icons"
 
 export function SubjectsPanel({ store }: { store: ScheduleStore }) {
   const { data, addSubject, updateSubject, deleteSubject } = store
@@ -51,11 +51,7 @@ export function SubjectsPanel({ store }: { store: ScheduleStore }) {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {data.subjects.map((s) => {
-            const Icon = s.icon ? (Icons as Record<string, unknown>)[s.icon] : null
-            const IconComp =
-              typeof Icon === "function"
-                ? (Icon as React.ComponentType<{ className?: string; style?: React.CSSProperties }>)
-                : null
+            const IconComp = getLucideIcon(s.icon)
             return (
               <Card
                 key={s.id}

@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { type DifficultyLevel, DIFFICULTY_LABELS, type Subject } from "@/lib/types"
+import { getLucideIcon, SUBJECT_ICON_OPTIONS } from "@/lib/icons"
 
 const SUBJECT_COLORS = [
   "#0ea5e9", // sky
@@ -33,20 +34,6 @@ const SUBJECT_COLORS = [
   "#6366f1", // indigo
   "#64748b", // slate
   "#0d9488", // teal-600
-]
-
-const ICON_OPTIONS = [
-  { value: "", label: "Sin ícono" },
-  { value: "BookOpen", label: "Libro" },
-  { value: "Calculator", label: "Calculadora" },
-  { value: "FlaskConical", label: "Laboratorio" },
-  { value: "Globe", label: "Globo" },
-  { value: "Palette", label: "Paleta" },
-  { value: "Music", label: "Música" },
-  { value: "Dumbbell", label: "Deporte" },
-  { value: "Code", label: "Código" },
-  { value: "Languages", label: "Idiomas" },
-  { value: "Landmark", label: "Historia" },
 ]
 
 export interface SubjectFormProps {
@@ -62,6 +49,7 @@ export function SubjectForm({ open, onOpenChange, initial, onSubmit }: SubjectFo
   const [icon, setIcon] = useState(initial?.icon ?? "")
   const [notes, setNotes] = useState(initial?.notes ?? "")
   const [difficulty, setDifficulty] = useState<DifficultyLevel>(initial?.difficulty ?? 3)
+  const selectedIcon = SUBJECT_ICON_OPTIONS.find((opt) => opt.value === icon)
 
   // When dialog opens with a different subject, sync local state.
   // useEffect avoided: we reset via `key` prop in parent if needed.
@@ -134,14 +122,30 @@ export function SubjectForm({ open, onOpenChange, initial, onSubmit }: SubjectFo
               <Label htmlFor="subject-icon">Ícono</Label>
               <Select value={icon || "_none"} onValueChange={(v) => setIcon(v === "_none" ? "" : v)}>
                 <SelectTrigger id="subject-icon">
-                  <SelectValue />
+                  <SelectValue>
+                    <span className="flex items-center gap-2">
+                      {icon ? (
+                        (() => {
+                          const IconComp = getLucideIcon(icon)
+                          return IconComp ? <IconComp className="h-4 w-4" /> : null
+                        })()
+                      ) : null}
+                      <span>{selectedIcon?.label ?? "Sin ícono"}</span>
+                    </span>
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {ICON_OPTIONS.map((opt) => (
+                  {SUBJECT_ICON_OPTIONS.map((opt) => {
+                    const IconComp = getLucideIcon(opt.value)
+                    return (
                     <SelectItem key={opt.value || "_none"} value={opt.value || "_none"}>
-                      {opt.label}
+                      <span className="flex items-center gap-2">
+                        {IconComp ? <IconComp className="h-4 w-4" /> : null}
+                        <span>{opt.label}</span>
+                      </span>
                     </SelectItem>
-                  ))}
+                    )
+                  })}
                 </SelectContent>
               </Select>
             </div>

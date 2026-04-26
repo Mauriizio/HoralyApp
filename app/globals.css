@@ -38,6 +38,7 @@
   --sidebar-border: oklch(0.92 0.005 250);
   --sidebar-ring: oklch(0.62 0.12 190);
   --block-opacity: 0.9;
+  --font-scale: 1;
 }
 
 .dark {
@@ -141,6 +142,7 @@ html[data-font="mono"] body {
   }
   body {
     @apply bg-background text-foreground;
+    font-size: calc(16px * var(--font-scale));
     /* Respect iOS safe areas when installed as a PWA. */
     padding-top: env(safe-area-inset-top, 0);
     padding-bottom: env(safe-area-inset-bottom, 0);

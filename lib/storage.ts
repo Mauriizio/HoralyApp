@@ -12,7 +12,7 @@ function migrate(parsed: Partial<AppData> & Record<string, unknown>): AppData {
     modules: parsed.modules?.length ? parsed.modules : EMPTY_APP_DATA.modules,
     grades: Array.isArray(parsed.grades) ? parsed.grades : [],
     profile: { ...DEFAULT_PROFILE, ...(parsed.profile ?? {}) },
-    version: 2,
+    version: 3,
   } as AppData
 }
 

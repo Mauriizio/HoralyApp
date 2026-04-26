@@ -209,6 +209,52 @@ export function SettingsView({ store }: { store: ScheduleStore }) {
             </div>
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Tamaño de letra</Label>
+                <span className="text-xs text-muted-foreground font-mono">
+                  {Math.round(settings.fontScale * 100)}%
+                </span>
+              </div>
+              <Slider
+                value={[settings.fontScale]}
+                onValueChange={([v]) => updateSettings({ fontScale: v })}
+                min={0.9}
+                max={1.2}
+                step={0.02}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="time-format">Formato de hora</Label>
+              <Select
+                value={settings.timeFormat}
+                onValueChange={(v) => updateSettings({ timeFormat: v as "12h" | "24h" })}
+              >
+                <SelectTrigger id="time-format">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="24h">24 horas (14:30)</SelectItem>
+                  <SelectItem value="12h">12 horas (2:30 PM)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-4 rounded-md border p-3">
+            <div>
+              <div className="text-sm font-medium">Incluir sábado en el horario</div>
+              <div className="text-xs text-muted-foreground">
+                Activa esta opción si tienes clases los sábados.
+              </div>
+            </div>
+            <Switch
+              checked={settings.enableSaturday}
+              onCheckedChange={(v) => updateSettings({ enableSaturday: v })}
+            />
+          </div>
+
           <div className="pt-2">
             <Button variant="ghost" size="sm" onClick={resetSettings}>
               <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> {t("settings.data.reset")}
@@ -257,6 +303,16 @@ export function SettingsView({ store }: { store: ScheduleStore }) {
           </CardTitle>
           <CardDescription>{t("settings.calendar.help")}</CardDescription>
         </CardHeader>
+        <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <p>
+            Para recibir notificaciones reales en el teléfono incluso con la app cerrada, hace
+            falta integrar Push Notifications (service worker + servidor con Web Push).
+          </p>
+          <p>
+            Para sonido y sincronización con Google Calendar, también se requiere OAuth de Google
+            y crear eventos/recordatorios en su API.
+          </p>
+        </CardContent>
       </Card>
 
       {/* Data + focus */}

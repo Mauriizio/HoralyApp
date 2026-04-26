@@ -45,13 +45,13 @@ import { I18nProvider, useI18n } from "@/components/i18n-provider"
 import type { DayKey, Subject } from "@/lib/types"
 
 const DAY_INDEX_TO_KEY: Record<number, DayKey | null> = {
-  0: null,
+  0: "domingo",
   1: "lunes",
   2: "martes",
   3: "miercoles",
   4: "jueves",
   5: "viernes",
-  6: null,
+  6: "sabado",
 }
 
 function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }) {
@@ -75,7 +75,9 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
   const [gradeOpen, setGradeOpen] = useState(false)
 
   const todayKey = useMemo(() => DAY_INDEX_TO_KEY[new Date().getDay()], [])
-  const showFocus = data.settings.focusMode && todayKey
+  const focusDay =
+    todayKey === "sabado" && !data.settings.enableSaturday ? null : todayKey
+  const showFocus = data.settings.focusMode && focusDay && focusDay !== "domingo"
 
   const handleQuickAction = (action: QuickAction) => {
     setQuickOpen(false)
@@ -322,8 +324,10 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
                 <div className="min-w-0">
                   <h2 className="text-lg font-semibold truncate">
                     {showFocus
-                      ? t("schedule.todayTitle", { day: tDay(todayKey!) })
-                      : t("schedule.weekTitle")}
+                      ? t("schedule.todayTitle", { day: tDay(focusDay!) })
+                      : data.settings.enableSaturday
+                        ? t("schedule.weekTitleWithSaturday")
+                        : t("schedule.weekTitle")}
                   </h2>
                   <p className="text-sm text-muted-foreground hidden sm:block">
                     {t("schedule.help")}
@@ -358,7 +362,11 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
                   setSubjectOpen(true)
                 }}
                 onEditSubject={openEditSubject}
-                restrictedDay={showFocus ? todayKey! : undefined}
+                restrictedDay={showFocus ? focusDay! : undefined}
+                showSaturday={data.settings.enableSaturday}
+                timeFormat={data.settings.timeFormat}
+                reminders={data.reminders}
+                onOpenReminders={() => setTab("recordatorios")}
               />
             </TabsContent>
 

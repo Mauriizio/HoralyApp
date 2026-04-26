@@ -56,6 +56,7 @@ export function ThemeApplier({ settings }: { settings: AppSettings }) {
 
     // Font family
     root.dataset.font = settings.fontFamily
+    root.style.setProperty("--font-scale", String(settings.fontScale))
 
     return () => mql.removeEventListener("change", onChange)
   }, [settings])

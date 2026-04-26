@@ -1,9 +1,25 @@
 // Core domain types for the weekly schedule app.
 // UI strings are translated via lib/i18n.ts based on settings.language.
 
-export type DayKey = "lunes" | "martes" | "miercoles" | "jueves" | "viernes"
+export type DayKey =
+  | "lunes"
+  | "martes"
+  | "miercoles"
+  | "jueves"
+  | "viernes"
+  | "sabado"
+  | "domingo"
 
-export const DAY_KEYS: DayKey[] = ["lunes", "martes", "miercoles", "jueves", "viernes"]
+export const DAY_KEYS: DayKey[] = [
+  "lunes",
+  "martes",
+  "miercoles",
+  "jueves",
+  "viernes",
+  "sabado",
+  "domingo",
+]
+export const WEEKDAY_KEYS: DayKey[] = ["lunes", "martes", "miercoles", "jueves", "viernes"]
 
 // Default (Spanish) labels for legacy components. Use useI18n().day(key) for translated values.
 export const DAYS: { key: DayKey; label: string; short: string }[] = [
@@ -12,6 +28,8 @@ export const DAYS: { key: DayKey; label: string; short: string }[] = [
   { key: "miercoles", label: "Miércoles", short: "Mié" },
   { key: "jueves", label: "Jueves", short: "Jue" },
   { key: "viernes", label: "Viernes", short: "Vie" },
+  { key: "sabado", label: "Sábado", short: "Sáb" },
+  { key: "domingo", label: "Domingo", short: "Dom" },
 ]
 
 // User-customizable time modules (morning/afternoon/evening blocks).
@@ -169,9 +187,12 @@ export interface AppSettings {
   language: Language
   accentColor: string
   fontFamily: "sans" | "serif" | "mono"
+  fontScale: number
+  timeFormat: "12h" | "24h"
   radius: number
   blockOpacity: number
   focusMode: boolean
+  enableSaturday: boolean
   googleCalendarConnected: boolean
   gradeScale: GradeScale
 }
@@ -181,9 +202,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
   language: "es",
   accentColor: "#0d9488",
   fontFamily: "sans",
+  fontScale: 1,
+  timeFormat: "24h",
   radius: 0.625,
   blockOpacity: 0.9,
   focusMode: false,
+  enableSaturday: false,
   googleCalendarConnected: false,
   gradeScale: { min: 1, max: 7, passing: 4 },
 }
@@ -197,7 +221,7 @@ export interface AppData {
   grades: Grade[]
   profile: UserProfile
   settings: AppSettings
-  version: 2
+  version: 3
 }
 
 export const EMPTY_APP_DATA: AppData = {
@@ -209,5 +233,5 @@ export const EMPTY_APP_DATA: AppData = {
   grades: [],
   profile: DEFAULT_PROFILE,
   settings: DEFAULT_SETTINGS,
-  version: 2,
+  version: 3,
 }

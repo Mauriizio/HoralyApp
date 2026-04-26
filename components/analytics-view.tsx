@@ -81,13 +81,9 @@ export function AnalyticsView({ store }: AnalyticsViewProps) {
   const totalHours = hoursPerSubject.reduce((sum, s) => sum + s.hours, 0)
 
   const loadByDay = useMemo(() => {
-    const map: Record<DayKey, { classHours: number; studyHours: number; load: number }> = {
-      lunes: { classHours: 0, studyHours: 0, load: 0 },
-      martes: { classHours: 0, studyHours: 0, load: 0 },
-      miercoles: { classHours: 0, studyHours: 0, load: 0 },
-      jueves: { classHours: 0, studyHours: 0, load: 0 },
-      viernes: { classHours: 0, studyHours: 0, load: 0 },
-    }
+    const map = Object.fromEntries(
+      DAY_KEYS.map((day) => [day, { classHours: 0, studyHours: 0, load: 0 }]),
+    ) as Record<DayKey, { classHours: number; studyHours: number; load: number }>
     for (const b of blocks) {
       const s = subjectsById.get(b.subjectId)
       if (!s) continue
