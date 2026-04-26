@@ -17,6 +17,7 @@ import {
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
 import { cn } from "@/lib/utils"
 import { getLucideIcon } from "@/lib/icons"
+import { formatTime } from "@/lib/time-format"
 
 interface ScheduleGridProps {
   store: ScheduleStore
@@ -99,17 +100,6 @@ export function ScheduleGrid({
     }
     return map
   }, [studyBlocks])
-
-  // Desktop grid with explicit placement to support rowspan correctly.
-  const formatTime = (value: string) => {
-    if (timeFormat === "24h") return value
-    const [hRaw, minute] = value.split(":")
-    const hour = Number(hRaw)
-    if (Number.isNaN(hour)) return value
-    const suffix = hour >= 12 ? "PM" : "AM"
-    const normalized = hour % 12 || 12
-    return `${normalized}:${minute} ${suffix}`
-  }
 
   return (
     <div className="w-full">
@@ -198,8 +188,10 @@ export function ScheduleGrid({
             style={{ gridRow: mi + 2, gridColumn: 1 }}
             className="flex flex-col justify-center px-2 py-2 text-xs text-muted-foreground border-r border-border"
           >
-            <div className="font-mono font-medium text-foreground">{formatTime(mod.start)}</div>
-            <div className="font-mono text-[11px]">{formatTime(mod.end)}</div>
+            <div className="font-mono font-medium text-foreground">
+              {formatTime(mod.start, timeFormat)}
+            </div>
+            <div className="font-mono text-[11px]">{formatTime(mod.end, timeFormat)}</div>
             <div className="text-[10px] uppercase tracking-wide mt-0.5">{mod.label}</div>
           </div>
         ))}
@@ -287,7 +279,7 @@ export function ScheduleGrid({
                       <span className="truncate">{sb.title}</span>
                     </div>
                     <div className="text-muted-foreground mt-0.5">
-                      {formatTime(sb.start)} – {formatTime(sb.end)}
+                      {formatTime(sb.start, timeFormat)} – {formatTime(sb.end, timeFormat)}
                     </div>
                   </div>
                 )
@@ -321,8 +313,8 @@ export function ScheduleGrid({
                   return (
                     <div key={mod.id} className="flex items-stretch">
                       <div className="w-20 shrink-0 px-3 py-2 text-xs text-muted-foreground bg-muted/40">
-                        <div>{formatTime(mod.start)}</div>
-                        <div className="text-[10px]">{formatTime(mod.end)}</div>
+                        <div>{formatTime(mod.start, timeFormat)}</div>
+                        <div className="text-[10px]">{formatTime(mod.end, timeFormat)}</div>
                       </div>
                       <div className="flex-1 p-2">
                         {info && subject ? (
@@ -352,8 +344,8 @@ export function ScheduleGrid({
                   return (
                     <div key={sb.id} className="flex items-stretch">
                       <div className="w-20 shrink-0 px-3 py-2 text-xs text-muted-foreground bg-muted/40">
-                        <div>{formatTime(sb.start)}</div>
-                        <div className="text-[10px]">{formatTime(sb.end)}</div>
+                        <div>{formatTime(sb.start, timeFormat)}</div>
+                        <div className="text-[10px]">{formatTime(sb.end, timeFormat)}</div>
                       </div>
                       <div className="flex-1 p-2">
                         <div className="rounded-md border border-dashed border-border px-2 py-1.5 text-sm">

@@ -44,6 +44,7 @@ import { InstallAppButton } from "@/components/install-app-button"
 import { usePwaInstall } from "@/hooks/use-pwa-install"
 import { I18nProvider, useI18n } from "@/components/i18n-provider"
 import type { DayKey, Subject } from "@/lib/types"
+import { formatTime, parseTime } from "@/lib/time-format"
 
 const DAY_INDEX_TO_KEY: Record<number, DayKey | null> = {
   0: "domingo",
@@ -146,9 +147,79 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
   const reminderCount = data.reminders.length
   const studyBlockCount = data.studyBlocks.length
   const gradeCount = data.grades.length
-  const greeting = data.profile.displayName
-    ? t("profile.greeting", { name: data.profile.displayName })
-    : t("profile.greetingAnon")
+  const assistantMessage = useMemo(() => {
+    const now = new Date()
+    const toLocalIso = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+        d.getDate(),
+      ).padStart(2, "0")}`
+    const todayIso = toLocalIso(now)
+    const nowMinutes = now.getHours() * 60 + now.getMinutes()
+
+    const reminderToday = data.reminders
+      .map((r) => ({ r, date: new Date(r.targetDateTime) }))
+      .filter(({ date }) => !Number.isNaN(date.getTime()))
+      .filter(({ date }) => {
+        const localIso = toLocalIso(date)
+        return localIso === todayIso && date.getTime() >= now.getTime()
+      })
+      .sort((a, b) => a.date.getTime() - b.date.getTime())[0]
+
+    if (reminderToday) {
+      return t("profile.assistant.reminder", {
+        title: reminderToday.r.title,
+        time: formatTime(
+          `${String(reminderToday.date.getHours()).padStart(2, "0")}:${String(
+            reminderToday.date.getMinutes(),
+          ).padStart(2, "0")}`,
+          data.settings.timeFormat,
+        ),
+      })
+    }
+
+    const gradesToday = data.grades.filter((g) => g.date === todayIso)
+    if (gradesToday.length > 0) {
+      return t("profile.assistant.grades", {
+        title: gradesToday[0].title,
+        count: gradesToday.length,
+      })
+    }
+
+    if (todayKey && todayKey !== "domingo") {
+      const modulesById = new Map(data.modules.map((m) => [m.id, m]))
+      const nextBlock = data.blocks
+        .filter((b) => b.day === todayKey)
+        .map((b) => {
+          const subject = data.subjects.find((s) => s.id === b.subjectId)
+          if (!subject) return null
+          const firstModule = b.moduleIds
+            .map((id) => modulesById.get(id))
+            .filter((m): m is NonNullable<typeof m> => Boolean(m))
+            .sort((a, b2) => a.start.localeCompare(b2.start))[0]
+          if (!firstModule) return null
+          const parsed = parseTime(firstModule.start)
+          if (!parsed) return null
+          return {
+            subject,
+            module: firstModule,
+            startMinutes: parsed.hour * 60 + parsed.minute,
+          }
+        })
+        .filter((v): v is NonNullable<typeof v> => Boolean(v))
+        .filter((v) => v.startMinutes >= nowMinutes)
+        .sort((a, b) => a.startMinutes - b.startMinutes)[0]
+
+      if (nextBlock) {
+        return t("profile.assistant.nextClass", {
+          subject: nextBlock.subject.name,
+          time: formatTime(nextBlock.module.start, data.settings.timeFormat),
+          minutes: nextBlock.startMinutes - nowMinutes,
+        })
+      }
+    }
+
+    return t("profile.assistant.empty")
+  }, [data, t, todayKey])
 
   return (
     <>
@@ -241,7 +312,22 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         <main className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 py-4 sm:py-6">
           {/* Greeting */}
           {data.profile.displayName && (
-            <div className="mb-4 text-sm text-muted-foreground truncate">{greeting}</div>
+            <div className="mb-4 rounded-lg border border-border bg-card p-3 sm:p-4">
+              <div className="flex items-start gap-3">
+                <div className="h-16 w-16 shrink-0 rounded-lg border border-dashed border-primary/50 bg-primary/10 flex items-center justify-center text-primary">
+                  <CalendarDays className="h-8 w-8" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-base font-semibold leading-tight">
+                    {t("profile.assistant.hello")}
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground text-pretty">
+                    <span className="font-medium text-foreground">{data.profile.displayName}</span>{" "}
+                    {assistantMessage}
+                  </p>
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Welcome banner when empty */}

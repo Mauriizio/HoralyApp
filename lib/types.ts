@@ -159,12 +159,10 @@ export interface GradeScale {
   passing: number
 }
 
-export type GradeScalePresetId = "chile" | "venezuela" | "decimal" | "custom"
+export type GradeScalePresetId = "chile" | "custom"
 
 export const GRADE_SCALE_PRESETS: { id: GradeScalePresetId; scale: GradeScale }[] = [
   { id: "chile", scale: { min: 1, max: 7, passing: 4 } },
-  { id: "venezuela", scale: { min: 1, max: 20, passing: 10 } },
-  { id: "decimal", scale: { min: 0, max: 10, passing: 6 } },
   { id: "custom", scale: { min: 0, max: 100, passing: 60 } },
 ]
 
@@ -186,7 +184,17 @@ export interface AppSettings {
   theme: ThemeMode
   language: Language
   accentColor: string
-  fontFamily: "sans" | "serif" | "mono"
+  fontFamily:
+    | "sans"
+    | "serif"
+    | "mono"
+    | "system"
+    | "rounded"
+    | "display"
+    | "clean"
+    | "friendly"
+    | "classic"
+    | "tech"
   fontScale: number
   timeFormat: "12h" | "24h"
   radius: number

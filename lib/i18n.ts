@@ -184,6 +184,12 @@ export const TRANSLATIONS = {
     "profile.editProfile": "Editar perfil",
     "profile.greeting": "Hola, {name}",
     "profile.greetingAnon": "¡Hola!",
+    "profile.assistant.hello": "¡Hola!",
+    "profile.assistant.reminder": "recuerda que hoy: {title} ({time}).",
+    "profile.assistant.grades": "hoy tienes {count} nota(s) registradas. Primera: {title}.",
+    "profile.assistant.nextClass":
+      "tu próxima clase es {subject} a las {time}. Te faltan {minutes} min.",
+    "profile.assistant.empty": "hoy no tienes recordatorios, notas ni clases pendientes.",
 
     // Settings sections
     "settings.title": "Preferencias",
@@ -438,6 +444,12 @@ export const TRANSLATIONS = {
     "profile.editProfile": "Edit profile",
     "profile.greeting": "Hi, {name}",
     "profile.greetingAnon": "Hi there!",
+    "profile.assistant.hello": "Hi!",
+    "profile.assistant.reminder": "remember today: {title} ({time}).",
+    "profile.assistant.grades": "today you have {count} grade item(s). First: {title}.",
+    "profile.assistant.nextClass":
+      "your next class is {subject} at {time}. Starts in {minutes} min.",
+    "profile.assistant.empty": "you have no reminders, grades, or upcoming classes today.",
 
     "settings.title": "Settings",
     "settings.appearance": "Appearance",
