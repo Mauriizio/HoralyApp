@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   CalendarDays,
   BookOpen,
@@ -13,6 +13,7 @@ import {
   Plus,
   Sparkles,
   GraduationCap,
+  Settings,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -78,6 +79,23 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
   const focusDay =
     todayKey === "sabado" && !data.settings.enableSaturday ? null : todayKey
   const showFocus = data.settings.focusMode && focusDay && focusDay !== "domingo"
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const requestedTab = params.get("tab")
+    const validTabs = new Set([
+      "horario",
+      "materias",
+      "estudio",
+      "recordatorios",
+      "notas",
+      "analitica",
+      "preferencias",
+    ])
+    if (requestedTab && validTabs.has(requestedTab)) {
+      setTab(requestedTab)
+    }
+  }, [])
 
   const handleQuickAction = (action: QuickAction) => {
     setQuickOpen(false)
@@ -203,6 +221,17 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0"
+              onClick={() => setTab("preferencias")}
+              aria-label={t("tabs.settings")}
+              title={t("tabs.settings")}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
 
             <ProfileButton store={store} />
           </div>

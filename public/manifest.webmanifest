@@ -9,6 +9,26 @@
   "background_color": "#ffffff",
   "theme_color": "#0aa3b7",
   "categories": ["productivity", "education"],
+  "shortcuts": [
+    {
+      "name": "Ir a Horario",
+      "short_name": "Horario",
+      "description": "Abrir la app en la vista de horario",
+      "url": "/?tab=horario"
+    },
+    {
+      "name": "Ir a Recordatorios",
+      "short_name": "Recordatorios",
+      "description": "Abrir la app en recordatorios",
+      "url": "/?tab=recordatorios"
+    },
+    {
+      "name": "Ir a Preferencias",
+      "short_name": "Preferencias",
+      "description": "Abrir la app en preferencias",
+      "url": "/?tab=preferencias"
+    }
+  ],
   "lang": "es-419",
   "dir": "ltr",
   "icons": [

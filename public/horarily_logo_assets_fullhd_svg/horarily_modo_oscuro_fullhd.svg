@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc">
+  <title id="title">Horarily modo oscuro</title>
+  <desc id="desc">Versión modo oscuro del icono de app Horarily.</desc>
+  <rect id="background" width="1920" height="1080" fill="#FFFFFF"/>
+
+  <text id="label" x="960" y="130" text-anchor="middle" font-family="Inter, Poppins, Arial, sans-serif" font-size="58" font-weight="700" letter-spacing="4" fill="#CBD5E1">MODO OSCURO</text>
+  <g id="app-icon-dark" transform="translate(510,210)">
+    <rect id="icon-background-dark" x="0" y="0" width="900" height="760" rx="120" fill="#0F172A" stroke="#1E293B" stroke-width="2"/>
+    <g id="editable-horarily-symbol" transform="translate(240,165) scale(1)">
+<g id="horarily-symbol" transform="translate(0,0)">
+  <rect id="top-left-block" x="48" y="40" width="82" height="82" rx="18" fill="#2563EB"/>
+  <rect id="top-center-focus-block" x="169" y="40" width="82" height="118" rx="20" fill="#14B8A6"/>
+  <rect id="top-right-block" x="290" y="40" width="82" height="82" rx="18" fill="#2563EB"/>
+  <rect id="left-main-column" x="48" y="158" width="122" height="142" rx="24" fill="#2563EB"/>
+  <rect id="right-main-column" x="250" y="158" width="122" height="142" rx="24" fill="#2563EB"/>
+  <rect id="h-crossbar" x="126" y="210" width="168" height="70" rx="24" fill="#2563EB"/>
+  <rect id="bottom-left-accent" x="48" y="340" width="82" height="82" rx="18" fill="#14B8A6"/>
+  <rect id="bottom-center-block" x="169" y="320" width="82" height="112" rx="20" fill="#2563EB"/>
+  <rect id="bottom-right-accent" x="290" y="340" width="82" height="82" rx="18" fill="#14B8A6"/>
+</g></g>
+  </g>
+</svg>

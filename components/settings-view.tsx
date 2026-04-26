@@ -312,6 +312,10 @@ export function SettingsView({ store }: { store: ScheduleStore }) {
             Para sonido y sincronización con Google Calendar, también se requiere OAuth de Google
             y crear eventos/recordatorios en su API.
           </p>
+          <p>
+            Esta app web no puede crear widgets nativos del sistema, pero al instalarla sí puede
+            ofrecer accesos rápidos desde el ícono (si tu teléfono los soporta).
+          </p>
         </CardContent>
       </Card>
 

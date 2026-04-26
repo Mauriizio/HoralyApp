@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc">
+  <title id="title">Horarily logo principal</title>
+  <desc id="desc">Logo horizontal principal de Horarily con símbolo modular en H.</desc>
+  <rect id="background" width="1920" height="1080" fill="#FFFFFF"/>
+
+  <g id="logo-lockup" transform="translate(235,260)">
+    <g id="editable-horarily-symbol" transform="scale(1.15)">
+<g id="horarily-symbol" transform="translate(0,0)">
+  <rect id="top-left-block" x="48" y="40" width="82" height="82" rx="18" fill="#2563EB"/>
+  <rect id="top-center-focus-block" x="169" y="40" width="82" height="118" rx="20" fill="#14B8A6"/>
+  <rect id="top-right-block" x="290" y="40" width="82" height="82" rx="18" fill="#2563EB"/>
+  <rect id="left-main-column" x="48" y="158" width="122" height="142" rx="24" fill="#2563EB"/>
+  <rect id="right-main-column" x="250" y="158" width="122" height="142" rx="24" fill="#2563EB"/>
+  <rect id="h-crossbar" x="126" y="210" width="168" height="70" rx="24" fill="#2563EB"/>
+  <rect id="bottom-left-accent" x="48" y="340" width="82" height="82" rx="18" fill="#14B8A6"/>
+  <rect id="bottom-center-block" x="169" y="320" width="82" height="112" rx="20" fill="#2563EB"/>
+  <rect id="bottom-right-accent" x="290" y="340" width="82" height="82" rx="18" fill="#14B8A6"/>
+</g></g>
+    <text id="wordmark" x="600" y="260" font-family="Inter, Poppins, Avenir Next, Montserrat, Arial, sans-serif" font-size="180" font-weight="800" letter-spacing="-7" fill="#0F172A">Horarily</text>
+    <text id="tagline" x="610" y="355" font-family="Inter, Poppins, Avenir Next, Montserrat, Arial, sans-serif" font-size="54" font-weight="500" letter-spacing="3" fill="#64748B">App de horario y estudio</text>
+  </g>
+  <g id="palette" transform="translate(360,900)">
+    <rect x="0" y="0" width="70" height="70" rx="16" fill="#2563EB"/><text x="95" y="47" font-family="Inter, Arial, sans-serif" font-size="30" fill="#64748B">#2563EB</text>
+    <rect x="380" y="0" width="70" height="70" rx="16" fill="#0F172A"/><text x="475" y="47" font-family="Inter, Arial, sans-serif" font-size="30" fill="#64748B">#0F172A</text>
+    <rect x="760" y="0" width="70" height="70" rx="16" fill="#14B8A6"/><text x="855" y="47" font-family="Inter, Arial, sans-serif" font-size="30" fill="#64748B">#14B8A6</text>
+    <rect x="1140" y="0" width="70" height="70" rx="16" fill="#F1F5F9"/><text x="1235" y="47" font-family="Inter, Arial, sans-serif" font-size="30" fill="#64748B">#F1F5F9</text>
+  </g>
+</svg>

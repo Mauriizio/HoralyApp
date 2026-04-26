@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img">
+  <g id="symbol-center" transform="translate(82,60) scale(2.05)">
+<g id="horarily-symbol" transform="translate(0,0)">
+  <rect id="top-left-block" x="48" y="40" width="82" height="82" rx="18" fill="#2563EB"/>
+  <rect id="top-center-focus-block" x="169" y="40" width="82" height="118" rx="20" fill="#14B8A6"/>
+  <rect id="top-right-block" x="290" y="40" width="82" height="82" rx="18" fill="#2563EB"/>
+  <rect id="left-main-column" x="48" y="158" width="122" height="142" rx="24" fill="#2563EB"/>
+  <rect id="right-main-column" x="250" y="158" width="122" height="142" rx="24" fill="#2563EB"/>
+  <rect id="h-crossbar" x="126" y="210" width="168" height="70" rx="24" fill="#2563EB"/>
+  <rect id="bottom-left-accent" x="48" y="340" width="82" height="82" rx="18" fill="#14B8A6"/>
+  <rect id="bottom-center-block" x="169" y="320" width="82" height="112" rx="20" fill="#2563EB"/>
+  <rect id="bottom-right-accent" x="290" y="340" width="82" height="82" rx="18" fill="#14B8A6"/>
+</g></g>
+</svg>
