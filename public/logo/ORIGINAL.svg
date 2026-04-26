@@ -1,0 +1,163 @@
+<svg width="680" height="725.02" viewBox="0 0 680 725.02" role="img" xmlns="http://www.w3.org/2000/svg">
+  <title>Horarily – mascota calendario para app de horarios universitarios</title>
+  <desc>Un calendario caricaturesco humanizado con ojos expresivos, manos y pies, llamativo y amigable, en tonos azul y naranja.</desc>
+
+  <defs>
+    <radialGradient id="eyeshine" cx="30%" cy="30%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#4A90E2"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+    <linearGradient id="headerGrad" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#FF7043"/>
+      <stop offset="100%" stop-color="#F4511E"/>
+    </linearGradient>
+    <linearGradient id="legGrad" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1a4ec8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- SOMBRA DEL SUELO -->
+  <ellipse cx="340" cy="652" rx="105" ry="14" fill="#1a3a6e" opacity="0.12"/>
+
+  <!-- PIERNAS -->
+  <rect x="282" y="530" width="36" height="80" rx="14" fill="#2563EB"/>
+  <rect x="362" y="530" width="36" height="80" rx="14" fill="#2563EB"/>
+
+  <!-- ZAPATOS -->
+  <ellipse cx="300" cy="618" rx="32" ry="16" fill="#1A237E"/>
+  <ellipse cx="288" cy="614" rx="14" ry="10" fill="#283593"/>
+  <ellipse cx="380" cy="618" rx="32" ry="16" fill="#1A237E"/>
+  <ellipse cx="392" cy="614" rx="14" ry="10" fill="#283593"/>
+
+  <!-- CUERPO PRINCIPAL (fill solido + gradiente encima) -->
+  <rect x="200" y="160" width="280" height="390" rx="28" fill="#2563EB"/>
+  <rect x="200" y="160" width="280" height="390" rx="28" fill="url(#bodyGrad)"/>
+  <rect x="200" y="160" width="280" height="390" rx="28" fill="none" stroke="#ffffff" stroke-width="3" stroke-opacity="0.25"/>
+
+  <!-- HEADER -->
+  <rect x="200" y="160" width="280" height="85" rx="28" fill="#FF7043"/>
+  <rect x="200" y="160" width="280" height="85" rx="28" fill="url(#headerGrad)"/>
+  <rect x="200" y="215" width="280" height="30" fill="#F4511E"/>
+
+  <!-- ARGOLLAS -->
+  <ellipse cx="258" cy="160" rx="13" ry="16" fill="#FFB300" stroke="#FF8F00" stroke-width="2.5"/>
+  <ellipse cx="258" cy="160" rx="7" ry="9" fill="#4A90E2"/>
+  <ellipse cx="305" cy="160" rx="13" ry="16" fill="#FFB300" stroke="#FF8F00" stroke-width="2.5"/>
+  <ellipse cx="305" cy="160" rx="7" ry="9" fill="#4A90E2"/>
+  <ellipse cx="375" cy="160" rx="13" ry="16" fill="#FFB300" stroke="#FF8F00" stroke-width="2.5"/>
+  <ellipse cx="375" cy="160" rx="7" ry="9" fill="#4A90E2"/>
+  <ellipse cx="422" cy="160" rx="13" ry="16" fill="#FFB300" stroke="#FF8F00" stroke-width="2.5"/>
+  <ellipse cx="422" cy="160" rx="7" ry="9" fill="#4A90E2"/>
+
+  <!-- MES -->
+  <text x="340" y="208" text-anchor="middle" font-family="Arial Rounded MT Bold, Arial, sans-serif" font-size="22" font-weight="900" fill="#ffffff" letter-spacing="3">MAYO</text>
+
+  <!-- DÍAS DE LA SEMANA -->
+  <text x="224" y="270" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#BBDEFB">L</text>
+  <text x="264" y="270" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#BBDEFB">M</text>
+  <text x="304" y="270" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#BBDEFB">X</text>
+  <text x="340" y="270" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#BBDEFB">J</text>
+  <text x="376" y="270" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#BBDEFB">V</text>
+  <text x="412" y="270" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#FF8A65">S</text>
+  <text x="452" y="270" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#FF8A65">D</text>
+
+  <!-- FILA 1 -->
+  <text x="224" y="296" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD">1</text>
+  <text x="264" y="296" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD">2</text>
+  <text x="304" y="296" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD">3</text>
+  <text x="340" y="296" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD">4</text>
+  <text x="376" y="296" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD">5</text>
+  <text x="412" y="296" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#FF8A65">6</text>
+  <text x="452" y="296" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#FF8A65">7</text>
+
+  <!-- FILA 2 -->
+  <text x="224" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD">8</text>
+  <text x="264" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD">9</text>
+  <text x="304" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD">10</text>
+  <circle cx="340" cy="315" r="13" fill="#FF7043"/>
+  <text x="340" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#ffffff">11</text>
+  <text x="376" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD">12</text>
+  <text x="412" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#FF8A65">13</text>
+  <text x="452" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#FF8A65">14</text>
+
+  <!-- FILA 3 -->
+  <text x="224" y="344" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD">15</text>
+  <text x="264" y="344" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD">16</text>
+  <text x="304" y="344" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD">17</text>
+  <text x="340" y="344" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD">18</text>
+  <text x="376" y="344" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD">19</text>
+  <text x="412" y="344" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#FF8A65">20</text>
+  <text x="452" y="344" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#FF8A65">21</text>
+
+  <!-- FILA 4 -->
+  <text x="224" y="368" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD">22</text>
+  <text x="264" y="368" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD">23</text>
+  <text x="304" y="368" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD">24</text>
+  <text x="340" y="368" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD">25</text>
+  <text x="376" y="368" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD">26</text>
+  <text x="412" y="368" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#FF8A65">27</text>
+  <text x="452" y="368" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#FF8A65">28</text>
+
+  <!-- LÍNEA SEPARADORA -->
+  <line x1="218" y1="280" x2="462" y2="280" stroke="#ffffff" stroke-width="1" stroke-opacity="0.2"/>
+
+  <!-- MEJILLAS -->
+  <ellipse cx="267" cy="440" rx="22" ry="14" fill="#FF8A65" opacity="0.55"/>
+  <ellipse cx="413" cy="440" rx="22" ry="14" fill="#FF8A65" opacity="0.55"/>
+
+  <!-- OJO IZQUIERDO -->
+  <ellipse cx="292" cy="418" rx="28" ry="30" fill="#ffffff"/>
+  <ellipse cx="296" cy="422" rx="18" ry="20" fill="#1A237E"/>
+  <ellipse cx="298" cy="424" rx="10" ry="12" fill="#0D0D0D"/>
+  <ellipse cx="292" cy="416" rx="5" ry="6" fill="url(#eyeshine)" opacity="0.9"/>
+
+  <!-- OJO DERECHO -->
+  <ellipse cx="388" cy="418" rx="28" ry="30" fill="#ffffff"/>
+  <ellipse cx="384" cy="422" rx="18" ry="20" fill="#1A237E"/>
+  <ellipse cx="382" cy="424" rx="10" ry="12" fill="#0D0D0D"/>
+  <ellipse cx="388" cy="416" rx="5" ry="6" fill="url(#eyeshine)" opacity="0.9"/>
+
+  <!-- CEJAS -->
+  <path d="M268 392 Q293 380 318 392" stroke="#1A237E" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+  <path d="M362 392 Q387 380 412 392" stroke="#1A237E" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+
+  <!-- BOCA -->
+  <path d="M295 472 Q340 510 385 472" stroke="#1A237E" stroke-width="5" stroke-linecap="round" fill="none"/>
+  <path d="M295 472 Q340 510 385 472 Q340 498 295 472Z" fill="#ffffff" opacity="0.3"/>
+
+  <!-- BRAZO IZQUIERDO -->
+  <rect x="148" y="280" width="60" height="34" rx="17" fill="#2563EB"/>
+  <circle cx="136" cy="297" r="26" fill="#FF7043"/>
+  <ellipse cx="116" cy="278" rx="9" ry="13" fill="#FF7043"/>
+  <ellipse cx="130" cy="270" rx="9" ry="14" fill="#FF7043"/>
+  <ellipse cx="146" cy="268" rx="9" ry="14" fill="#FF7043"/>
+  <ellipse cx="161" cy="272" rx="8" ry="13" fill="#FF7043"/>
+  <circle cx="136" cy="292" r="22" fill="#FF7043"/>
+  <ellipse cx="116" cy="274" rx="6" ry="4" fill="#FF8A65" opacity="0.6"/>
+  <ellipse cx="130" cy="266" rx="6" ry="4" fill="#FF8A65" opacity="0.6"/>
+  <ellipse cx="146" cy="264" rx="6" ry="4" fill="#FF8A65" opacity="0.6"/>
+  <ellipse cx="161" cy="268" rx="5" ry="4" fill="#FF8A65" opacity="0.6"/>
+  <text x="136" y="300" text-anchor="middle" font-size="18" fill="#FFD740">★</text>
+
+  <!-- BRAZO DERECHO -->
+  <rect x="472" y="280" width="60" height="34" rx="17" fill="#2563EB"/>
+  <circle cx="544" cy="297" r="26" fill="#FF7043"/>
+  <ellipse cx="524" cy="278" rx="9" ry="13" fill="#FF7043"/>
+  <ellipse cx="538" cy="270" rx="9" ry="14" fill="#FF7043"/>
+  <ellipse cx="554" cy="268" rx="9" ry="14" fill="#FF7043"/>
+  <ellipse cx="564" cy="274" rx="8" ry="13" fill="#FF7043"/>
+  <circle cx="544" cy="292" r="22" fill="#FF7043"/>
+  <ellipse cx="522" cy="267" rx="8" ry="12" fill="#FF7043"/>
+  <ellipse cx="522" cy="258" rx="7" ry="10" fill="#FF8A65"/>
+  <path d="M533 297 L540 305 L558 285" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- NOMBRE -->
+  <text x="342" y="692" text-anchor="middle" font-family="Arial Rounded MT Bold, Arial Black, Arial, sans-serif" font-size="46" font-weight="900" fill="#FF7043" letter-spacing="2" opacity="0.25">Horarily</text>
+  <text x="340" y="690" text-anchor="middle" font-family="Arial Rounded MT Bold, Arial Black, Arial, sans-serif" font-size="46" font-weight="900" fill="#2563EB" letter-spacing="2">Horarily</text>
+  <text x="340" y="712" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#FF7043" font-weight="700" letter-spacing="4">YOUR SCHEDULE BUDDY</text>
+</svg>

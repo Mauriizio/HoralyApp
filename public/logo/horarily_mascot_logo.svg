@@ -1,0 +1,225 @@
+<svg width="100%" viewBox="0 0 680 725.02" role="img" xmlns="http://www.w3.org/2000/svg" style="">
+  <title style="fill:rgb(0, 0, 0);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">Horarily – mascota calendario para app de horarios universitarios</title>
+  <desc style="fill:rgb(0, 0, 0);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">Un calendario caricaturesco humanizado con ojos expresivos, manos y pies, llamativo y amigable, en tonos azul y naranja.</desc>
+
+  <defs>
+    <!-- Sombra suave para el cuerpo -->
+    <filter id="shadow" x="-10%" y="-5%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#1a3a6e" flood-opacity="0.18"/>
+    </filter>
+    <!-- Brillo en ojos -->
+    <radialGradient id="eyeshine" cx="30%" cy="30%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Gradiente cuerpo principal -->
+    <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4A90E2"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+    <!-- Gradiente header calendario -->
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FF7043"/>
+      <stop offset="100%" stop-color="#F4511E"/>
+    </linearGradient>
+    <!-- Gradiente piernas -->
+    <linearGradient id="legGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1a4ec8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- ============================================================ -->
+  <!--  SOMBRA DEL SUELO -->
+  <!-- ============================================================ -->
+  <ellipse cx="340" cy="652" rx="105" ry="14" fill="#1a3a6e" opacity="0.12" style="fill:rgb(26, 58, 110);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.12;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- ============================================================ -->
+  <!--  PIERNAS -->
+  <!-- ============================================================ -->
+  <!-- Pierna izquierda -->
+  <rect x="282" y="530" width="36" height="80" rx="14" fill="url(#legGrad)" style="stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Pierna derecha -->
+  <rect x="362" y="530" width="36" height="80" rx="14" fill="url(#legGrad)" style="stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Zapato izquierdo -->
+  <ellipse cx="300" cy="618" rx="32" ry="16" fill="#1A237E" style="fill:rgb(26, 35, 126);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <ellipse cx="288" cy="614" rx="14" ry="10" fill="#283593" style="fill:rgb(40, 53, 147);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Zapato derecho -->
+  <ellipse cx="380" cy="618" rx="32" ry="16" fill="#1A237E" style="fill:rgb(26, 35, 126);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <ellipse cx="392" cy="614" rx="14" ry="10" fill="#283593" style="fill:rgb(40, 53, 147);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- ============================================================ -->
+  <!--  CUERPO PRINCIPAL DEL CALENDARIO -->
+  <!-- ============================================================ -->
+  <rect x="200" y="160" width="280" height="390" rx="28" fill="url(#bodyGrad)" filter="url(#shadow)" style="stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Borde blanco sutil -->
+  <rect x="200" y="160" width="280" height="390" rx="28" fill="none" stroke="#ffffff" stroke-width="3" stroke-opacity="0.25" style="fill:none;stroke:rgb(255, 255, 255);color:rgb(255, 255, 255);stroke-width:3px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- ============================================================ -->
+  <!--  HEADER DEL CALENDARIO (franja roja/naranja arriba) -->
+  <!-- ============================================================ -->
+  <rect x="200" y="160" width="280" height="85" rx="28" fill="url(#headerGrad)" style="stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Rectángulo para cuadrar la esquina inferior del header -->
+  <rect x="200" y="215" width="280" height="30" fill="#F4511E" style="fill:rgb(244, 81, 30);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Espirales / argollas del calendario -->
+  <!-- Argolla izquierda -->
+  <ellipse cx="258" cy="160" rx="13" ry="16" fill="#FFB300" stroke="#FF8F00" stroke-width="2.5" style="fill:rgb(255, 179, 0);stroke:rgb(255, 143, 0);color:rgb(255, 255, 255);stroke-width:2.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <ellipse cx="258" cy="160" rx="7" ry="9" fill="#4A90E2" style="fill:rgb(74, 144, 226);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Argolla centro-izq -->
+  <ellipse cx="305" cy="160" rx="13" ry="16" fill="#FFB300" stroke="#FF8F00" stroke-width="2.5" style="fill:rgb(255, 179, 0);stroke:rgb(255, 143, 0);color:rgb(255, 255, 255);stroke-width:2.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <ellipse cx="305" cy="160" rx="7" ry="9" fill="#4A90E2" style="fill:rgb(74, 144, 226);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Argolla centro-der -->
+  <ellipse cx="375" cy="160" rx="13" ry="16" fill="#FFB300" stroke="#FF8F00" stroke-width="2.5" style="fill:rgb(255, 179, 0);stroke:rgb(255, 143, 0);color:rgb(255, 255, 255);stroke-width:2.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <ellipse cx="375" cy="160" rx="7" ry="9" fill="#4A90E2" style="fill:rgb(74, 144, 226);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Argolla derecha -->
+  <ellipse cx="422" cy="160" rx="13" ry="16" fill="#FFB300" stroke="#FF8F00" stroke-width="2.5" style="fill:rgb(255, 179, 0);stroke:rgb(255, 143, 0);color:rgb(255, 255, 255);stroke-width:2.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <ellipse cx="422" cy="160" rx="7" ry="9" fill="#4A90E2" style="fill:rgb(74, 144, 226);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Texto del mes en el header -->
+  <text x="340" y="208" text-anchor="middle" font-family="Arial Rounded MT Bold, Arial, sans-serif" font-size="22" font-weight="900" fill="#ffffff" letter-spacing="3" style="fill:rgb(255, 255, 255);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Arial Rounded MT Bold&quot;, Arial, sans-serif;font-size:22px;font-weight:900;text-anchor:middle;dominant-baseline:auto">MAYO</text>
+
+  <!-- ============================================================ -->
+  <!--  CUADRÍCULA DEL CALENDARIO (decorativa) -->
+  <!-- ============================================================ -->
+  <!-- Días de la semana -->
+  <text x="224" y="270" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#BBDEFB" opacity="0.9" style="fill:rgb(187, 222, 251);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.9;font-family:Arial, sans-serif;font-size:11px;font-weight:700;text-anchor:middle;dominant-baseline:auto">L</text>
+  <text x="264" y="270" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#BBDEFB" opacity="0.9" style="fill:rgb(187, 222, 251);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.9;font-family:Arial, sans-serif;font-size:11px;font-weight:700;text-anchor:middle;dominant-baseline:auto">M</text>
+  <text x="304" y="270" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#BBDEFB" opacity="0.9" style="fill:rgb(187, 222, 251);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.9;font-family:Arial, sans-serif;font-size:11px;font-weight:700;text-anchor:middle;dominant-baseline:auto">X</text>
+  <text x="340" y="270" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#BBDEFB" opacity="0.9" style="fill:rgb(187, 222, 251);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.9;font-family:Arial, sans-serif;font-size:11px;font-weight:700;text-anchor:middle;dominant-baseline:auto">J</text>
+  <text x="376" y="270" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#BBDEFB" opacity="0.9" style="fill:rgb(187, 222, 251);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.9;font-family:Arial, sans-serif;font-size:11px;font-weight:700;text-anchor:middle;dominant-baseline:auto">V</text>
+  <text x="412" y="270" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#FF8A65" opacity="1" style="fill:rgb(255, 138, 101);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:11px;font-weight:700;text-anchor:middle;dominant-baseline:auto">S</text>
+  <text x="452" y="270" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#FF8A65" opacity="1" style="fill:rgb(255, 138, 101);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:11px;font-weight:700;text-anchor:middle;dominant-baseline:auto">D</text>
+
+  <!-- Números de la cuadrícula - fila 1 -->
+  <text x="224" y="296" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD" style="fill:rgb(227, 242, 253);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">1</text>
+  <text x="264" y="296" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD" style="fill:rgb(227, 242, 253);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">2</text>
+  <text x="304" y="296" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD" style="fill:rgb(227, 242, 253);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">3</text>
+  <text x="340" y="296" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD" style="fill:rgb(227, 242, 253);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">4</text>
+  <text x="376" y="296" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD" style="fill:rgb(227, 242, 253);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">5</text>
+  <text x="412" y="296" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#FF8A65" style="fill:rgb(255, 138, 101);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">6</text>
+  <text x="452" y="296" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#FF8A65" style="fill:rgb(255, 138, 101);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">7</text>
+
+  <!-- Fila 2 -->
+  <text x="224" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD" style="fill:rgb(227, 242, 253);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">8</text>
+  <text x="264" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD" style="fill:rgb(227, 242, 253);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">9</text>
+  <text x="304" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD" style="fill:rgb(227, 242, 253);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">10</text>
+  <!-- Día marcado con círculo especial -->
+  <circle cx="340" cy="315" r="13" fill="#FF7043" style="fill:rgb(255, 112, 67);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="340" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#ffffff" style="fill:rgb(255, 255, 255);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:700;text-anchor:middle;dominant-baseline:auto">11</text>
+  <text x="376" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD" style="fill:rgb(227, 242, 253);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">12</text>
+  <text x="412" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#FF8A65" style="fill:rgb(255, 138, 101);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">13</text>
+  <text x="452" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#FF8A65" style="fill:rgb(255, 138, 101);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">14</text>
+
+  <!-- Fila 3 -->
+  <text x="224" y="344" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD" style="fill:rgb(227, 242, 253);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">15</text>
+  <text x="264" y="344" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD" style="fill:rgb(227, 242, 253);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">16</text>
+  <text x="304" y="344" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD" style="fill:rgb(227, 242, 253);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">17</text>
+  <text x="340" y="344" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD" style="fill:rgb(227, 242, 253);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">18</text>
+  <text x="376" y="344" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD" style="fill:rgb(227, 242, 253);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">19</text>
+  <text x="412" y="344" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#FF8A65" style="fill:rgb(255, 138, 101);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">20</text>
+  <text x="452" y="344" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#FF8A65" style="fill:rgb(255, 138, 101);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">21</text>
+
+  <!-- Fila 4 -->
+  <text x="224" y="368" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD" style="fill:rgb(227, 242, 253);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">22</text>
+  <text x="264" y="368" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD" style="fill:rgb(227, 242, 253);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">23</text>
+  <text x="304" y="368" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD" style="fill:rgb(227, 242, 253);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">24</text>
+  <text x="340" y="368" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD" style="fill:rgb(227, 242, 253);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">25</text>
+  <text x="376" y="368" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#E3F2FD" style="fill:rgb(227, 242, 253);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">26</text>
+  <text x="412" y="368" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#FF8A65" style="fill:rgb(255, 138, 101);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">27</text>
+  <text x="452" y="368" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#FF8A65" style="fill:rgb(255, 138, 101);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">28</text>
+
+  <!-- ============================================================ -->
+  <!--  CARA - BASE (zona de la cara sobre el calendario) -->
+  <!-- ============================================================ -->
+  <!-- Mejillas rojizas -->
+  <ellipse cx="267" cy="440" rx="22" ry="14" fill="#FF8A65" opacity="0.55" style="fill:rgb(255, 138, 101);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.55;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <ellipse cx="413" cy="440" rx="22" ry="14" fill="#FF8A65" opacity="0.55" style="fill:rgb(255, 138, 101);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.55;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- ============================================================ -->
+  <!--  OJOS -->
+  <!-- ============================================================ -->
+  <!-- Ojo izquierdo - esclerótica -->
+  <ellipse cx="292" cy="418" rx="28" ry="30" fill="#ffffff" style="fill:rgb(255, 255, 255);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Iris izquierdo -->
+  <ellipse cx="296" cy="422" rx="18" ry="20" fill="#1A237E" style="fill:rgb(26, 35, 126);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Pupila izquierda -->
+  <ellipse cx="298" cy="424" rx="10" ry="12" fill="#0D0D0D" style="fill:rgb(13, 13, 13);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Brillo izq -->
+  <ellipse cx="292" cy="416" rx="5" ry="6" fill="url(#eyeshine)" opacity="0.9" style="stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.9;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Ojo derecho - esclerótica -->
+  <ellipse cx="388" cy="418" rx="28" ry="30" fill="#ffffff" style="fill:rgb(255, 255, 255);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Iris derecho -->
+  <ellipse cx="384" cy="422" rx="18" ry="20" fill="#1A237E" style="fill:rgb(26, 35, 126);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Pupila derecha -->
+  <ellipse cx="382" cy="424" rx="10" ry="12" fill="#0D0D0D" style="fill:rgb(13, 13, 13);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Brillo der -->
+  <ellipse cx="388" cy="416" rx="5" ry="6" fill="url(#eyeshine)" opacity="0.9" style="stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.9;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Párpados / cejas (expresión alegre) -->
+  <!-- Ceja izquierda -->
+  <path d="M268 392 Q293 380 318 392" stroke="#1A237E" stroke-width="4.5" stroke-linecap="round" fill="none" style="fill:none;stroke:rgb(26, 35, 126);color:rgb(255, 255, 255);stroke-width:4.5px;stroke-linecap:round;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Ceja derecha -->
+  <path d="M362 392 Q387 380 412 392" stroke="#1A237E" stroke-width="4.5" stroke-linecap="round" fill="none" style="fill:none;stroke:rgb(26, 35, 126);color:rgb(255, 255, 255);stroke-width:4.5px;stroke-linecap:round;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- ============================================================ -->
+  <!--  BOCA - SONRISA GRANDE Y ALEGRE -->
+  <!-- ============================================================ -->
+  <!-- Sonrisa -->
+  <path d="M295 472 Q340 510 385 472" stroke="#1A237E" stroke-width="5" stroke-linecap="round" fill="none" style="fill:none;stroke:rgb(26, 35, 126);color:rgb(255, 255, 255);stroke-width:5px;stroke-linecap:round;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Dientes / interior boca -->
+  <path d="M295 472 Q340 510 385 472 Q340 498 295 472Z" fill="#ffffff" opacity="0.3" style="fill:rgb(255, 255, 255);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.3;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- ============================================================ -->
+  <!--  BRAZOS Y MANOS -->
+  <!-- ============================================================ -->
+  <!-- Brazo izquierdo -->
+  <rect x="148" y="280" width="60" height="34" rx="17" fill="#2563EB" style="fill:rgb(37, 99, 235);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Mano izquierda (saludando con estrella) -->
+  <circle cx="136" cy="297" r="26" fill="#FF7043" style="fill:rgb(255, 112, 67);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Dedos mano izquierda -->
+  <ellipse cx="116" cy="278" rx="9" ry="13" fill="#FF7043" style="fill:rgb(255, 112, 67);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <ellipse cx="130" cy="270" rx="9" ry="14" fill="#FF7043" style="fill:rgb(255, 112, 67);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <ellipse cx="146" cy="268" rx="9" ry="14" fill="#FF7043" style="fill:rgb(255, 112, 67);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <ellipse cx="161" cy="272" rx="8" ry="13" fill="#FF7043" style="fill:rgb(255, 112, 67);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Palma sobre dedos -->
+  <circle cx="136" cy="292" r="22" fill="#FF7043" style="fill:rgb(255, 112, 67);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Uñitas decorativas -->
+  <ellipse cx="116" cy="274" rx="6" ry="4" fill="#FF8A65" opacity="0.6" style="fill:rgb(255, 138, 101);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.6;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <ellipse cx="130" cy="266" rx="6" ry="4" fill="#FF8A65" opacity="0.6" style="fill:rgb(255, 138, 101);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.6;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <ellipse cx="146" cy="264" rx="6" ry="4" fill="#FF8A65" opacity="0.6" style="fill:rgb(255, 138, 101);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.6;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <ellipse cx="161" cy="268" rx="5" ry="4" fill="#FF8A65" opacity="0.6" style="fill:rgb(255, 138, 101);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.6;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Estrellita en la mano izquierda -->
+  <text x="136" y="300" text-anchor="middle" font-size="18" fill="#FFD740" style="fill:rgb(255, 215, 64);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:18px;font-weight:400;text-anchor:middle;dominant-baseline:auto">★</text>
+
+  <!-- Brazo derecho -->
+  <rect x="472" y="280" width="60" height="34" rx="17" fill="#2563EB" style="fill:rgb(37, 99, 235);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Mano derecha (pulgar arriba) -->
+  <circle cx="544" cy="297" r="26" fill="#FF7043" style="fill:rgb(255, 112, 67);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Dedos mano derecha (puño cerrado arriba) -->
+  <ellipse cx="524" cy="278" rx="9" ry="13" fill="#FF7043" style="fill:rgb(255, 112, 67);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <ellipse cx="538" cy="270" rx="9" ry="14" fill="#FF7043" style="fill:rgb(255, 112, 67);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <ellipse cx="554" cy="268" rx="9" ry="14" fill="#FF7043" style="fill:rgb(255, 112, 67);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <ellipse cx="564" cy="274" rx="8" ry="13" fill="#FF7043" style="fill:rgb(255, 112, 67);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <circle cx="544" cy="292" r="22" fill="#FF7043" style="fill:rgb(255, 112, 67);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Dedo pulgar arriba -->
+  <ellipse cx="522" cy="267" rx="8" ry="12" fill="#FF7043" style="fill:rgb(255, 112, 67);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <ellipse cx="522" cy="258" rx="7" ry="10" fill="#FF8A65" style="fill:rgb(255, 138, 101);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Simbolo check en mano derecha -->
+  <path d="M533 297 L540 305 L558 285" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none" style="fill:none;stroke:rgb(255, 255, 255);color:rgb(255, 255, 255);stroke-width:4px;stroke-linecap:round;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- ============================================================ -->
+  <!--  NOMBRE "Horarily" DEBAJO -->
+  <!-- ============================================================ -->
+  <text x="340" y="690" text-anchor="middle" font-family="Arial Rounded MT Bold, Arial Black, Arial, sans-serif" font-size="46" font-weight="900" fill="#2563EB" letter-spacing="2" style="fill:rgb(37, 99, 235);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Arial Rounded MT Bold&quot;, &quot;Arial Black&quot;, Arial, sans-serif;font-size:46px;font-weight:900;text-anchor:middle;dominant-baseline:auto">Horarily</text>
+  <!-- Sombra del texto -->
+  <text x="342" y="692" text-anchor="middle" font-family="Arial Rounded MT Bold, Arial Black, Arial, sans-serif" font-size="46" font-weight="900" fill="#FF7043" letter-spacing="2" opacity="0.25" style="fill:rgb(255, 112, 67);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.25;font-family:&quot;Arial Rounded MT Bold&quot;, &quot;Arial Black&quot;, Arial, sans-serif;font-size:46px;font-weight:900;text-anchor:middle;dominant-baseline:auto">Horarily</text>
+  <text x="340" y="690" text-anchor="middle" font-family="Arial Rounded MT Bold, Arial Black, Arial, sans-serif" font-size="46" font-weight="900" fill="#2563EB" letter-spacing="2" style="fill:rgb(37, 99, 235);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Arial Rounded MT Bold&quot;, &quot;Arial Black&quot;, Arial, sans-serif;font-size:46px;font-weight:900;text-anchor:middle;dominant-baseline:auto">Horarily</text>
+
+  <!-- Tagline -->
+  <text x="340" y="712" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#FF7043" font-weight="700" letter-spacing="4" style="fill:rgb(255, 112, 67);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:13px;font-weight:700;text-anchor:middle;dominant-baseline:auto">YOUR SCHEDULE BUDDY</text>
+
+</svg>

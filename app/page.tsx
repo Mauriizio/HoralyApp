@@ -15,6 +15,7 @@ import {
   GraduationCap,
   Settings,
 } from "lucide-react"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
@@ -314,9 +315,16 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
           {data.profile.displayName && (
             <div className="mb-4 rounded-lg border border-border bg-card p-3 sm:p-4">
               <div className="flex items-start gap-3">
-                <div className="h-16 w-16 shrink-0 rounded-lg border border-dashed border-primary/50 bg-primary/10 flex items-center justify-center text-primary">
-                  <CalendarDays className="h-8 w-8" />
-                </div>
+                <div className="h-24 w-24 shrink-0 flex items-center justify-center bg-transparent border-none shadow-none">
+  <Image
+    src="/logo/ORIGINAL.svg"
+    alt="Logo de Horarily"
+    width={100}
+    height={100}
+    className="h-28 w-28 object-contain"
+    priority
+  />
+</div>
                 <div className="min-w-0">
                   <div className="text-base font-semibold leading-tight">
                     {t("profile.assistant.hello")}
