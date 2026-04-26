@@ -134,14 +134,6 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
     setSubjectOpen(true)
   }
 
-  if (!store.hydrated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
-        {t("app.loading")}
-      </div>
-    )
-  }
-
   const subjectCount = data.subjects.length
   const blockCount = data.blocks.length
   const reminderCount = data.reminders.length
@@ -220,6 +212,14 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
 
     return t("profile.assistant.empty")
   }, [data, t, todayKey])
+
+  if (!store.hydrated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
+        {t("app.loading")}
+      </div>
+    )
+  }
 
   return (
     <>
