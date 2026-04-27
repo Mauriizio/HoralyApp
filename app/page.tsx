@@ -15,7 +15,6 @@ import {
   GraduationCap,
   Settings,
 } from "lucide-react"
-import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
@@ -42,6 +41,7 @@ import { GradeForm } from "@/components/grade-form"
 import { QuickAdd, type QuickAction } from "@/components/quick-add"
 import { ProfileButton } from "@/components/profile-button"
 import { InstallAppButton } from "@/components/install-app-button"
+import { HorarilySpeakingCard } from "@/components/HorarilySpeakingCard"
 import { usePwaInstall } from "@/hooks/use-pwa-install"
 import { I18nProvider, useI18n } from "@/components/i18n-provider"
 import type { DayKey, Subject } from "@/lib/types"
@@ -313,28 +313,20 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         <main className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 py-4 sm:py-6">
           {/* Greeting */}
           {data.profile.displayName && (
-            <div className="mb-4 rounded-lg border border-border bg-card p-3 sm:p-4">
-              <div className="flex items-start gap-3">
-                <div className="h-24 w-24 shrink-0 flex items-center justify-center bg-transparent border-none shadow-none">
-  <Image
-    src="/logo/ORIGINAL.svg"
-    alt="Logo de Horarily"
-    width={100}
-    height={100}
-    className="h-28 w-28 object-contain"
-    priority
-  />
-</div>
-                <div className="min-w-0">
-                  <div className="text-base font-semibold leading-tight">
-                    {t("profile.assistant.hello")}
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground text-pretty">
-                    <span className="font-medium text-foreground">{data.profile.displayName}</span>{" "}
-                    {assistantMessage}
-                  </p>
-                </div>
-              </div>
+            <div className="mb-4">
+              <HorarilySpeakingCard
+                userName={data.profile.displayName}
+                message={`${t("profile.assistant.hello")} ${assistantMessage}`}
+                grade={data.grades.length > 0 ? data.grades[data.grades.length - 1]?.score : undefined}
+                isTyping={subjectOpen || reminderOpen || studyOpen || gradeOpen}
+                isUrgent={data.reminders.some((r) => {
+                  const target = new Date(r.targetDateTime)
+                  if (Number.isNaN(target.getTime())) return false
+                  const diff = target.getTime() - Date.now()
+                  return diff >= 0 && diff <= 24 * 60 * 60 * 1000
+                })}
+                isLoading={!store.hydrated}
+              />
             </div>
           )}
 
