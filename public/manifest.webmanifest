@@ -1,57 +1,50 @@
 {
-  "name": "Horario Escolar — Organiza tu semana",
-  "short_name": "Horario",
-  "description": "Planifica tu horario de clases, bloques de estudio y recordatorios.",
+  "name": "Horarily ",
+  "short_name": "Compañero de Clases",
+  "description": "Assets generados con IconFull",
   "start_url": "/",
-  "scope": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
-  "background_color": "#ffffff",
-  "theme_color": "#0aa3b7",
-  "categories": ["productivity", "education"],
-  "shortcuts": [
-    {
-      "name": "Ir a Horario",
-      "short_name": "Horario",
-      "description": "Abrir la app en la vista de horario",
-      "url": "/?tab=horario"
-    },
-    {
-      "name": "Ir a Recordatorios",
-      "short_name": "Recordatorios",
-      "description": "Abrir la app en recordatorios",
-      "url": "/?tab=recordatorios"
-    },
-    {
-      "name": "Ir a Preferencias",
-      "short_name": "Preferencias",
-      "description": "Abrir la app en preferencias",
-      "url": "/?tab=preferencias"
-    }
-  ],
-  "lang": "es-419",
-  "dir": "ltr",
+  "background_color": "#bedafe",
+  "theme_color": "#323443",
   "icons": [
     {
-      "src": "/icon-512.jpg",
-      "sizes": "192x192",
-      "type": "image/jpeg",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-512.jpg",
+      "src": "./icon-512-maskable.png",
       "sizes": "512x512",
-      "type": "image/jpeg",
-      "purpose": "any"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "maskable"
+      "src": "./android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
     },
     {
-      "src": "/apple-icon.png",
+      "src": "./android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "./icon-384.png",
+      "sizes": "384x384",
+      "type": "image/png"
+    },
+    {
+      "src": "./icon-256.png",
+      "sizes": "256x256",
+      "type": "image/png"
+    },
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./apple-touch-icon.png",
       "sizes": "180x180",
       "type": "image/png"
     }
