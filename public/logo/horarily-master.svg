@@ -29,13 +29,13 @@
      inkscape:deskcolor="#d1d1d1"
      inkscape:zoom="1.0716945"
      inkscape:cx="297.1929"
-     inkscape:cy="240.2737"
+     inkscape:cy="314.92184"
      inkscape:window-width="1920"
      inkscape:window-height="991"
      inkscape:window-x="-9"
      inkscape:window-y="-9"
      inkscape:window-maximized="1"
-     inkscape:current-layer="cejas-riendo"
+     inkscape:current-layer="cuerpo"
      showguides="true">
     <sodipodi:guide
        position="609.65754,269.75626"
@@ -438,8 +438,8 @@
        fill="url(#headerGrad)"
        id="rect16" />
     <rect
-       x="200"
-       y="215"
+       x="200.93311"
+       y="219.66551"
        width="280"
        height="30"
        fill="#f4511e"
@@ -519,13 +519,13 @@
        letter-spacing="3"
        id="text24"
        style="font-size:37.3333px;white-space:pre;inline-size:123.835;display:inline"
-       transform="matrix(1.4874432,0,0,0.99999996,-148.6445,12.196634)"
+       transform="matrix(0.900706,0,0,0.800772,40.895252,46.194063)"
        xml:space="preserve"><tspan
          x="340"
          y="208"
-         id="tspan4"><tspan
+         id="tspan2"><tspan
            style="font-weight:normal;font-size:29.3333px;font-family:'Tw Cen MT Condensed';-inkscape-font-specification:'Tw Cen MT Condensed, ';text-anchor:start"
-           id="tspan3">HORARILY</tspan></tspan></text>
+           id="tspan1">HORARILY</tspan></tspan></text>
     <text
        x="224"
        y="270"
