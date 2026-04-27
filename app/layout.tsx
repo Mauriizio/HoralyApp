@@ -20,6 +20,20 @@ export const metadata: Metadata = {
   applicationName: "Horario Escolar",
   generator: "v0.app",
   manifest: "/manifest.webmanifest",
+  openGraph: {
+    title: "Horario Escolar — Organiza tu semana",
+    description:
+      "Planifica tu horario de clases, bloques de estudio y recordatorios con una interfaz moderna y personalizable.",
+    images: ["/og-1200x630.png"],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Horario Escolar — Organiza tu semana",
+    description:
+      "Planifica tu horario de clases, bloques de estudio y recordatorios con una interfaz moderna y personalizable.",
+    images: ["/og-1200x630.png"],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -27,10 +41,14 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/icon.svg", type: "image/svg+xml" },
-      { url: "/icon-512.jpg", type: "image/jpeg", sizes: "512x512" },
+      { url: "/favicon.ico" },
+      { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
+      { url: "/favicon-16x16.png", type: "image/png", sizes: "16x16" },
+      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
+      { url: "/icon-512.png", type: "image/png", sizes: "512x512" },
     ],
-    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+    shortcut: [{ url: "/favicon.ico" }],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
   formatDetection: {
     telephone: false,
@@ -42,10 +60,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#101418" },
-  ],
+  themeColor: "#000000",
 }
 
 export default function RootLayout({

@@ -4,6 +4,23 @@ import { useEffect, useRef, useState } from "react"
 import { useHorarlyState } from "@/hooks/useHorarily"
 import "@/styles/horarily-animations.css"
 
+const REQUIRED_MASTER_IDS = [
+  "cuerpo",
+  "pies",
+  "brazo-izq",
+  "brazo-der",
+  "ojos",
+  "ojos-cerrados",
+  "ojos-triste",
+  "cejas",
+  "cejas-riendo",
+  "cejas-triste",
+  "boca",
+  "boca-riendo",
+  "boca-triste",
+  "lapiz",
+] as const
+
 interface HorarilySpeakingCardProps {
   message: string
   userName: string
@@ -43,6 +60,14 @@ export function HorarilySpeakingCard({
         const sourceSvg = doc.querySelector("svg")
         if (!sourceSvg) return
 
+        const hasAllRequiredIds = REQUIRED_MASTER_IDS.every((id) => sourceSvg.querySelector(`#${id}`))
+        if (!hasAllRequiredIds) {
+          console.warn(
+            "[Horarily] horarily-master.svg no tiene todos los IDs requeridos. Se mantiene el placeholder animado.",
+          )
+          return
+        }
+
         svgRef.current.innerHTML = sourceSvg.innerHTML
         const viewBox = sourceSvg.getAttribute("viewBox")
         if (viewBox) svgRef.current.setAttribute("viewBox", viewBox)
@@ -68,7 +93,7 @@ export function HorarilySpeakingCard({
       lastNoteGrade: grade,
       isSpeaking: false,
     })
-  }, [isTyping, isLoading, isUrgent, grade, setContext])
+  }, [isTyping, isLoading, isUrgent, grade, setContext, usingMasterSvg])
 
   useEffect(() => {
     if (autoSpeak && message) {

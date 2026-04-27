@@ -159,6 +159,21 @@ export function useHorarlyState(svgRef: RefObject<SVGSVGElement | null>) {
     charDelay: 38,
   })
 
+  useEffect(() => {
+    if (state !== "IDLE" || isSpeaking) return
+
+    const intervalId = setInterval(() => {
+      if (Math.random() < 0.3) {
+        setState("FELIZ")
+        setTimeout(() => {
+          setState((prev) => (prev === "FELIZ" ? "IDLE" : prev))
+        }, 1800)
+      }
+    }, 22000)
+
+    return () => clearInterval(intervalId)
+  }, [state, isSpeaking])
+
   const speak = useCallback((msg: string, returnToState: HorarlyAnimationState = "IDLE") => {
     setState("HABLANDO")
     setMessageInternal(msg)
