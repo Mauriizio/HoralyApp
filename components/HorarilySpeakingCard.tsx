@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type FormEvent } from "react"
 import { useHorarlyState } from "@/hooks/useHorarily"
 import "@/styles/horarily-animations.css"
 
@@ -30,6 +30,11 @@ interface HorarilySpeakingCardProps {
   isLoading?: boolean
   autoSpeak?: boolean
   className?: string
+  commandContext?: {
+    nextClassText?: string
+    subjects?: Array<{ name: string }>
+    remindersTodayCount?: number
+  }
 }
 
 export function HorarilySpeakingCard({
@@ -41,11 +46,13 @@ export function HorarilySpeakingCard({
   isLoading = false,
   autoSpeak = true,
   className = "",
+  commandContext,
 }: HorarilySpeakingCardProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [usingMasterSvg, setUsingMasterSvg] = useState(false)
   const [booting, setBooting] = useState(true)
   const [history, setHistory] = useState<string[]>([])
+  const [commandInput, setCommandInput] = useState("")
   const { displayText, speak, setContext } = useHorarlyState(svgRef)
 
   useEffect(() => {
@@ -111,11 +118,61 @@ export function HorarilySpeakingCard({
   useEffect(() => {
     if (booting) return
     setHistory((prev) => {
-      const greetingLine = `> HOLA, ${userName.toUpperCase()}`
-      if (prev.includes(greetingLine)) return prev
-      return [...prev, greetingLine]
+      if (prev.length > 0) return prev
+      return [
+        "> BOOT OK",
+        `> HOLA, ${userName.toUpperCase()}`,
+        "> ESCRIBE /HELP PARA VER COMANDOS",
+      ]
     })
   }, [booting, userName])
+
+  useEffect(() => {
+    if (booting || !displayText) return
+    setHistory((prev) => {
+      const next = `> ${displayText.toUpperCase()}`
+      if (prev[prev.length - 1] === next) return prev
+      return [...prev, next]
+    })
+  }, [displayText, booting])
+
+  const runCommand = (raw: string) => {
+    const normalized = raw.trim().toUpperCase()
+    if (!normalized.startsWith("/")) {
+      return "ERROR: EL COMANDO DEBE INICIAR CON /"
+    }
+
+    if (normalized === "/HELP") {
+      return "COMANDOS: /HELP, /NEXTCLASS, /SUBJECTS, /MAXNOTE/<MATERIA>"
+    }
+
+    if (normalized === "/NEXTCLASS") {
+      return commandContext?.nextClassText?.toUpperCase() ?? "NO HAY CLASES PENDIENTES HOY."
+    }
+
+    if (normalized === "/SUBJECTS") {
+      const subjects = commandContext?.subjects ?? []
+      if (subjects.length === 0) return "NO HAY MATERIAS REGISTRADAS."
+      return `MATERIAS: ${subjects.map((s) => s.name.toUpperCase()).join(", ")}`
+    }
+
+    if (normalized.startsWith("/MAXNOTE/")) {
+      const key = normalized.replace("/MAXNOTE/", "").trim()
+      if (!key) return "USA: /MAXNOTE/<MATERIA>"
+      return `MAXNOTE ${key}: (DEMO) ESTA RESPUESTA SE COMPLETARÁ CON NOTAS POR MATERIA EN LA SIGUIENTE FASE.`
+    }
+
+    return "COMANDO NO RECONOCIDO. USA /HELP"
+  }
+
+  const onSubmitCommand = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const value = commandInput.trim()
+    if (!value) return
+    const response = runCommand(value)
+    setHistory((prev) => [...prev, `> ${value.toUpperCase()}`, response])
+    setCommandInput("")
+  }
 
   return (
     <div className={`horarily-card ${className}`}>
@@ -236,12 +293,24 @@ export function HorarilySpeakingCard({
               </p>
             ))}
             <p className="horarily-dialog-text">
-              &gt; {displayText}
+              &gt; {displayText.toUpperCase()}
               <span className="horarily-cursor" aria-hidden="true">
                 |
               </span>
             </p>
           </div>
+        )}
+        {!booting && (
+          <form className="horarily-console-input-wrap" onSubmit={onSubmitCommand}>
+            <span className="horarily-console-prompt">/</span>
+            <input
+              value={commandInput}
+              onChange={(e) => setCommandInput(e.target.value)}
+              className="horarily-console-input"
+              placeholder="HELP, NEXTCLASS, SUBJECTS, MAXNOTE/FISICA"
+              autoComplete="off"
+            />
+          </form>
         )}
       </div>
     </div>

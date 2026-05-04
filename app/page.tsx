@@ -307,18 +307,23 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
           {data.profile.displayName && (
             <div className="mb-4">
               <HorarilySpeakingCard
-                userName={data.profile.displayName}
-                message={`${t("profile.assistant.hello")} ${assistantMessage}`}
-                grade={data.grades.length > 0 ? data.grades[data.grades.length - 1]?.score : undefined}
-                isTyping={subjectOpen || reminderOpen || studyOpen || gradeOpen}
-                isUrgent={data.reminders.some((r) => {
-                  const target = new Date(r.targetDateTime)
-                  if (Number.isNaN(target.getTime())) return false
-                  const diff = target.getTime() - Date.now()
-                  return diff >= 0 && diff <= 24 * 60 * 60 * 1000
-                })}
-                isLoading={!store.hydrated}
-              />
+  userName={data.profile.displayName}
+  message={`${t("profile.assistant.hello")} ${assistantMessage}`}
+  commandContext={{
+    nextClassText: assistantMessage,
+    subjects: data.subjects.map((s) => ({ name: s.name })),
+    remindersTodayCount: data.reminders.length,
+  }}
+  grade={data.grades.length > 0 ? data.grades[data.grades.length - 1]?.score : undefined}
+  isTyping={subjectOpen || reminderOpen || studyOpen || gradeOpen}
+  isUrgent={data.reminders.some((r) => {
+    const target = new Date(r.targetDateTime)
+    if (Number.isNaN(target.getTime())) return false
+    const diff = target.getTime() - Date.now()
+    return diff >= 0 && diff <= 24 * 60 * 60 * 1000
+  })}
+  isLoading={!store.hydrated}
+/>
             </div>
           )}
 
