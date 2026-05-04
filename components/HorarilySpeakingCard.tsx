@@ -34,7 +34,7 @@ interface HorarilySpeakingCardProps {
     nextClassText?: string
     subjects?: Array<{ id: string; name: string; commandKey?: string }>
     grades?: Array<{ subjectId: string; title: string; score: number; date: string }>
-    remindersTodayCount?: number
+    reminders?: Array<{ title: string; targetDateTime: string }>
   }
 }
 
@@ -53,7 +53,12 @@ export function HorarilySpeakingCard({
   const [usingMasterSvg, setUsingMasterSvg] = useState(false)
   const [booting, setBooting] = useState(true)
   const [history, setHistory] = useState<string[]>([])
+  const [commandHistory, setCommandHistory] = useState<string[]>([])
+  const [historyCursor, setHistoryCursor] = useState<number | null>(null)
+  const [interactiveMode, setInteractiveMode] = useState(false)
   const [commandInput, setCommandInput] = useState("")
+  const [pendingResponse, setPendingResponse] = useState<string | null>(null)
+  const consoleRef = useRef<HTMLDivElement>(null)
   const { displayText, speak, setContext } = useHorarlyState(svgRef)
 
   useEffect(() => {
@@ -106,10 +111,10 @@ export function HorarilySpeakingCard({
   }, [isTyping, isLoading, isUrgent, grade, setContext, usingMasterSvg])
 
   useEffect(() => {
-    if (!booting && autoSpeak && message) {
+    if (!booting && autoSpeak && message && !interactiveMode) {
       speak(message)
     }
-  }, [autoSpeak, message, speak, usingMasterSvg, booting])
+  }, [autoSpeak, message, speak, usingMasterSvg, booting, interactiveMode])
 
   useEffect(() => {
     const timeoutId = setTimeout(() => setBooting(false), 3600)
@@ -129,13 +134,17 @@ export function HorarilySpeakingCard({
   }, [booting, userName])
 
   useEffect(() => {
-    if (booting || !displayText) return
-    setHistory((prev) => {
-      const next = `> ${displayText.toUpperCase()}`
-      if (prev[prev.length - 1] === next) return prev
-      return [...prev, next]
-    })
-  }, [displayText, booting])
+    if (booting) return
+    if (pendingResponse && displayText.trim().toUpperCase() === pendingResponse.trim().toUpperCase()) {
+      setHistory((prev) => [...prev, `> ${pendingResponse.toUpperCase()}`])
+      setPendingResponse(null)
+    }
+  }, [displayText, booting, pendingResponse])
+
+  useEffect(() => {
+    if (!consoleRef.current) return
+    consoleRef.current.scrollTop = consoleRef.current.scrollHeight
+  }, [history, displayText])
 
   const runCommand = (raw: string) => {
     const normalized = raw.trim().toUpperCase()
@@ -144,7 +153,7 @@ export function HorarilySpeakingCard({
     }
 
     if (normalized === "/HELP") {
-      return "COMANDOS: /HELP, /NEXTCLASS, /SUBJECTS, /MAXNOTE/<KEY>, /AVG/<KEY>, /LASTGRADE/<KEY>"
+      return "COMANDOS: /HELP, /NEXTCLASS, /SUBJECTS, /MAXNOTE/<KEY>, /AVG/<KEY>, /LASTGRADE/<KEY>, /REMINDERS/TODAY, /REMINDERS/NEXT, /STATUS/<KEY>, /TOPSUBJECTS, /CLEAR, /BOOT"
     }
 
     if (normalized === "/NEXTCLASS") {
@@ -190,6 +199,50 @@ export function HorarilySpeakingCard({
       return `ULTIMA NOTA ${key}: ${list[0].score.toFixed(1)} EN ${list[0].title.toUpperCase()} (${list[0].date}).`
     }
 
+    if (normalized === "/REMINDERS/TODAY") {
+      const todayIso = new Date().toISOString().slice(0, 10)
+      const today = (commandContext?.reminders ?? []).filter((r) => r.targetDateTime.slice(0, 10) === todayIso)
+      if (today.length === 0) return "NO HAY RECORDATORIOS PARA HOY."
+      return `HOY: ${today.map((r) => r.title.toUpperCase()).join(", ")}`
+    }
+
+    if (normalized === "/REMINDERS/NEXT") {
+      const now = Date.now()
+      const next = (commandContext?.reminders ?? [])
+        .map((r) => ({ ...r, ts: new Date(r.targetDateTime).getTime() }))
+        .filter((r) => !Number.isNaN(r.ts) && r.ts >= now)
+        .sort((a, b) => a.ts - b.ts)[0]
+      if (!next) return "NO HAY PROXIMOS RECORDATORIOS."
+      return `PROXIMO: ${next.title.toUpperCase()} (${next.targetDateTime})`
+    }
+
+    if (normalized.startsWith("/STATUS/")) {
+      const key = normalized.replace("/STATUS/", "").trim()
+      const subject = (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === key)
+      if (!subject) return `NO EXISTE MATERIA CON CLAVE ${key}.`
+      const list = (commandContext?.grades ?? []).filter((g) => g.subjectId === subject.id)
+      if (list.length === 0) return `SIN COBERTURA: NO HAY NOTAS PARA ${subject.name.toUpperCase()}.`
+      const avg = list.reduce((acc, g) => acc + g.score, 0) / list.length
+      const status = avg >= 11 ? "APROBADO" : "RIESGO"
+      return `STATUS ${key}: ${status} | PROMEDIO ${avg.toFixed(2)} | COBERTURA ${list.length} NOTA(S)`
+    }
+
+    if (normalized === "/TOPSUBJECTS") {
+      const subjects = commandContext?.subjects ?? []
+      const grades = commandContext?.grades ?? []
+      const ranking = subjects
+        .map((s) => {
+          const list = grades.filter((g) => g.subjectId === s.id)
+          if (list.length === 0) return null
+          const avg = list.reduce((acc, g) => acc + g.score, 0) / list.length
+          return { key: s.commandKey ?? s.name, avg }
+        })
+        .filter((entry): entry is { key: string; avg: number } => entry !== null)
+        .sort((a, b) => b.avg - a.avg)
+      if (ranking.length === 0) return "NO HAY NOTAS SUFICIENTES PARA RANKING."
+      return `TOP: ${ranking.slice(0, 5).map((r, i) => `${i + 1}.${r.key.toUpperCase()}(${r.avg.toFixed(2)})`).join(" ")}`
+    }
+
     return "COMANDO NO RECONOCIDO. USA /HELP"
   }
 
@@ -197,8 +250,24 @@ export function HorarilySpeakingCard({
     e.preventDefault()
     const value = commandInput.trim()
     if (!value) return
+    const normalized = value.trim().toUpperCase()
+    setInteractiveMode(true)
+    setCommandHistory((prev) => [...prev, value])
+    setHistoryCursor(null)
+    if (normalized === "/CLEAR") {
+      setHistory([])
+      setCommandInput("")
+      return
+    }
+    if (normalized === "/BOOT") {
+      setHistory(["> BOOT OK", `> HOLA, ${userName.toUpperCase()}`, "> MODO INTERACTIVO ACTIVO"])
+      setCommandInput("")
+      return
+    }
     const response = runCommand(value)
-    setHistory((prev) => [...prev, `> ${value.toUpperCase()}`, response])
+    setHistory((prev) => [...prev, `> ${value.toUpperCase()}`])
+    setPendingResponse(response)
+    speak(response)
     setCommandInput("")
   }
 
@@ -314,7 +383,7 @@ export function HorarilySpeakingCard({
             </span>
           </div>
         ) : (
-          <div className="horarily-console">
+          <div className="horarily-console" ref={consoleRef}>
             {history.map((line, idx) => (
               <p key={`${line}-${idx}`} className="horarily-console-line">
                 {line}
@@ -334,6 +403,26 @@ export function HorarilySpeakingCard({
             <input
               value={commandInput}
               onChange={(e) => setCommandInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowUp") {
+                  e.preventDefault()
+                  if (commandHistory.length === 0) return
+                  const nextCursor = historyCursor === null ? commandHistory.length - 1 : Math.max(0, historyCursor - 1)
+                  setHistoryCursor(nextCursor)
+                  setCommandInput(commandHistory[nextCursor] ?? "")
+                } else if (e.key === "ArrowDown") {
+                  if (historyCursor === null) return
+                  e.preventDefault()
+                  const nextCursor = historyCursor + 1
+                  if (nextCursor >= commandHistory.length) {
+                    setHistoryCursor(null)
+                    setCommandInput("")
+                    return
+                  }
+                  setHistoryCursor(nextCursor)
+                  setCommandInput(commandHistory[nextCursor] ?? "")
+                }
+              }}
               className="horarily-console-input"
               placeholder="HELP, NEXTCLASS, SUBJECTS, MAXNOTE/FISICA"
               autoComplete="off"
