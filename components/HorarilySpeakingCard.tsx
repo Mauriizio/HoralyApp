@@ -71,7 +71,7 @@ export function HorarilySpeakingCard({
   const [awaitingSetupChoice, setAwaitingSetupChoice] = useState(false)
   const [suggestions, setSuggestions] = useState<string[]>([])
   const consoleRef = useRef<HTMLDivElement>(null)
-  const { displayText, speak, setContext } = useHorarlyState(svgRef)
+  const { displayText, isSpeaking, speak, setContext } = useHorarlyState(svgRef)
 
   useEffect(() => {
     let isMounted = true
@@ -152,7 +152,7 @@ export function HorarilySpeakingCard({
 
   useEffect(() => {
     if (booting) return
-    if (pendingResponse && displayText.trim().toUpperCase() === pendingResponse.trim().toUpperCase()) {
+    if (pendingResponse && (!isSpeaking || displayText.trim().toUpperCase() === pendingResponse.trim().toUpperCase())) {
       const lines = pendingResponse
         .split("\n")
         .map((line) => line.trim())
@@ -160,7 +160,7 @@ export function HorarilySpeakingCard({
       setHistory((prev) => [...prev, ...lines.map((line) => `> ${line.toUpperCase()}`)])
       setPendingResponse(null)
     }
-  }, [displayText, booting, pendingResponse])
+  }, [displayText, booting, pendingResponse, isSpeaking])
 
   useEffect(() => {
     if (!consoleRef.current) return
@@ -615,12 +615,16 @@ export function HorarilySpeakingCard({
             <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => executeCommand("/AYUDA")} style={{ maxWidth: 220 }}>
               /AYUDA
             </button>
-            <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => commandActions?.openSubjectForm?.()} style={{ maxWidth: 220 }}>
-              IR A AGREGAR MATERIA
-            </button>
-            <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => commandActions?.openGradeForm?.()} style={{ maxWidth: 220 }}>
-              IR A AGREGAR NOTA
-            </button>
+            {!interactiveMode && (
+              <>
+                <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => commandActions?.openSubjectForm?.()} style={{ maxWidth: 220 }}>
+                  IR A AGREGAR MATERIA
+                </button>
+                <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => commandActions?.openGradeForm?.()} style={{ maxWidth: 220 }}>
+                  IR A AGREGAR NOTA
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
