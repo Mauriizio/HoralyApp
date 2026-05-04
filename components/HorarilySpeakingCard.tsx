@@ -70,6 +70,7 @@ export function HorarilySpeakingCard({
   const [commandInput, setCommandInput] = useState("")
   const [pendingResponse, setPendingResponse] = useState<string | null>(null)
   const [awaitingSetupChoice, setAwaitingSetupChoice] = useState(false)
+  const [onboardingStep, setOnboardingStep] = useState<"idle" | "awaiting_name">("idle")
   const [suggestions, setSuggestions] = useState<string[]>([])
   const consoleRef = useRef<HTMLDivElement>(null)
   const { displayText, isSpeaking, speak, setContext } = useHorarlyState(svgRef)
@@ -141,6 +142,7 @@ export function HorarilySpeakingCard({
       const isNewUser = !userName.trim() && !commandContext?.hasAnyData
       if (isNewUser) {
         setAwaitingSetupChoice(true)
+        setOnboardingStep("idle")
         return [
           "> ¡BIENVENIDO! SOY HORARILY, TU ASISTENTE ACADÉMICO.",
           "> TE AYUDO A ORGANIZAR CLASES, RECORDATORIOS Y ANALIZAR TU RENDIMIENTO.",
@@ -406,8 +408,9 @@ export function HorarilySpeakingCard({
       if (normalized === "Y") {
         setInteractiveMode(true)
         setAwaitingSetupChoice(false)
+        setOnboardingStep("awaiting_name")
         const response =
-          "PERFECTO, TE GUÍO PASO A PASO.\nPRIMER PASO: REGISTRA TU NOMBRE CON /NOMBRE/<TU_NOMBRE>.\nDESPUÉS TE ENSEÑO A AGREGAR TU PRIMERA MATERIA Y TU PRIMERA NOTA."
+          "PERFECTO, TE GUÍO PASO A PASO.\nPRIMER PASO: ESCRIBE SOLO TU NOMBRE (SIN /COMANDOS)."
         setHistory((prev) => [...prev, "> Y"])
         setPendingResponse(response)
         speak(response)
@@ -426,6 +429,17 @@ export function HorarilySpeakingCard({
       }
       const response = "RESPUESTA NO VÁLIDA. ESCRIBE Y PARA COMENZAR O N PARA OMITIR."
       setHistory((prev) => [...prev, `> ${value.toUpperCase()}`])
+      setPendingResponse(response)
+      speak(response)
+      setCommandInput("")
+      return
+    }
+    if (onboardingStep === "awaiting_name" && !normalized.startsWith("/")) {
+      const cleanName = value.trim()
+      commandActions?.updateProfileName?.(cleanName)
+      setOnboardingStep("idle")
+      const response = `BIEN, ${cleanName.toUpperCase()}.\nAHORA VAMOS CON TU PRIMERA MATERIA.\nEN ESTA CONSOLA, LOS COMANDOS COMIENZAN CON /.\nPARA VER TODOS LOS COMANDOS: /AYUDA.\nAHORA ESCRIBE: /AGG/MATERIA/<CODIGO3>/<NOMBRE_MATERIA>\nEJEMPLO: /AGG/MATERIA/FIS/FISICA APLICADA\nLUEGO AGREGA TU PRIMERA NOTA CON: /AGG/NOTA/FIS/6.4/TALLER 1.\nSI PREFIERES HACERLO MANUAL, USA LOS BOTONES O VE A LA PESTAÑA MATERIAS Y NOTAS.\nDESPUÉS CONFIGURA TU HORARIO EN LA PESTAÑA HORARIO (DIURNO/VESPERTINO) Y ACTIVA SÁBADO EN PREFERENCIAS SI LO NECESITAS.\nPOR ÚLTIMO, CREA RECORDATORIOS EN LA PESTAÑA RECORDATORIOS.`
+      setHistory((prev) => [...prev, `> ${cleanName.toUpperCase()}`])
       setPendingResponse(response)
       speak(response)
       setCommandInput("")
