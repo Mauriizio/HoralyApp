@@ -366,6 +366,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
     addSubject: addSubjectFromConsole,
     addGrade: addGradeFromConsole,
     updateProfileName: (name) => updateProfile({ displayName: name }),
+    resetProfileName: () => updateProfile({ displayName: "" }),
     openSubjectForm: () => {
       setSubjectEditing(undefined)
       setSubjectOpen(true)

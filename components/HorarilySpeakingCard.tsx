@@ -45,6 +45,7 @@ interface HorarilySpeakingCardProps {
     updateProfileName?: (name: string) => void
     openSubjectForm?: () => void
     openGradeForm?: () => void
+    resetProfileName?: () => void
   }
 }
 
@@ -184,6 +185,7 @@ export function HorarilySpeakingCard({
       .replace("/TOPMATERIAS", "/TOPSUBJECTS")
       .replace("/RECORDATORIOS/HOY", "/REMINDERS/TODAY")
       .replace("/RECORDATORIOS/PROXIMO", "/REMINDERS/NEXT")
+      .replace("/RECORDATORIOS", "/REMINDERS")
       .replace("/NOTAS", "/NOTES")
       .replace("/NOMBRE/", "/SETNAME/")
       .replace("/AGG/MATERIA/", "/ADD/SUBJECT/")
@@ -269,6 +271,17 @@ export function HorarilySpeakingCard({
       if (!next) return "NO HAY PROXIMOS RECORDATORIOS."
       return `PROXIMO: ${next.title.toUpperCase()} (${next.targetDateTime})`
     }
+    if (normalized === "/REMINDERS") {
+      const list = (commandContext?.reminders ?? [])
+        .map((r) => ({ ...r, ts: new Date(r.targetDateTime).getTime() }))
+        .filter((r) => !Number.isNaN(r.ts))
+        .sort((a, b) => a.ts - b.ts)
+      if (list.length === 0) return "NO HAY RECORDATORIOS REGISTRADOS."
+      const now = Date.now()
+      return `LISTA DE RECORDATORIOS:\n${list
+        .map((r) => `${r.ts < now ? "[VENCIDO] " : ""}${r.title.toUpperCase()} (${r.targetDateTime})`)
+        .join("\n")}`
+    }
 
     if (normalized.startsWith("/STATUS/")) {
       const key = normalized.replace("/STATUS/", "").trim()
@@ -290,12 +303,15 @@ export function HorarilySpeakingCard({
           const list = grades.filter((g) => g.subjectId === s.id)
           if (list.length === 0) return null
           const avg = list.reduce((acc, g) => acc + g.score, 0) / list.length
-          return { key: s.commandKey ?? s.name, avg }
+          return { label: s.name, avg }
         })
-        .filter((entry): entry is { key: string; avg: number } => entry !== null)
+        .filter((entry): entry is { label: string; avg: number } => entry !== null)
         .sort((a, b) => b.avg - a.avg)
       if (ranking.length === 0) return "NO HAY NOTAS SUFICIENTES PARA RANKING."
-      return `TOP: ${ranking.slice(0, 5).map((r, i) => `${i + 1}.${r.key.toUpperCase()}(${r.avg.toFixed(2)})`).join(" ")}`
+      return `TOP MATERIAS:\n${ranking
+        .slice(0, 5)
+        .map((r, i) => `${i + 1}. ${r.label.toUpperCase()} - PROMEDIO ${r.avg.toFixed(2)}`)
+        .join("\n")}`
     }
     if (normalized === "/NOTES") {
       const subjects = commandContext?.subjects ?? []
@@ -399,6 +415,20 @@ export function HorarilySpeakingCard({
     setSuggestions([])
   }
 
+  const restartOnboarding = () => {
+    commandActions?.resetProfileName?.()
+    setInteractiveMode(false)
+    setAwaitingSetupChoice(true)
+    setOnboardingStep("idle")
+    setCommandInput("")
+    setSuggestions([])
+    setHistory([
+      "> ¡BIENVENIDO! SOY HORARILY, TU ASISTENTE ACADÉMICO.",
+      "> TE AYUDO A ORGANIZAR CLASES, RECORDATORIOS Y ANALIZAR TU RENDIMIENTO.",
+      "> COMENZAR CONFIGURACIÓN: Y = SÍ  |  N = NO",
+    ])
+  }
+
   const onSubmitCommand = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const value = commandInput.trim()
@@ -410,7 +440,7 @@ export function HorarilySpeakingCard({
         setAwaitingSetupChoice(false)
         setOnboardingStep("awaiting_name")
         const response =
-          "PERFECTO, TE GUÍO PASO A PASO.\nPRIMER PASO: ESCRIBE SOLO TU NOMBRE (SIN /COMANDOS)."
+          "PERFECTO, TE GUÍO PASO A PASO.\nPRIMER PASO: ESCRIBE SOLO NOMBRE."
         setHistory((prev) => [...prev, "> Y"])
         setPendingResponse(response)
         speak(response)
@@ -642,6 +672,11 @@ export function HorarilySpeakingCard({
                   IR A AGREGAR NOTA
                 </button>
               </>
+            )}
+            {interactiveMode && (
+              <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={restartOnboarding} style={{ maxWidth: 260 }}>
+                CONFIGURACIÓN DESDE CERO
+              </button>
             )}
           </div>
         )}
