@@ -59,8 +59,11 @@ export function GradesPanel({ store }: { store: ScheduleStore }) {
             {t("grade.scale", { min: scale.min, max: scale.max, passing: scale.passing })}
           </p>
         </div>
-        <Button onClick={() => onAddForSubject()}>
-          <Plus className="h-4 w-4 mr-1.5" />
+        <Button
+          onClick={() => onAddForSubject()}
+          className="bg-emerald-600 text-white hover:bg-emerald-700"
+        >
+          <Plus className="h-4 w-4 mr-1.5 text-emerald-100" />
           {t("grade.create")}
         </Button>
       </div>
@@ -120,9 +123,10 @@ export function GradesPanel({ store }: { store: ScheduleStore }) {
                     <Button
                       size="sm"
                       variant="ghost"
+                      className="text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50"
                       onClick={() => onAddForSubject(subject.id)}
                     >
-                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      <Plus className="h-3.5 w-3.5 mr-1 text-emerald-600" />
                       {t("common.add")}
                     </Button>
                   </div>
@@ -168,7 +172,7 @@ export function GradesPanel({ store }: { store: ScheduleStore }) {
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-7 w-7 opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                            className="h-7 w-7 opacity-100 md:opacity-0 md:group-hover:opacity-100 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
                             onClick={() => onEdit(g)}
                             aria-label={t("common.edit")}
                           >
@@ -177,8 +181,12 @@ export function GradesPanel({ store }: { store: ScheduleStore }) {
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-7 w-7 opacity-100 md:opacity-0 md:group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-                            onClick={() => deleteGrade(g.id)}
+                            className="h-7 w-7 opacity-100 md:opacity-0 md:group-hover:opacity-100 text-rose-400 hover:text-rose-500 hover:bg-rose-50"
+                            onClick={() => {
+                              const ok = window.confirm(t("common.confirmDelete"))
+                              if (!ok) return
+                              deleteGrade(g.id)
+                            }}
                             aria-label={t("common.delete")}
                           >
                             <Trash2 className="h-3.5 w-3.5" />

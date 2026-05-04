@@ -44,6 +44,7 @@ export function HorarilySpeakingCard({
 }: HorarilySpeakingCardProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [usingMasterSvg, setUsingMasterSvg] = useState(false)
+  const [booting, setBooting] = useState(true)
   const { displayText, speak, setContext } = useHorarlyState(svgRef)
 
   useEffect(() => {
@@ -96,10 +97,15 @@ export function HorarilySpeakingCard({
   }, [isTyping, isLoading, isUrgent, grade, setContext, usingMasterSvg])
 
   useEffect(() => {
-    if (autoSpeak && message) {
+    if (!booting && autoSpeak && message) {
       speak(message)
     }
-  }, [autoSpeak, message, speak, usingMasterSvg])
+  }, [autoSpeak, message, speak, usingMasterSvg, booting])
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => setBooting(false), 2200)
+    return () => clearTimeout(timeoutId)
+  }, [])
 
   return (
     <div className={`horarily-card ${className}`}>
@@ -210,10 +216,16 @@ export function HorarilySpeakingCard({
           ¡Hola! <span className="horarily-username">{userName}</span>
         </p>
         <p className="horarily-dialog-text">
-          {displayText}
-          <span className="horarily-cursor" aria-hidden="true">
-            |
-          </span>
+          {booting ? (
+            <span className="horarily-boot-text">HORARY NOTE 1.0 BY MAURIZIO.DEV</span>
+          ) : (
+            <>
+              {displayText}
+              <span className="horarily-cursor" aria-hidden="true">
+                |
+              </span>
+            </>
+          )}
         </p>
       </div>
     </div>
