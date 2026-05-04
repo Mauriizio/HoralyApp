@@ -21,6 +21,15 @@ const REQUIRED_MASTER_IDS = [
   "lapiz",
 ] as const
 
+const calculateAverage = (list: Array<{ score: number; weight?: number }>) => {
+  const totalWeight = list.reduce((acc, g) => acc + (g.weight ?? 0), 0)
+  if (totalWeight > 0) {
+    const weightedSum = list.reduce((acc, g) => acc + g.score * (g.weight ?? 0), 0)
+    return weightedSum / totalWeight
+  }
+  return list.reduce((acc, g) => acc + g.score, 0) / list.length
+}
+
 interface HorarilySpeakingCardProps {
   message: string
   userName: string
@@ -41,7 +50,7 @@ interface HorarilySpeakingCardProps {
   }
   commandActions?: {
     addSubject?: (payload: { name: string; commandKey: string }) => { name: string; commandKey: string } | null
-    addGrade?: (payload: { commandKey: string; score: number; title: string }) => boolean
+    addGrade?: (payload: { commandKey: string; score: number; title: string; weight: number }) => boolean
     updateProfileName?: (name: string) => void
     openSubjectForm?: () => void
     openGradeForm?: () => void
@@ -74,6 +83,7 @@ export function HorarilySpeakingCard({
   const [onboardingStep, setOnboardingStep] = useState<"idle" | "awaiting_name" | "awaiting_subject_choice">("idle")
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [awaitingResetConfirm, setAwaitingResetConfirm] = useState(false)
+  const [helpMenuMode, setHelpMenuMode] = useState<"idle" | "es" | "en">("idle")
   const consoleRef = useRef<HTMLDivElement>(null)
   const { displayText, isSpeaking, speak, setContext } = useHorarlyState(svgRef)
 
@@ -148,7 +158,8 @@ export function HorarilySpeakingCard({
           "> COMENZAR CONFIGURACIÓN: Y = SÍ  |  N = NO",
         ]
       }
-      return [`> HOLA, ${userName.toUpperCase()}`, `> ${message.toUpperCase()}`, "> ESCRIBE /AYUDA PARA VER COMANDOS"]
+      const greeting = userName.trim() ? `> HOLA, ${userName.toUpperCase()}` : "> HOLA"
+      return [greeting, `> ${message.toUpperCase()}`, "> ESCRIBE /AYUDA PARA VER COMANDOS"]
     })
   }, [booting, userName, commandContext?.hasAnyData, message])
 
@@ -171,6 +182,9 @@ export function HorarilySpeakingCard({
 
   const runCommand = (raw: string) => {
     const normalizedRaw = raw.trim().toUpperCase()
+    const compactNumericChoice = normalizedRaw.replace(/[).\s]/g, "")
+    const helpChoice = /^[1-6]$/.test(compactNumericChoice) ? compactNumericChoice : null
+
     const normalized = normalizedRaw
       .replace("/PROXIMACLASE", "/NEXTCLASS")
       .replace("/MATERIAS", "/SUBJECTS")
@@ -188,16 +202,123 @@ export function HorarilySpeakingCard({
       .replace("/NOMBRE/", "/SETNAME/")
       .replace("/AGG/MATERIA/", "/ADD/SUBJECT/")
       .replace("/AGG/NOTA/", "/ADD/NOTE/")
-    if (!normalized.startsWith("/")) {
-      return "ERROR: EL COMANDO DEBE INICIAR CON /"
-    }
 
     if (normalized === "/AYUDA") {
-      return "GUÍA RÁPIDA HORARILY:\n1) CREAR MATERIA (RECOMENDADO DESDE PESTAÑA)\n- VE A PESTAÑA MATERIAS.\n- TOCA BOTÓN CREAR MATERIA.\n- COMPLETA LOS DATOS Y GUARDA.\n- OPCIÓN POR CONSOLA: /AGG/MATERIA/<MATERIA>\n\n2) AGREGAR NOTA\n- VE A PESTAÑA NOTAS.\n- TOCA AGREGAR NOTA.\n- COMPLETA NOTA + PONDERACIÓN Y GUARDA.\n- OPCIÓN POR CONSOLA: /AGG/NOTA/<MATERIA>/<NOTA>/<TITULO>\n\n3) LISTA COMPLETA DE COMANDOS\n/AYUDA\n/PROXIMACLASE\n/MATERIAS\n/AGG/MATERIA/<MATERIA>\n/AGG/NOTA/<MATERIA>/<NOTA>/<TITULO>\n/PROMEDIO/<MATERIA>\n/ULTIMANOTA/<MATERIA>\n/NOTAMAXIMA/<MATERIA>\n/NOTAMINIMA/<MATERIA>\n/NOTAS\n/NOTAS/<MATERIA>\n/TOPMATERIAS\n/RECORDATORIOS\n/RECORDATORIOS/HOY\n/RECORDATORIOS/PROXIMO\n/ESTADO/<MATERIA>\n/PROMEDIO\n/LIMPIAR\n/REINICIAR"
+      setHelpMenuMode("es")
+      return `AYUDA RÁPIDA:
+1) VER LISTA DE COMANDOS
+2) CÓMO CREAR UNA MATERIA
+3) CÓMO AGREGAR UNA NOTA
+4) CÓMO CREAR UN RECORDATORIO
+5) CÓMO CONFIGURAR EL HORARIO
+6) CÓMO AGREGAR BLOQUES DE HORARIO`
     }
 
     if (normalized === "/HELP") {
-      return "COMMAND LIST:\n/HELP - SHOW THIS HELP IN ENGLISH.\n/NEXTCLASS - SHOW YOUR NEXT CLASS.\n/SUBJECTS - LIST YOUR SUBJECTS.\n/MAXNOTE/<KEY> - SHOW HIGHEST GRADE.\n/AVG/<KEY> - CALCULATE SUBJECT AVERAGE.\n/LASTGRADE/<KEY> - SHOW LAST GRADE.\n/REMINDERS/TODAY - TODAY REMINDERS.\n/REMINDERS/NEXT - NEXT REMINDER.\n/STATUS/<KEY> - SUBJECT ACADEMIC STATUS.\n/TOPSUBJECTS - TOP SUBJECT RANKING.\n/CALC/AVG - GLOBAL AVERAGE.\n/CALC/AVG/<KEY> - SUBJECT AVERAGE.\n/ADD/SUBJECT/<KEY>/<NAME> - CREATE SUBJECT.\n/ADD/NOTE/<KEY>/<SCORE>/<TITLE> - ADD GRADE.\n/CLEAR - CLEAR CONSOLE.\n/BOOT - REBOOT CONSOLE VIEW."
+      setHelpMenuMode("en")
+      return `HELP MENU:
+1) COMMAND LIST
+2) HOW TO CREATE A SUBJECT
+3) HOW TO ADD A GRADE
+4) HOW TO CREATE A REMINDER
+5) HOW TO CONFIGURE SCHEDULE
+6) HOW TO ADD SCHEDULE BLOCKS`
+    }
+
+    if (helpChoice && helpMenuMode !== "idle") {
+      if (helpMenuMode === "en") {
+        if (helpChoice === "1") return `COMMANDS:
+/HELP
+/NEXTCLASS
+/SUBJECTS
+/ADD/SUBJECT/<SUBJECT>
+/ADD/NOTE/<SUBJECT>/<SCORE>/<WEIGHT>/<TITLE>
+/AVG/<SUBJECT>
+/LASTGRADE/<SUBJECT>
+/MAXNOTE/<SUBJECT>
+/MINNOTE/<SUBJECT>
+/NOTES
+/REMINDERS
+/CLEAR
+/BOOT`
+        if (helpChoice === "2") return `SUBJECTS > CREATE SUBJECT:
+1. OPEN SUBJECTS TAB.
+2. CLICK CREATE SUBJECT.
+3. COMPLETE NAME AND SAVE.
+>>> YOU CAN ALSO DO IT FROM CONSOLE: /ADD/SUBJECT/<SUBJECT>`
+        if (helpChoice === "3") return `GRADES > ADD GRADE:
+1. OPEN GRADES TAB.
+2. CLICK ADD GRADE.
+3. COMPLETE SCORE, WEIGHT AND TITLE.
+4. SAVE.
+>>> YOU CAN ALSO DO IT FROM CONSOLE: /ADD/NOTE/<SUBJECT>/<SCORE>/<WEIGHT>/<TITLE>`
+        if (helpChoice === "4") return `REMINDERS > ADD REMINDER:
+1. OPEN REMINDERS TAB.
+2. CLICK ADD REMINDER.
+3. COMPLETE TITLE, DATE AND TIME.
+4. SAVE.
+>>> YOU CAN ALSO DO IT FROM CONSOLE: /REMINDERS`
+        if (helpChoice === "5") return `SCHEDULE:
+1. OPEN SCHEDULE TAB.
+2. CREATE BLOCKS WITH SUBJECT, DAY AND TIME.
+3. SAVE EACH BLOCK.
+4. IF YOU NEED SATURDAY, ENABLE IT IN PREFERENCES.
+>>> YOU CAN ALSO USE CONSOLE COMMANDS: /NEXTCLASS`
+        return `SCHEDULE BLOCKS:
+1. OPEN PREFERENCES > SCHEDULE OPTIONS.
+2. ENABLE THE DAYS YOU NEED (INCLUDING SATURDAY IF APPLIES).
+3. GO TO SCHEDULE TAB AND TAP ADD BLOCK.
+4. PICK SUBJECT, START, END AND SAVE.
+>>> YOU CAN ALSO USE CONSOLE COMMANDS: /NEXTCLASS`
+      }
+
+      if (helpChoice === "1") return `COMANDOS DISPONIBLES:
+/AYUDA
+/PROXIMACLASE
+/MATERIAS
+/AGG/MATERIA/<MATERIA>
+/AGG/NOTA/<MATERIA>/<PUNTAJE>/<PONDERACION>/<TITULO>
+/PROMEDIO/<MATERIA>
+/ULTIMANOTA/<MATERIA>
+/NOTAMAXIMA/<MATERIA>
+/NOTAMINIMA/<MATERIA>
+/NOTAS
+/RECORDATORIOS
+/LIMPIAR
+/REINICIAR`
+      if (helpChoice === "2") return `MATERIAS > CREAR MATERIA:
+1. ABRE LA PESTAÑA MATERIAS.
+2. TOCA CREAR MATERIA.
+3. COMPLETA EL NOMBRE Y GUARDA.
+>>> TAMBIÉN PUEDES HACERLO POR CONSOLA: /AGG/MATERIA/<MATERIA>`
+      if (helpChoice === "3") return `NOTAS > AGREGAR NOTA:
+1. ABRE LA PESTAÑA NOTAS.
+2. TOCA AGREGAR NOTA.
+3. COMPLETA PUNTAJE, PONDERACIÓN Y TÍTULO.
+4. GUARDA.
+>>> TAMBIÉN PUEDES HACERLO POR CONSOLA: /AGG/NOTA/<MATERIA>/<PUNTAJE>/<PONDERACION>/<TITULO>`
+      if (helpChoice === "4") return `RECORDATORIOS > AGREGAR RECORDATORIO:
+1. ABRE LA PESTAÑA RECORDATORIOS.
+2. TOCA AGREGAR RECORDATORIO.
+3. COMPLETA TÍTULO, FECHA Y HORA.
+4. GUARDA.
+>>> TAMBIÉN PUEDES HACERLO POR CONSOLA: /RECORDATORIOS`
+      if (helpChoice === "5") return `HORARIO:
+1. ABRE LA PESTAÑA HORARIO.
+2. CREA BLOQUES CON MATERIA, DÍA Y HORA.
+3. GUARDA CADA BLOQUE.
+4. SI NECESITAS SÁBADO, ACTÍVALO EN PREFERENCIAS.
+>>> TAMBIÉN PUEDES HACERLO POR CONSOLA: /PROXIMACLASE`
+      return `BLOQUES DE HORARIO:
+1. ABRE PREFERENCIAS > OPCIONES DE HORARIO.
+2. ACTIVA LOS DÍAS QUE NECESITES (INCLUIDO SÁBADO SI APLICA).
+3. VE A LA PESTAÑA HORARIO Y TOCA AGREGAR BLOQUE.
+4. ELIGE MATERIA, HORA INICIO, HORA FIN Y GUARDA.
+>>> TAMBIÉN PUEDES HACERLO POR CONSOLA: /PROXIMACLASE`
+    }
+
+    if (!normalized.startsWith("/")) {
+      return "ERROR: EL COMANDO DEBE INICIAR CON /"
     }
 
     if (normalized === "/NEXTCLASS") {
@@ -220,6 +341,7 @@ export function HorarilySpeakingCard({
       const best = list.slice().sort((a, b) => b.score - a.score)[0]
       return `TU NOTA MÁS ALTA EN ${subject.name.toUpperCase()} ES ${best.score.toFixed(1)} EN ${best.title.toUpperCase()} (${best.date}).`
     }
+
     if (normalized.startsWith("/MINNOTE/")) {
       const key = normalized.replace("/MINNOTE/", "").trim()
       if (!key) return "USA: /MINNOTE/<KEY>"
@@ -232,9 +354,7 @@ export function HorarilySpeakingCard({
     }
 
     const findSubjectByRef = (ref: string) =>
-      (commandContext?.subjects ?? []).find(
-        (s) => s.commandKey?.toUpperCase() === ref || s.name.toUpperCase() === ref,
-      )
+      (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === ref || s.name.toUpperCase() === ref)
 
     if (normalized.startsWith("/AVG/")) {
       const key = normalized.replace("/AVG/", "").trim()
@@ -274,6 +394,7 @@ export function HorarilySpeakingCard({
       if (!next) return "NO HAY PROXIMOS RECORDATORIOS."
       return `PROXIMO: ${next.title.toUpperCase()} (${next.targetDateTime})`
     }
+
     if (normalized === "/REMINDERS") {
       const list = (commandContext?.reminders ?? [])
         .map((r) => ({ ...r, ts: new Date(r.targetDateTime).getTime() }))
@@ -310,12 +431,14 @@ export function HorarilySpeakingCard({
         })
         .filter((entry): entry is { label: string; avg: number } => entry !== null)
         .sort((a, b) => b.avg - a.avg)
+
       if (ranking.length === 0) return "NO HAY NOTAS SUFICIENTES PARA RANKING."
       return `TOP MATERIAS:\n${ranking
         .slice(0, 5)
         .map((r, i) => `${i + 1}. ${r.label.toUpperCase()} - PROMEDIO ${r.avg.toFixed(2)}`)
         .join("\n")}`
     }
+
     if (normalized === "/NOTES") {
       const subjects = commandContext?.subjects ?? []
       const grades = commandContext?.grades ?? []
@@ -328,9 +451,12 @@ export function HorarilySpeakingCard({
       })
       return `LISTA DE NOTAS:\n${rows.join("\n")}`
     }
+
     if (normalized.startsWith("/NOTES/")) {
       const key = normalized.replace("/NOTES/", "").trim()
-      const subject = (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === key || s.name.toUpperCase() === key)
+      const subject = (commandContext?.subjects ?? []).find(
+        (s) => s.commandKey?.toUpperCase() === key || s.name.toUpperCase() === key,
+      )
       if (!subject) return `NO EXISTE MATERIA ${key}.`
       const list = (commandContext?.grades ?? [])
         .filter((g) => g.subjectId === subject.id)
@@ -340,6 +466,7 @@ export function HorarilySpeakingCard({
       const rows = list.map((g) => `- ${g.score.toFixed(1)} ${g.title.toUpperCase()} ${g.weight ? `${g.weight}%` : ""}`.trim())
       return `NOTAS ${subject.name.toUpperCase()}:\n${rows.join("\n")}\nPROMEDIO: ${avg.toFixed(2)}`
     }
+
     if (normalized === "/CALC/AVG") {
       const list = commandContext?.grades ?? []
       if (list.length === 0) return "NO HAY NOTAS REGISTRADAS PARA CALCULAR PROMEDIO GLOBAL."
@@ -358,8 +485,9 @@ export function HorarilySpeakingCard({
     }
 
     if (normalized === "/SETUP/SI") {
-      return "CONFIGURACIÓN GUIADA:\n1) AGREGA TU NOMBRE.\n2) CREA TU PRIMERA MATERIA DESDE PESTAÑA MATERIAS > CREAR MATERIA.\n3) AGREGA TU PRIMERA NOTA DESDE PESTAÑA NOTAS > AGREGAR NOTA.\n4) SI PREFIERES CONSOLA: /AGG/MATERIA/<MATERIA> Y /AGG/NOTA/<MATERIA>/<NOTA>/<TITULO>.\n5) CONFIGURA HORARIO EN PESTAÑA HORARIO.\n6) CREA RECORDATORIOS EN PESTAÑA RECORDATORIOS."
+      return "CONFIGURACIÓN GUIADA:\n1) AGREGA TU NOMBRE.\n2) CREA TU PRIMERA MATERIA DESDE PESTAÑA MATERIAS > CREAR MATERIA.\n3) AGREGA TU PRIMERA NOTA DESDE PESTAÑA NOTAS > AGREGAR NOTA.\n4) SI PREFIERES CONSOLA: /AGG/MATERIA/<MATERIA> Y /AGG/NOTA/<MATERIA>/<PUNTAJE>/<PONDERACION>/<TITULO>.\n5) CONFIGURA HORARIO EN PESTAÑA HORARIO.\n6) CREA RECORDATORIOS EN PESTAÑA RECORDATORIOS."
     }
+
     if (normalized === "/SETUP/NO") return "PERFECTO. PUEDES USAR /HELP CUANDO QUIERAS."
 
     if (normalized.startsWith("/SETNAME/")) {
@@ -383,12 +511,19 @@ export function HorarilySpeakingCard({
 
     if (normalized.startsWith("/ADD/NOTE/")) {
       const body = raw.slice(raw.toUpperCase().indexOf("/ADD/NOTE/") + 10).trim()
-      const [rawKey, rawScore, ...titleParts] = body.split("/")
+      const [rawKey, rawScore, rawWeight, ...titleParts] = body.split("/")
       const key = (rawKey ?? "").trim().toUpperCase()
       const score = Number(rawScore)
+      const weight = Number(rawWeight)
       const title = titleParts.join("/").trim()
-      if (!key || Number.isNaN(score) || !title) return "USA: /ADD/NOTE/<KEY>/<NOTA>/<TITULO>"
-      const ok = commandActions?.addGrade?.({ commandKey: key, score, title }) ?? false
+
+      if (!key || Number.isNaN(score) || Number.isNaN(weight) || !title) {
+        return "USA: /AGG/NOTA/<MATERIA>/<PUNTAJE>/<PONDERACION>/<TITULO>"
+      }
+      if (score < 1 || score > 7) return "PUNTAJE INVÁLIDO. USA UN VALOR ENTRE 1.0 Y 7.0."
+      if (weight <= 0 || weight > 100) return "PONDERACIÓN INVÁLIDA. USA UN VALOR ENTRE 1 Y 100."
+
+      const ok = commandActions?.addGrade?.({ commandKey: key, score, title, weight }) ?? false
       if (!ok) return `NO SE PUDO AGREGAR LA NOTA. REVISA LA MATERIA ${key}.`
       return `NOTA REGISTRADA EN ${key}: ${score.toFixed(1)} (${title.toUpperCase()})`
     }
@@ -401,16 +536,20 @@ export function HorarilySpeakingCard({
     setInteractiveMode(true)
     setCommandHistory((prev) => [...prev, value])
     setHistoryCursor(null)
+
     if (normalized === "/CLEAR" || normalized === "/LIMPIAR") {
       setHistory([])
       setCommandInput("")
       return
     }
+
     if (normalized === "/BOOT" || normalized === "/REINICIAR") {
-      setHistory(["> BOOT OK", `> HOLA, ${userName.toUpperCase()}`, "> MODO INTERACTIVO ACTIVO"])
+      const greeting = userName.trim() ? `> HOLA, ${userName.toUpperCase()}` : "> HOLA"
+      setHistory(["> BOOT OK", greeting, "> MODO INTERACTIVO ACTIVO"])
       setCommandInput("")
       return
     }
+
     const response = runCommand(value)
     setHistory((prev) => [...prev, `> ${value.toUpperCase()}`])
     setPendingResponse(response)
@@ -439,19 +578,20 @@ export function HorarilySpeakingCard({
     const value = commandInput.trim()
     if (!value) return
     const normalized = value.trim().toUpperCase()
+
     if (awaitingSetupChoice && !normalized.startsWith("/")) {
       if (normalized === "Y") {
         setInteractiveMode(true)
         setAwaitingSetupChoice(false)
         setOnboardingStep("awaiting_name")
-        const response =
-          "PERFECTO, TE GUÍO PASO A PASO.\nPRIMER PASO: AGREGA TU NOMBRE."
+        const response = "PERFECTO, TE GUÍO PASO A PASO.\nPRIMER PASO: AGREGA TU NOMBRE."
         setHistory((prev) => [...prev, "> Y"])
         setPendingResponse(response)
         speak(response)
         setCommandInput("")
         return
       }
+
       if (normalized === "N") {
         setInteractiveMode(true)
         setAwaitingSetupChoice(false)
@@ -462,6 +602,7 @@ export function HorarilySpeakingCard({
         setCommandInput("")
         return
       }
+
       const response = "RESPUESTA NO VÁLIDA. ESCRIBE Y PARA COMENZAR O N PARA OMITIR."
       setHistory((prev) => [...prev, `> ${value.toUpperCase()}`])
       setPendingResponse(response)
@@ -469,6 +610,7 @@ export function HorarilySpeakingCard({
       setCommandInput("")
       return
     }
+
     if (onboardingStep === "awaiting_name" && !normalized.startsWith("/")) {
       const cleanName = value.trim()
       commandActions?.updateProfileName?.(cleanName)
@@ -480,6 +622,7 @@ export function HorarilySpeakingCard({
       setCommandInput("")
       return
     }
+
     if (onboardingStep === "awaiting_subject_choice" && !normalized.startsWith("/")) {
       const response =
         normalized === "Y"
@@ -492,6 +635,7 @@ export function HorarilySpeakingCard({
       setCommandInput("")
       return
     }
+
     executeCommand(value)
   }
 
@@ -513,7 +657,7 @@ export function HorarilySpeakingCard({
         ) : (
           <div className="horarily-console" ref={consoleRef}>
             {history.map((line, idx) => (
-              <p key={`${line}-${idx}`} className="horarily-console-line">
+              <p key={`${line}-${idx}`} className={`horarily-console-line ${line.includes("TAMBIÉN PUEDES HACERLO POR CONSOLA") || line.includes("YOU CAN ALSO") ? "horarily-console-highlight" : ""}`}>
                 {line}
               </p>
             ))}
@@ -541,7 +685,10 @@ export function HorarilySpeakingCard({
                     setSuggestions([])
                     return
                   }
-                  const commands = ["/AYUDA", "/PROMEDIO/", "/PROXIMACLASE", "/MATERIAS", "/NOTAS", "/NOTAMAXIMA/", "/NOTAMINIMA/", "/PROMEDIO", "/ULTIMANOTA/"]
+                  const commands =
+                    commandContext?.language === "en"
+                      ? ["/HELP", "/NEXTCLASS", "/SUBJECTS", "/MAXNOTE/", "/MINNOTE/", "/AVG/", "/LASTGRADE/"]
+                      : ["/AYUDA", "/PROXIMACLASE", "/MATERIAS", "/NOTAS", "/NOTAMAXIMA/", "/NOTAMINIMA/", "/PROMEDIO/", "/ULTIMANOTA/"]
                   setSuggestions(commands.filter((c) => c.startsWith(value.startsWith("/") ? value : `/${value}`)).slice(0, 4))
                 }}
                 onKeyDown={(e) => {
@@ -565,10 +712,11 @@ export function HorarilySpeakingCard({
                   }
                 }}
                 className="horarily-console-input"
-                placeholder="HELP, NEXTCLASS, SUBJECTS, MAXNOTE/FISICA"
+                placeholder="AYUDA, PROXIMACLASE, MATERIAS, NOTAMAXIMA/MATEMATICA"
                 autoComplete="off"
               />
             </form>
+
             {suggestions.length > 0 && (
               <div className="horarily-console-input-wrap" style={{ marginTop: 0, paddingTop: 0, borderTop: "none", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
                 {suggestions.map((item) => (
@@ -580,6 +728,7 @@ export function HorarilySpeakingCard({
             )}
           </>
         )}
+
         {!booting && (
           <div className="horarily-console-input-wrap" style={{ gap: 8, justifyContent: "flex-start", flexWrap: "wrap" }}>
             <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => executeCommand("/AYUDA")} style={{ maxWidth: 220 }}>
@@ -611,11 +760,3 @@ export function HorarilySpeakingCard({
 }
 
 export default HorarilySpeakingCard
-    const calculateAverage = (list: Array<{ score: number; weight?: number }>) => {
-      const totalWeight = list.reduce((acc, g) => acc + (g.weight ?? 0), 0)
-      if (totalWeight > 0) {
-        const weighted = list.reduce((acc, g) => acc + g.score * ((g.weight ?? 0) / 100), 0)
-        return weighted / (totalWeight / 100)
-      }
-      return list.reduce((acc, g) => acc + g.score, 0) / list.length
-    }

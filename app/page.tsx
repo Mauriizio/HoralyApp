@@ -226,14 +226,24 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
     return { name: created.name, commandKey: created.commandKey ?? commandKey.toUpperCase() }
   }
 
-  const addGradeFromConsole = ({ commandKey, score, title }: { commandKey: string; score: number; title: string }) => {
+  const addGradeFromConsole = ({
+    commandKey,
+    score,
+    title,
+    weight,
+  }: {
+    commandKey: string
+    score: number
+    title: string
+    weight: number
+  }) => {
     const subject = data.subjects.find((s) => (s.commandKey ?? "").toUpperCase() === commandKey.toUpperCase())
     if (!subject) return false
     addGrade({
       subjectId: subject.id,
       title: title.trim(),
       score,
-      weight: 100,
+      weight,
       date: new Date().toISOString().slice(0, 10),
     })
     return true
