@@ -42,6 +42,8 @@ interface HorarilySpeakingCardProps {
     addSubject?: (payload: { name: string; commandKey: string }) => { name: string; commandKey: string } | null
     addGrade?: (payload: { commandKey: string; score: number; title: string }) => boolean
     updateProfileName?: (name: string) => void
+    openSubjectForm?: () => void
+    openGradeForm?: () => void
   }
 }
 
@@ -150,7 +152,11 @@ export function HorarilySpeakingCard({
   useEffect(() => {
     if (booting) return
     if (pendingResponse && displayText.trim().toUpperCase() === pendingResponse.trim().toUpperCase()) {
-      setHistory((prev) => [...prev, `> ${pendingResponse.toUpperCase()}`])
+      const lines = pendingResponse
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+      setHistory((prev) => [...prev, ...lines.map((line) => `> ${line.toUpperCase()}`)])
       setPendingResponse(null)
     }
   }, [displayText, booting, pendingResponse])
@@ -166,8 +172,12 @@ export function HorarilySpeakingCard({
       return "ERROR: EL COMANDO DEBE INICIAR CON /"
     }
 
+    if (normalized === "/AYUDA") {
+      return "LISTA DE COMANDOS:\n/AYUDA - MUESTRA ESTA AYUDA EN ESPAÑOL.\n/NEXTCLASS - MUESTRA TU PRÓXIMA CLASE.\n/SUBJECTS - LISTA TUS MATERIAS.\n/MAXNOTE/<CLAVE> - MUESTRA TU NOTA MÁS ALTA.\n/AVG/<CLAVE> - CALCULA EL PROMEDIO DE UNA MATERIA.\n/LASTGRADE/<CLAVE> - MUESTRA TU ÚLTIMA NOTA.\n/REMINDERS/TODAY - RECORDATORIOS DE HOY.\n/REMINDERS/NEXT - PRÓXIMO RECORDATORIO.\n/STATUS/<CLAVE> - ESTADO ACADÉMICO DE LA MATERIA.\n/TOPSUBJECTS - RANKING DE MEJORES MATERIAS.\n/CALC/AVG - PROMEDIO GLOBAL.\n/CALC/AVG/<CLAVE> - PROMEDIO POR MATERIA.\n/ADD/SUBJECT/<CLAVE>/<NOMBRE> - CREA MATERIA.\n/ADD/NOTE/<CLAVE>/<NOTA>/<TÍTULO> - AGREGA NOTA.\n/CLEAR - LIMPIA LA CONSOLA.\n/BOOT - REINICIA VISTA DE CONSOLA."
+    }
+
     if (normalized === "/HELP") {
-      return "COMANDOS: /HELP, /NEXTCLASS, /SUBJECTS, /MAXNOTE/<KEY>, /AVG/<KEY>, /LASTGRADE/<KEY>, /REMINDERS/TODAY, /REMINDERS/NEXT, /STATUS/<KEY>, /TOPSUBJECTS, /CALC/AVG, /CALC/AVG/<KEY>, /ADD/SUBJECT/<KEY>/<NOMBRE>, /ADD/NOTE/<KEY>/<NOTA>/<TITULO>, /SETUP/SI, /SETNAME/<NOMBRE>, /CLEAR, /BOOT"
+      return "COMMAND LIST:\n/HELP - SHOW THIS HELP IN ENGLISH.\n/NEXTCLASS - SHOW YOUR NEXT CLASS.\n/SUBJECTS - LIST YOUR SUBJECTS.\n/MAXNOTE/<KEY> - SHOW HIGHEST GRADE.\n/AVG/<KEY> - CALCULATE SUBJECT AVERAGE.\n/LASTGRADE/<KEY> - SHOW LAST GRADE.\n/REMINDERS/TODAY - TODAY REMINDERS.\n/REMINDERS/NEXT - NEXT REMINDER.\n/STATUS/<KEY> - SUBJECT ACADEMIC STATUS.\n/TOPSUBJECTS - TOP SUBJECT RANKING.\n/CALC/AVG - GLOBAL AVERAGE.\n/CALC/AVG/<KEY> - SUBJECT AVERAGE.\n/ADD/SUBJECT/<KEY>/<NAME> - CREATE SUBJECT.\n/ADD/NOTE/<KEY>/<SCORE>/<TITLE> - ADD GRADE.\n/CLEAR - CLEAR CONSOLE.\n/BOOT - REBOOT CONSOLE VIEW."
     }
 
     if (normalized === "/NEXTCLASS") {
@@ -525,6 +535,19 @@ export function HorarilySpeakingCard({
               autoComplete="off"
             />
           </form>
+        )}
+        {!booting && (
+          <div className="horarily-console-input-wrap" style={{ gap: 8, justifyContent: "flex-start", flexWrap: "wrap" }}>
+            <button type="button" className="horarily-console-input" onClick={() => setCommandInput("/AYUDA")} style={{ maxWidth: 120 }}>
+              /AYUDA
+            </button>
+            <button type="button" className="horarily-console-input" onClick={() => commandActions?.openSubjectForm?.()} style={{ maxWidth: 220 }}>
+              IR A AGREGAR MATERIA
+            </button>
+            <button type="button" className="horarily-console-input" onClick={() => commandActions?.openGradeForm?.()} style={{ maxWidth: 220 }}>
+              IR A AGREGAR NOTA
+            </button>
+          </div>
         )}
       </div>
     </div>

@@ -364,6 +364,11 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
     addSubject: addSubjectFromConsole,
     addGrade: addGradeFromConsole,
     updateProfileName: (name) => updateProfile({ displayName: name }),
+    openSubjectForm: () => {
+      setSubjectEditing(undefined)
+      setSubjectOpen(true)
+    },
+    openGradeForm: () => setGradeOpen(true),
   }}
   grade={data.grades.length > 0 ? data.grades[data.grades.length - 1]?.score : undefined}
   isTyping={subjectOpen || reminderOpen || studyOpen || gradeOpen}
