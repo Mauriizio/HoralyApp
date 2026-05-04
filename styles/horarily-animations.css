@@ -350,7 +350,7 @@
   line-height: 1.15;
   overflow-wrap: anywhere;
   word-break: break-word;
-  white-space: normal;
+  white-space: pre-wrap;
   text-transform: uppercase;
   text-shadow: 0 0 2px rgba(42, 88, 42, 0.3);
 }
@@ -485,6 +485,16 @@ button.horarily-console-input {
   color: #124412;
   background: rgba(255, 255, 255, 0.32);
   cursor: pointer;
+}
+
+.horarily-console-action-btn {
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .horarily-console-action-btn {
+    width: auto;
+  }
 }
 
 .horarily-console-input::placeholder {
