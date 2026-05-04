@@ -141,6 +141,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
   const reminderCount = data.reminders.length
   const studyBlockCount = data.studyBlocks.length
   const gradeCount = data.grades.length
+
   const assistantMessage = useMemo(() => {
     const now = new Date()
     const toLocalIso = (d: Date) =>
@@ -337,52 +338,52 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         <main className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 py-4 sm:py-6">
           {/* Greeting */}
           <div className="mb-4">
-          <HorarilySpeakingCard
-  userName={data.profile.displayName}
-  message={`${t("profile.assistant.hello")} ${assistantMessage}`}
-  commandContext={{
-    nextClassText: assistantMessage,
-    subjects: data.subjects.map((s) => ({
-      id: s.id,
-      name: s.name,
-      commandKey: s.commandKey,
-    })),
-    grades: data.grades.map((g) => ({
-      subjectId: g.subjectId,
-      title: g.title,
-      score: g.score,
-      date: g.date,
-      weight: g.weight,
-    })),
-    reminders: data.reminders.map((r) => ({
-      title: r.title,
-      targetDateTime: r.targetDateTime,
-    })),
-    passingGrade: data.settings.gradeScale.passing,
-    hasAnyData,
-    language: data.settings.language,
-  }}
-  commandActions={{
-    addSubject: addSubjectFromConsole,
-    addGrade: addGradeFromConsole,
-    updateProfileName: (name) => updateProfile({ displayName: name }),
-    resetProfileName: () => updateProfile({ displayName: "" }),
-    openSubjectForm: () => {
-      setSubjectEditing(undefined)
-      setSubjectOpen(true)
-    },
-    openGradeForm: () => setGradeOpen(true),
-  }}
-  grade={data.grades.length > 0 ? data.grades[data.grades.length - 1]?.score : undefined}
-  isTyping={subjectOpen || reminderOpen || studyOpen || gradeOpen}
-  isUrgent={data.reminders.some((r) => {
-    const target = new Date(r.targetDateTime)
-    if (Number.isNaN(target.getTime())) return false
-    const diff = target.getTime() - Date.now()
-    return diff >= 0 && diff <= 24 * 60 * 60 * 1000
-  })}
-  isLoading={!store.hydrated}
-/>
+            <HorarilySpeakingCard
+              userName={data.profile.displayName}
+              message={`${t("profile.assistant.hello")} ${assistantMessage}`}
+              commandContext={{
+                nextClassText: assistantMessage,
+                subjects: data.subjects.map((s) => ({
+                  id: s.id,
+                  name: s.name,
+                  commandKey: s.commandKey,
+                })),
+                grades: data.grades.map((g) => ({
+                  subjectId: g.subjectId,
+                  title: g.title,
+                  score: g.score,
+                  date: g.date,
+                  weight: g.weight,
+                })),
+                reminders: data.reminders.map((r) => ({
+                  title: r.title,
+                  targetDateTime: r.targetDateTime,
+                })),
+                passingGrade: data.settings.gradeScale.passing,
+                hasAnyData,
+                language: data.settings.language,
+              }}
+              commandActions={{
+                addSubject: addSubjectFromConsole,
+                addGrade: addGradeFromConsole,
+                updateProfileName: (name) => updateProfile({ displayName: name }),
+                resetProfileName: () => updateProfile({ displayName: "" }),
+                openSubjectForm: () => {
+                  setSubjectEditing(undefined)
+                  setSubjectOpen(true)
+                },
+                openGradeForm: () => setGradeOpen(true),
+              }}
+              grade={data.grades.length > 0 ? data.grades[data.grades.length - 1]?.score : undefined}
+              isTyping={subjectOpen || reminderOpen || studyOpen || gradeOpen}
+              isUrgent={data.reminders.some((r) => {
+                const target = new Date(r.targetDateTime)
+                if (Number.isNaN(target.getTime())) return false
+                const diff = target.getTime() - Date.now()
+                return diff >= 0 && diff <= 24 * 60 * 60 * 1000
+              })}
+              isLoading={!store.hydrated}
+            />
           </div>
 
           {/* Welcome banner when empty */}

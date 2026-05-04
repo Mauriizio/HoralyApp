@@ -188,24 +188,16 @@ export function HorarilySpeakingCard({
       .replace("/NOMBRE/", "/SETNAME/")
       .replace("/AGG/MATERIA/", "/ADD/SUBJECT/")
       .replace("/AGG/NOTA/", "/ADD/NOTE/")
-
-    if (!normalized.startsWith("/")) return "ERROR: EL COMANDO DEBE INICIAR CON /"
-
-    const calculateAverage = (list: Array<{ score: number; weight?: number }>) => {
-      const totalWeight = list.reduce((acc, g) => acc + (g.weight ?? 0), 0)
-      if (totalWeight > 0) {
-        const weighted = list.reduce((acc, g) => acc + g.score * ((g.weight ?? 0) / 100), 0)
-        return weighted / (totalWeight / 100)
-      }
-      return list.reduce((acc, g) => acc + g.score, 0) / list.length
+    if (!normalized.startsWith("/")) {
+      return "ERROR: EL COMANDO DEBE INICIAR CON /"
     }
 
     if (normalized === "/AYUDA") {
-      return "LISTA DE COMANDOS:\n/AYUDA - MUESTRA ESTA AYUDA EN ESPAÑOL.\n/PROXIMACLASE - MUESTRA TU PRÓXIMA CLASE.\n/MATERIAS - LISTA TUS MATERIAS.\n/NOTAMAXIMA/<CLAVE> - MUESTRA TU NOTA MÁS ALTA.\n/NOTAMINIMA/<CLAVE> - MUESTRA TU NOTA MÁS BAJA.\n/PROMEDIO/<CLAVE> - CALCULA EL PROMEDIO DE UNA MATERIA.\n/ULTIMANOTA/<CLAVE> - MUESTRA TU ÚLTIMA NOTA.\n/RECORDATORIOS/HOY - RECORDATORIOS DE HOY.\n/RECORDATORIOS/PROXIMO - PRÓXIMO RECORDATORIO.\n/RECORDATORIOS - LISTA GENERAL DE RECORDATORIOS.\n/ESTADO/<CLAVE> - ESTADO ACADÉMICO DE LA MATERIA.\n/TOPMATERIAS - RANKING DE MEJORES MATERIAS.\n/PROMEDIO - PROMEDIO GLOBAL.\n/NOTAS - LISTA MATERIAS Y PROMEDIOS.\n/NOTAS/<CLAVE> - LISTA NOTAS DE LA MATERIA.\n/LIMPIAR - LIMPIA LA CONSOLA.\n/REINICIAR - REINICIA VISTA DE CONSOLA."
+      return "GUÍA RÁPIDA HORARILY:\n1) CREAR MATERIA (RECOMENDADO DESDE PESTAÑA)\n- VE A PESTAÑA MATERIAS.\n- TOCA BOTÓN CREAR MATERIA.\n- COMPLETA LOS DATOS Y GUARDA.\n- OPCIÓN POR CONSOLA: /AGG/MATERIA/<MATERIA>\n\n2) AGREGAR NOTA\n- VE A PESTAÑA NOTAS.\n- TOCA AGREGAR NOTA.\n- COMPLETA NOTA + PONDERACIÓN Y GUARDA.\n- OPCIÓN POR CONSOLA: /AGG/NOTA/<MATERIA>/<NOTA>/<TITULO>\n\n3) LISTA COMPLETA DE COMANDOS\n/AYUDA\n/PROXIMACLASE\n/MATERIAS\n/AGG/MATERIA/<MATERIA>\n/AGG/NOTA/<MATERIA>/<NOTA>/<TITULO>\n/PROMEDIO/<MATERIA>\n/ULTIMANOTA/<MATERIA>\n/NOTAMAXIMA/<MATERIA>\n/NOTAMINIMA/<MATERIA>\n/NOTAS\n/NOTAS/<MATERIA>\n/TOPMATERIAS\n/RECORDATORIOS\n/RECORDATORIOS/HOY\n/RECORDATORIOS/PROXIMO\n/ESTADO/<MATERIA>\n/PROMEDIO\n/LIMPIAR\n/REINICIAR"
     }
 
     if (normalized === "/HELP") {
-      return "COMMAND LIST:\n/HELP - SHOW THIS HELP IN ENGLISH.\n/NEXTCLASS - SHOW YOUR NEXT CLASS.\n/SUBJECTS - LIST YOUR SUBJECTS.\n/MAXNOTE/<KEY> - SHOW HIGHEST GRADE.\n/MINNOTE/<KEY> - SHOW LOWEST GRADE.\n/AVG/<KEY> - CALCULATE SUBJECT AVERAGE.\n/LASTGRADE/<KEY> - SHOW LAST GRADE.\n/REMINDERS/TODAY - TODAY REMINDERS.\n/REMINDERS/NEXT - NEXT REMINDER.\n/REMINDERS - FULL REMINDER LIST.\n/STATUS/<KEY> - SUBJECT ACADEMIC STATUS.\n/TOPSUBJECTS - TOP SUBJECT RANKING.\n/CALC/AVG - GLOBAL AVERAGE.\n/CALC/AVG/<KEY> - SUBJECT AVERAGE.\n/CLEAR - CLEAR CONSOLE.\n/BOOT - REBOOT CONSOLE VIEW."
+      return "COMMAND LIST:\n/HELP - SHOW THIS HELP IN ENGLISH.\n/NEXTCLASS - SHOW YOUR NEXT CLASS.\n/SUBJECTS - LIST YOUR SUBJECTS.\n/MAXNOTE/<KEY> - SHOW HIGHEST GRADE.\n/AVG/<KEY> - CALCULATE SUBJECT AVERAGE.\n/LASTGRADE/<KEY> - SHOW LAST GRADE.\n/REMINDERS/TODAY - TODAY REMINDERS.\n/REMINDERS/NEXT - NEXT REMINDER.\n/STATUS/<KEY> - SUBJECT ACADEMIC STATUS.\n/TOPSUBJECTS - TOP SUBJECT RANKING.\n/CALC/AVG - GLOBAL AVERAGE.\n/CALC/AVG/<KEY> - SUBJECT AVERAGE.\n/ADD/SUBJECT/<KEY>/<NAME> - CREATE SUBJECT.\n/ADD/NOTE/<KEY>/<SCORE>/<TITLE> - ADD GRADE.\n/CLEAR - CLEAR CONSOLE.\n/BOOT - REBOOT CONSOLE VIEW."
     }
 
     if (normalized === "/NEXTCLASS") {
@@ -222,43 +214,47 @@ export function HorarilySpeakingCard({
       const key = normalized.replace("/MAXNOTE/", "").trim()
       if (!key) return "USA: /NOTAMAXIMA/<CODIGO>"
       const subject = (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === key)
-      if (!subject) return `NO EXISTE MATERIA CON CÓDIGO ${key}.`
+      if (!subject) return `NO EXISTE MATERIA ${key}.`
       const list = (commandContext?.grades ?? []).filter((g) => g.subjectId === subject.id)
       if (list.length === 0) return `NO HAY NOTAS PARA ${subject.name.toUpperCase()}.`
       const best = list.slice().sort((a, b) => b.score - a.score)[0]
       return `TU NOTA MÁS ALTA EN ${subject.name.toUpperCase()} ES ${best.score.toFixed(1)} EN ${best.title.toUpperCase()} (${best.date}).`
     }
-
     if (normalized.startsWith("/MINNOTE/")) {
       const key = normalized.replace("/MINNOTE/", "").trim()
-      if (!key) return "USA: /NOTAMINIMA/<CODIGO>"
+      if (!key) return "USA: /MINNOTE/<KEY>"
       const subject = (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === key)
-      if (!subject) return `NO EXISTE MATERIA CON CÓDIGO ${key}.`
+      if (!subject) return `NO EXISTE MATERIA ${key}.`
       const list = (commandContext?.grades ?? []).filter((g) => g.subjectId === subject.id)
-      if (list.length === 0) return `NO HAY NOTAS PARA ${subject.name.toUpperCase()}.`
+      if (list.length === 0) return `NO HAY NOTAS REGISTRADAS PARA ${subject.name.toUpperCase()}.`
       const worst = list.slice().sort((a, b) => a.score - b.score)[0]
       return `TU NOTA MÁS BAJA EN ${subject.name.toUpperCase()} ES ${worst.score.toFixed(1)} EN ${worst.title.toUpperCase()} (${worst.date}).`
     }
 
+    const findSubjectByRef = (ref: string) =>
+      (commandContext?.subjects ?? []).find(
+        (s) => s.commandKey?.toUpperCase() === ref || s.name.toUpperCase() === ref,
+      )
+
     if (normalized.startsWith("/AVG/")) {
       const key = normalized.replace("/AVG/", "").trim()
-      const subject = (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === key)
-      if (!subject) return `NO EXISTE MATERIA CON CÓDIGO ${key}.`
+      const subject = findSubjectByRef(key)
+      if (!subject) return `NO EXISTE MATERIA ${key}.`
       const list = (commandContext?.grades ?? []).filter((g) => g.subjectId === subject.id)
-      if (list.length === 0) return `NO HAY NOTAS PARA ${subject.name.toUpperCase()}.`
+      if (list.length === 0) return `NO HAY NOTAS REGISTRADAS PARA ${subject.name.toUpperCase()}.`
       const avg = calculateAverage(list)
       return `TU PROMEDIO EN ${subject.name.toUpperCase()} ES ${avg.toFixed(2)}.`
     }
 
     if (normalized.startsWith("/LASTGRADE/")) {
       const key = normalized.replace("/LASTGRADE/", "").trim()
-      const subject = (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === key)
-      if (!subject) return `NO EXISTE MATERIA CON CÓDIGO ${key}.`
+      const subject = findSubjectByRef(key)
+      if (!subject) return `NO EXISTE MATERIA ${key}.`
       const list = (commandContext?.grades ?? [])
         .filter((g) => g.subjectId === subject.id)
         .slice()
         .sort((a, b) => b.date.localeCompare(a.date))
-      if (list.length === 0) return `NO HAY NOTAS PARA ${subject.name.toUpperCase()}.`
+      if (list.length === 0) return `NO HAY NOTAS REGISTRADAS PARA ${subject.name.toUpperCase()}.`
       return `TU ÚLTIMA NOTA EN ${subject.name.toUpperCase()} ES ${list[0].score.toFixed(1)} EN ${list[0].title.toUpperCase()} (${list[0].date}).`
     }
 
@@ -266,7 +262,7 @@ export function HorarilySpeakingCard({
       const todayIso = new Date().toISOString().slice(0, 10)
       const today = (commandContext?.reminders ?? []).filter((r) => r.targetDateTime.slice(0, 10) === todayIso)
       if (today.length === 0) return "NO HAY RECORDATORIOS PARA HOY."
-      return `RECORDATORIOS DE HOY:\n${today.map((r) => `- ${r.title.toUpperCase()} (${r.targetDateTime})`).join("\n")}`
+      return `HOY: ${today.map((r) => r.title.toUpperCase()).join(", ")}`
     }
 
     if (normalized === "/REMINDERS/NEXT") {
@@ -275,10 +271,9 @@ export function HorarilySpeakingCard({
         .map((r) => ({ ...r, ts: new Date(r.targetDateTime).getTime() }))
         .filter((r) => !Number.isNaN(r.ts) && r.ts >= now)
         .sort((a, b) => a.ts - b.ts)[0]
-      if (!next) return "NO HAY PRÓXIMOS RECORDATORIOS."
-      return `PRÓXIMO RECORDATORIO:\n- ${next.title.toUpperCase()} (${next.targetDateTime})`
+      if (!next) return "NO HAY PROXIMOS RECORDATORIOS."
+      return `PROXIMO: ${next.title.toUpperCase()} (${next.targetDateTime})`
     }
-
     if (normalized === "/REMINDERS") {
       const list = (commandContext?.reminders ?? [])
         .map((r) => ({ ...r, ts: new Date(r.targetDateTime).getTime() }))
@@ -293,14 +288,14 @@ export function HorarilySpeakingCard({
 
     if (normalized.startsWith("/STATUS/")) {
       const key = normalized.replace("/STATUS/", "").trim()
-      const subject = (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === key)
-      if (!subject) return `NO EXISTE MATERIA CON CÓDIGO ${key}.`
+      const subject = findSubjectByRef(key)
+      if (!subject) return `NO EXISTE MATERIA ${key}.`
       const list = (commandContext?.grades ?? []).filter((g) => g.subjectId === subject.id)
       if (list.length === 0) return `SIN COBERTURA: NO HAY NOTAS PARA ${subject.name.toUpperCase()}.`
       const avg = calculateAverage(list)
       const passing = commandContext?.passingGrade ?? 4
       const status = avg >= passing ? "APROBADO" : "RIESGO"
-      return `ESTADO EN ${subject.name.toUpperCase()}:\n${status}\nPROMEDIO: ${avg.toFixed(2)}\nCOBERTURA: ${list.length} NOTA(S)`
+      return `ESTADO EN ${subject.name.toUpperCase()}: ${status}\nPROMEDIO: ${avg.toFixed(2)}\nCOBERTURA: ${list.length} NOTA(S)`
     }
 
     if (normalized === "/TOPSUBJECTS") {
@@ -315,14 +310,12 @@ export function HorarilySpeakingCard({
         })
         .filter((entry): entry is { label: string; avg: number } => entry !== null)
         .sort((a, b) => b.avg - a.avg)
-
       if (ranking.length === 0) return "NO HAY NOTAS SUFICIENTES PARA RANKING."
       return `TOP MATERIAS:\n${ranking
         .slice(0, 5)
         .map((r, i) => `${i + 1}. ${r.label.toUpperCase()} - PROMEDIO ${r.avg.toFixed(2)}`)
         .join("\n")}`
     }
-
     if (normalized === "/NOTES") {
       const subjects = commandContext?.subjects ?? []
       const grades = commandContext?.grades ?? []
@@ -335,22 +328,18 @@ export function HorarilySpeakingCard({
       })
       return `LISTA DE NOTAS:\n${rows.join("\n")}`
     }
-
     if (normalized.startsWith("/NOTES/")) {
       const key = normalized.replace("/NOTES/", "").trim()
-      const subject = (commandContext?.subjects ?? []).find(
-        (s) => s.commandKey?.toUpperCase() === key || s.name.toUpperCase() === key,
-      )
-      if (!subject) return `NO EXISTE MATERIA CON CÓDIGO O NOMBRE ${key}.`
+      const subject = (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === key || s.name.toUpperCase() === key)
+      if (!subject) return `NO EXISTE MATERIA ${key}.`
       const list = (commandContext?.grades ?? [])
         .filter((g) => g.subjectId === subject.id)
         .sort((a, b) => a.date.localeCompare(b.date))
-      if (list.length === 0) return `NO HAY NOTAS PARA ${subject.name.toUpperCase()}.`
+      if (list.length === 0) return `NO HAY NOTAS REGISTRADAS PARA ${subject.name.toUpperCase()}.`
       const avg = calculateAverage(list)
       const rows = list.map((g) => `- ${g.score.toFixed(1)} ${g.title.toUpperCase()} ${g.weight ? `${g.weight}%` : ""}`.trim())
       return `NOTAS ${subject.name.toUpperCase()}:\n${rows.join("\n")}\nPROMEDIO: ${avg.toFixed(2)}`
     }
-
     if (normalized === "/CALC/AVG") {
       const list = commandContext?.grades ?? []
       if (list.length === 0) return "NO HAY NOTAS REGISTRADAS PARA CALCULAR PROMEDIO GLOBAL."
@@ -360,8 +349,8 @@ export function HorarilySpeakingCard({
 
     if (normalized.startsWith("/CALC/AVG/")) {
       const key = normalized.replace("/CALC/AVG/", "").trim()
-      const subject = (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === key)
-      if (!subject) return `NO EXISTE MATERIA CON CÓDIGO ${key}.`
+      const subject = findSubjectByRef(key)
+      if (!subject) return `NO EXISTE MATERIA ${key}.`
       const list = (commandContext?.grades ?? []).filter((g) => g.subjectId === subject.id)
       if (list.length === 0) return `NO HAY NOTAS PARA ${subject.name.toUpperCase()}.`
       const avg = calculateAverage(list)
@@ -369,26 +358,26 @@ export function HorarilySpeakingCard({
     }
 
     if (normalized === "/SETUP/SI") {
-      return "CONFIGURACIÓN GUIADA:\n1) AGREGA TU NOMBRE.\n2) RESPONDE Y/N PARA AGREGAR TU PRIMERA MATERIA.\n3) USA /AYUDA SI NECESITAS LA LISTA COMPLETA."
+      return "CONFIGURACIÓN GUIADA:\n1) AGREGA TU NOMBRE.\n2) CREA TU PRIMERA MATERIA DESDE PESTAÑA MATERIAS > CREAR MATERIA.\n3) AGREGA TU PRIMERA NOTA DESDE PESTAÑA NOTAS > AGREGAR NOTA.\n4) SI PREFIERES CONSOLA: /AGG/MATERIA/<MATERIA> Y /AGG/NOTA/<MATERIA>/<NOTA>/<TITULO>.\n5) CONFIGURA HORARIO EN PESTAÑA HORARIO.\n6) CREA RECORDATORIOS EN PESTAÑA RECORDATORIOS."
     }
-
-    if (normalized === "/SETUP/NO") return "PERFECTO. CUANDO QUIERAS, ESCRIBE /AYUDA."
+    if (normalized === "/SETUP/NO") return "PERFECTO. PUEDES USAR /HELP CUANDO QUIERAS."
 
     if (normalized.startsWith("/SETNAME/")) {
       const name = raw.slice(raw.toUpperCase().indexOf("/SETNAME/") + 9).trim()
-      if (!name) return "USA: /NOMBRE/<TU_NOMBRE>"
+      if (!name) return "USA: /SETNAME/<NOMBRE>"
       commandActions?.updateProfileName?.(name)
       return `NOMBRE ACTUALIZADO: ${name.toUpperCase()}`
     }
 
     if (normalized.startsWith("/ADD/SUBJECT/")) {
       const body = raw.slice(raw.toUpperCase().indexOf("/ADD/SUBJECT/") + 13).trim()
-      const [rawKey, ...nameParts] = body.split("/")
-      const key = (rawKey ?? "").trim().toUpperCase()
-      const name = nameParts.join("/").trim()
-      if (!key || key.length !== 3 || !name) return "USA: /AGG/MATERIA/<CODIGO3>/<NOMBRE_MATERIA>"
+      const parts = body.split("/").map((p) => p.trim()).filter(Boolean)
+      const hasExplicitCode = parts.length >= 2
+      const key = (hasExplicitCode ? parts[0] : parts[0]?.slice(0, 3))?.toUpperCase() ?? ""
+      const name = hasExplicitCode ? parts.slice(1).join("/") : (parts[0] ?? "")
+      if (!name) return "USA: /AGG/MATERIA/<MATERIA>"
       const created = commandActions?.addSubject?.({ name, commandKey: key })
-      if (!created) return "NO SE PUDO CREAR LA MATERIA. REVISA SI EL CÓDIGO YA EXISTE."
+      if (!created) return "NO SE PUDO CREAR LA MATERIA. REVISA SI ESE NOMBRE YA EXISTE."
       return `MATERIA CREADA: ${created.name.toUpperCase()} (/${created.commandKey.toUpperCase()})`
     }
 
@@ -398,9 +387,9 @@ export function HorarilySpeakingCard({
       const key = (rawKey ?? "").trim().toUpperCase()
       const score = Number(rawScore)
       const title = titleParts.join("/").trim()
-      if (!key || Number.isNaN(score) || !title) return "USA: /AGG/NOTA/<CODIGO3>/<NOTA>/<TITULO>"
+      if (!key || Number.isNaN(score) || !title) return "USA: /ADD/NOTE/<KEY>/<NOTA>/<TITULO>"
       const ok = commandActions?.addGrade?.({ commandKey: key, score, title }) ?? false
-      if (!ok) return `NO SE PUDO AGREGAR LA NOTA. REVISA EL CÓDIGO ${key}.`
+      if (!ok) return `NO SE PUDO AGREGAR LA NOTA. REVISA LA MATERIA ${key}.`
       return `NOTA REGISTRADA EN ${key}: ${score.toFixed(1)} (${title.toUpperCase()})`
     }
 
@@ -412,19 +401,16 @@ export function HorarilySpeakingCard({
     setInteractiveMode(true)
     setCommandHistory((prev) => [...prev, value])
     setHistoryCursor(null)
-
     if (normalized === "/CLEAR" || normalized === "/LIMPIAR") {
       setHistory([])
       setCommandInput("")
       return
     }
-
     if (normalized === "/BOOT" || normalized === "/REINICIAR") {
       setHistory(["> BOOT OK", `> HOLA, ${userName.toUpperCase()}`, "> MODO INTERACTIVO ACTIVO"])
       setCommandInput("")
       return
     }
-
     const response = runCommand(value)
     setHistory((prev) => [...prev, `> ${value.toUpperCase()}`])
     setPendingResponse(response)
@@ -453,13 +439,13 @@ export function HorarilySpeakingCard({
     const value = commandInput.trim()
     if (!value) return
     const normalized = value.trim().toUpperCase()
-
     if (awaitingSetupChoice && !normalized.startsWith("/")) {
       if (normalized === "Y") {
         setInteractiveMode(true)
         setAwaitingSetupChoice(false)
         setOnboardingStep("awaiting_name")
-        const response = "PERFECTO, TE GUÍO PASO A PASO.\nPRIMER PASO: AGREGA TU NOMBRE."
+        const response =
+          "PERFECTO, TE GUÍO PASO A PASO.\nPRIMER PASO: AGREGA TU NOMBRE."
         setHistory((prev) => [...prev, "> Y"])
         setPendingResponse(response)
         speak(response)
@@ -469,7 +455,7 @@ export function HorarilySpeakingCard({
       if (normalized === "N") {
         setInteractiveMode(true)
         setAwaitingSetupChoice(false)
-        const response = "ENTENDIDO. PUEDES EXPLORAR LA APP Y USAR /AYUDA CUANDO QUIERAS."
+        const response = "ENTENDIDO. PUEDES EXPLORAR LA APP Y USAR /HELP CUANDO QUIERAS."
         setHistory((prev) => [...prev, "> N"])
         setPendingResponse(response)
         speak(response)
@@ -483,7 +469,6 @@ export function HorarilySpeakingCard({
       setCommandInput("")
       return
     }
-
     if (onboardingStep === "awaiting_name" && !normalized.startsWith("/")) {
       const cleanName = value.trim()
       commandActions?.updateProfileName?.(cleanName)
@@ -495,12 +480,11 @@ export function HorarilySpeakingCard({
       setCommandInput("")
       return
     }
-
     if (onboardingStep === "awaiting_subject_choice" && !normalized.startsWith("/")) {
       const response =
         normalized === "Y"
-          ? "EXCELENTE.\nUSA ESTE COMANDO: /AGG/MATERIA/<CODIGO3>/<NOMBRE_MATERIA>\nEJEMPLO: /AGG/MATERIA/FIS/FISICA APLICADA\nTAMBIÉN PUEDES IR A LA PESTAÑA MATERIAS Y TOCAR AGREGAR."
-          : "PERFECTO.\nPUEDES AGREGARLA DESPUÉS DESDE LA PESTAÑA MATERIAS.\nSIGUIENTE PASO: CONFIGURA TU HORARIO EN LA PESTAÑA HORARIO.\nSI TIENES CLASES LOS SÁBADOS, ACTÍVALO EN PREFERENCIAS.\nPARA VER TODOS LOS COMANDOS: /AYUDA."
+          ? "EXCELENTE.\nRECOMENDADO: VE A LA PESTAÑA MATERIAS Y TOCA CREAR MATERIA.\nOPCIÓN POR CONSOLA: /AGG/MATERIA/<MATERIA>\nEJEMPLO: /AGG/MATERIA/FISICA APLICADA"
+          : "PERFECTO.\nPUEDES CREARLA DESPUÉS DESDE LA PESTAÑA MATERIAS (BOTÓN CREAR MATERIA).\nSIGUIENTE PASO: CONFIGURA TU HORARIO EN LA PESTAÑA HORARIO.\nPARA VER TODOS LOS COMANDOS: /AYUDA."
       setOnboardingStep("idle")
       setHistory((prev) => [...prev, `> ${value.toUpperCase()}`])
       setPendingResponse(response)
@@ -508,7 +492,6 @@ export function HorarilySpeakingCard({
       setCommandInput("")
       return
     }
-
     executeCommand(value)
   }
 
@@ -537,7 +520,9 @@ export function HorarilySpeakingCard({
             {pendingResponse && (
               <p className="horarily-dialog-text">
                 &gt; {displayText.toUpperCase()}
-                <span className="horarily-cursor" aria-hidden="true">|</span>
+                <span className="horarily-cursor" aria-hidden="true">
+                  |
+                </span>
               </p>
             )}
           </div>
@@ -552,7 +537,10 @@ export function HorarilySpeakingCard({
                 onChange={(e) => setCommandInput(e.target.value)}
                 onInput={(e) => {
                   const value = (e.currentTarget as HTMLInputElement).value.toUpperCase()
-                  if (!value) return setSuggestions([])
+                  if (!value) {
+                    setSuggestions([])
+                    return
+                  }
                   const commands = ["/AYUDA", "/PROMEDIO/", "/PROXIMACLASE", "/MATERIAS", "/NOTAS", "/NOTAMAXIMA/", "/NOTAMINIMA/", "/PROMEDIO", "/ULTIMANOTA/"]
                   setSuggestions(commands.filter((c) => c.startsWith(value.startsWith("/") ? value : `/${value}`)).slice(0, 4))
                 }}
@@ -577,27 +565,14 @@ export function HorarilySpeakingCard({
                   }
                 }}
                 className="horarily-console-input"
-                placeholder="AYUDA, PROXIMACLASE, MATERIAS, NOTAMAXIMA/FIS"
+                placeholder="HELP, NEXTCLASS, SUBJECTS, MAXNOTE/FISICA"
                 autoComplete="off"
               />
             </form>
-
             {suggestions.length > 0 && (
-              <div
-                className="horarily-console-input-wrap"
-                style={{ marginTop: 0, paddingTop: 0, borderTop: "none", flexDirection: "column", alignItems: "flex-start", gap: 2 }}
-              >
+              <div className="horarily-console-input-wrap" style={{ marginTop: 0, paddingTop: 0, borderTop: "none", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
                 {suggestions.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    className="horarily-console-line"
-                    onClick={() => {
-                      setCommandInput(item)
-                      setSuggestions([])
-                    }}
-                    style={{ color: "#0f5132" }}
-                  >
+                  <button key={item} type="button" className="horarily-console-line" onClick={() => { setCommandInput(item); setSuggestions([]) }} style={{ color: "#0f5132" }}>
                     &gt; SUGERENCIA: {item}
                   </button>
                 ))}
@@ -605,36 +580,23 @@ export function HorarilySpeakingCard({
             )}
           </>
         )}
-
         {!booting && (
           <div className="horarily-console-input-wrap" style={{ gap: 8, justifyContent: "flex-start", flexWrap: "wrap" }}>
+            <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => executeCommand("/AYUDA")} style={{ maxWidth: 220 }}>
+              /AYUDA
+            </button>
             {interactiveMode && (
               <>
                 {!awaitingResetConfirm ? (
-                  <button
-                    type="button"
-                    className="horarily-console-input horarily-console-action-btn"
-                    onClick={() => setAwaitingResetConfirm(true)}
-                    style={{ maxWidth: 280 }}
-                  >
+                  <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => setAwaitingResetConfirm(true)} style={{ maxWidth: 280 }}>
                     CONFIGURACIÓN DESDE CERO
                   </button>
                 ) : (
                   <>
-                    <button
-                      type="button"
-                      className="horarily-console-input horarily-console-action-btn"
-                      onClick={restartOnboarding}
-                      style={{ maxWidth: 280 }}
-                    >
+                    <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={restartOnboarding} style={{ maxWidth: 280 }}>
                       CONFIRMAR REINICIO
                     </button>
-                    <button
-                      type="button"
-                      className="horarily-console-input horarily-console-action-btn"
-                      onClick={() => setAwaitingResetConfirm(false)}
-                      style={{ maxWidth: 220 }}
-                    >
+                    <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => setAwaitingResetConfirm(false)} style={{ maxWidth: 220 }}>
                       CANCELAR
                     </button>
                   </>
@@ -649,3 +611,11 @@ export function HorarilySpeakingCard({
 }
 
 export default HorarilySpeakingCard
+    const calculateAverage = (list: Array<{ score: number; weight?: number }>) => {
+      const totalWeight = list.reduce((acc, g) => acc + (g.weight ?? 0), 0)
+      if (totalWeight > 0) {
+        const weighted = list.reduce((acc, g) => acc + g.score * ((g.weight ?? 0) / 100), 0)
+        return weighted / (totalWeight / 100)
+      }
+      return list.reduce((acc, g) => acc + g.score, 0) / list.length
+    }
