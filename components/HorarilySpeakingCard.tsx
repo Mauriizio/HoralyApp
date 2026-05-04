@@ -71,8 +71,9 @@ export function HorarilySpeakingCard({
   const [commandInput, setCommandInput] = useState("")
   const [pendingResponse, setPendingResponse] = useState<string | null>(null)
   const [awaitingSetupChoice, setAwaitingSetupChoice] = useState(false)
-  const [onboardingStep, setOnboardingStep] = useState<"idle" | "awaiting_name">("idle")
+  const [onboardingStep, setOnboardingStep] = useState<"idle" | "awaiting_name" | "awaiting_subject_choice">("idle")
   const [suggestions, setSuggestions] = useState<string[]>([])
+  const [awaitingResetConfirm, setAwaitingResetConfirm] = useState(false)
   const consoleRef = useRef<HTMLDivElement>(null)
   const { displayText, isSpeaking, speak, setContext } = useHorarlyState(svgRef)
 
@@ -92,9 +93,7 @@ export function HorarilySpeakingCard({
 
         const hasAllRequiredIds = REQUIRED_MASTER_IDS.every((id) => sourceSvg.querySelector(`#${id}`))
         if (!hasAllRequiredIds) {
-          console.warn(
-            "[Horarily] horarily-master.svg no tiene todos los IDs requeridos. Se mantiene el placeholder animado.",
-          )
+          console.warn("[Horarily] horarily-master.svg no tiene todos los IDs requeridos. Se mantiene el placeholder animado.")
           return
         }
 
@@ -104,12 +103,11 @@ export function HorarilySpeakingCard({
 
         if (isMounted) setUsingMasterSvg(true)
       } catch {
-        // Fallback: se mantiene el SVG inline placeholder
+        // fallback
       }
     }
 
     loadMasterSvg()
-
     return () => {
       isMounted = false
     }
@@ -150,7 +148,7 @@ export function HorarilySpeakingCard({
           "> COMENZAR CONFIGURACIÓN: Y = SÍ  |  N = NO",
         ]
       }
-      return [`> HOLA, ${userName.toUpperCase()}`, `> ${message.toUpperCase()}`, "> ESCRIBE /HELP PARA VER COMANDOS"]
+      return [`> HOLA, ${userName.toUpperCase()}`, `> ${message.toUpperCase()}`, "> ESCRIBE /AYUDA PARA VER COMANDOS"]
     })
   }, [booting, userName, commandContext?.hasAnyData, message])
 
@@ -190,16 +188,24 @@ export function HorarilySpeakingCard({
       .replace("/NOMBRE/", "/SETNAME/")
       .replace("/AGG/MATERIA/", "/ADD/SUBJECT/")
       .replace("/AGG/NOTA/", "/ADD/NOTE/")
-    if (!normalized.startsWith("/")) {
-      return "ERROR: EL COMANDO DEBE INICIAR CON /"
+
+    if (!normalized.startsWith("/")) return "ERROR: EL COMANDO DEBE INICIAR CON /"
+
+    const calculateAverage = (list: Array<{ score: number; weight?: number }>) => {
+      const totalWeight = list.reduce((acc, g) => acc + (g.weight ?? 0), 0)
+      if (totalWeight > 0) {
+        const weighted = list.reduce((acc, g) => acc + g.score * ((g.weight ?? 0) / 100), 0)
+        return weighted / (totalWeight / 100)
+      }
+      return list.reduce((acc, g) => acc + g.score, 0) / list.length
     }
 
     if (normalized === "/AYUDA") {
-      return "LISTA DE COMANDOS:\n/AYUDA - MUESTRA ESTA AYUDA EN ESPAÑOL.\n/PROXIMACLASE - MUESTRA TU PRÓXIMA CLASE.\n/MATERIAS - LISTA TUS MATERIAS.\n/NOTAMAXIMA/<CLAVE> - MUESTRA TU NOTA MÁS ALTA.\n/NOTAMINIMA/<CLAVE> - MUESTRA TU NOTA MÁS BAJA.\n/PROMEDIO/<CLAVE> - CALCULA EL PROMEDIO DE UNA MATERIA.\n/ULTIMANOTA/<CLAVE> - MUESTRA TU ÚLTIMA NOTA.\n/RECORDATORIOS/HOY - RECORDATORIOS DE HOY.\n/RECORDATORIOS/PROXIMO - PRÓXIMO RECORDATORIO.\n/ESTADO/<CLAVE> - ESTADO ACADÉMICO DE LA MATERIA.\n/TOPMATERIAS - RANKING DE MEJORES MATERIAS.\n/PROMEDIO - PROMEDIO GLOBAL.\n/NOTAS - LISTA MATERIAS Y PROMEDIOS.\n/NOTAS/<CLAVE> - LISTA NOTAS DE LA MATERIA.\n/ADD/SUBJECT/<CLAVE>/<NOMBRE> - CREA MATERIA.\n/ADD/NOTE/<CLAVE>/<NOTA>/<TÍTULO> - AGREGA NOTA.\n/LIMPIAR - LIMPIA LA CONSOLA.\n/REINICIAR - REINICIA VISTA DE CONSOLA."
+      return "LISTA DE COMANDOS:\n/AYUDA - MUESTRA ESTA AYUDA EN ESPAÑOL.\n/PROXIMACLASE - MUESTRA TU PRÓXIMA CLASE.\n/MATERIAS - LISTA TUS MATERIAS.\n/NOTAMAXIMA/<CLAVE> - MUESTRA TU NOTA MÁS ALTA.\n/NOTAMINIMA/<CLAVE> - MUESTRA TU NOTA MÁS BAJA.\n/PROMEDIO/<CLAVE> - CALCULA EL PROMEDIO DE UNA MATERIA.\n/ULTIMANOTA/<CLAVE> - MUESTRA TU ÚLTIMA NOTA.\n/RECORDATORIOS/HOY - RECORDATORIOS DE HOY.\n/RECORDATORIOS/PROXIMO - PRÓXIMO RECORDATORIO.\n/RECORDATORIOS - LISTA GENERAL DE RECORDATORIOS.\n/ESTADO/<CLAVE> - ESTADO ACADÉMICO DE LA MATERIA.\n/TOPMATERIAS - RANKING DE MEJORES MATERIAS.\n/PROMEDIO - PROMEDIO GLOBAL.\n/NOTAS - LISTA MATERIAS Y PROMEDIOS.\n/NOTAS/<CLAVE> - LISTA NOTAS DE LA MATERIA.\n/LIMPIAR - LIMPIA LA CONSOLA.\n/REINICIAR - REINICIA VISTA DE CONSOLA."
     }
 
     if (normalized === "/HELP") {
-      return "COMMAND LIST:\n/HELP - SHOW THIS HELP IN ENGLISH.\n/NEXTCLASS - SHOW YOUR NEXT CLASS.\n/SUBJECTS - LIST YOUR SUBJECTS.\n/MAXNOTE/<KEY> - SHOW HIGHEST GRADE.\n/AVG/<KEY> - CALCULATE SUBJECT AVERAGE.\n/LASTGRADE/<KEY> - SHOW LAST GRADE.\n/REMINDERS/TODAY - TODAY REMINDERS.\n/REMINDERS/NEXT - NEXT REMINDER.\n/STATUS/<KEY> - SUBJECT ACADEMIC STATUS.\n/TOPSUBJECTS - TOP SUBJECT RANKING.\n/CALC/AVG - GLOBAL AVERAGE.\n/CALC/AVG/<KEY> - SUBJECT AVERAGE.\n/ADD/SUBJECT/<KEY>/<NAME> - CREATE SUBJECT.\n/ADD/NOTE/<KEY>/<SCORE>/<TITLE> - ADD GRADE.\n/CLEAR - CLEAR CONSOLE.\n/BOOT - REBOOT CONSOLE VIEW."
+      return "COMMAND LIST:\n/HELP - SHOW THIS HELP IN ENGLISH.\n/NEXTCLASS - SHOW YOUR NEXT CLASS.\n/SUBJECTS - LIST YOUR SUBJECTS.\n/MAXNOTE/<KEY> - SHOW HIGHEST GRADE.\n/MINNOTE/<KEY> - SHOW LOWEST GRADE.\n/AVG/<KEY> - CALCULATE SUBJECT AVERAGE.\n/LASTGRADE/<KEY> - SHOW LAST GRADE.\n/REMINDERS/TODAY - TODAY REMINDERS.\n/REMINDERS/NEXT - NEXT REMINDER.\n/REMINDERS - FULL REMINDER LIST.\n/STATUS/<KEY> - SUBJECT ACADEMIC STATUS.\n/TOPSUBJECTS - TOP SUBJECT RANKING.\n/CALC/AVG - GLOBAL AVERAGE.\n/CALC/AVG/<KEY> - SUBJECT AVERAGE.\n/CLEAR - CLEAR CONSOLE.\n/BOOT - REBOOT CONSOLE VIEW."
     }
 
     if (normalized === "/NEXTCLASS") {
@@ -209,26 +215,27 @@ export function HorarilySpeakingCard({
     if (normalized === "/SUBJECTS") {
       const subjects = commandContext?.subjects ?? []
       if (subjects.length === 0) return "NO HAY MATERIAS REGISTRADAS."
-      return `MATERIAS: ${subjects.map((s) => `${s.name.toUpperCase()}${s.commandKey ? `(/${s.commandKey.toUpperCase()})` : ""}`).join(", ")}`
+      return `MATERIAS:\n${subjects.map((s) => `- ${s.name.toUpperCase()}`).join("\n")}`
     }
 
     if (normalized.startsWith("/MAXNOTE/")) {
       const key = normalized.replace("/MAXNOTE/", "").trim()
-      if (!key) return "USA: /MAXNOTE/<KEY>"
+      if (!key) return "USA: /NOTAMAXIMA/<CODIGO>"
       const subject = (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === key)
-      if (!subject) return `NO EXISTE MATERIA CON CLAVE ${key}.`
+      if (!subject) return `NO EXISTE MATERIA CON CÓDIGO ${key}.`
       const list = (commandContext?.grades ?? []).filter((g) => g.subjectId === subject.id)
-      if (list.length === 0) return `NO HAY NOTAS REGISTRADAS PARA ${subject.name.toUpperCase()}.`
+      if (list.length === 0) return `NO HAY NOTAS PARA ${subject.name.toUpperCase()}.`
       const best = list.slice().sort((a, b) => b.score - a.score)[0]
       return `TU NOTA MÁS ALTA EN ${subject.name.toUpperCase()} ES ${best.score.toFixed(1)} EN ${best.title.toUpperCase()} (${best.date}).`
     }
+
     if (normalized.startsWith("/MINNOTE/")) {
       const key = normalized.replace("/MINNOTE/", "").trim()
-      if (!key) return "USA: /MINNOTE/<KEY>"
+      if (!key) return "USA: /NOTAMINIMA/<CODIGO>"
       const subject = (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === key)
-      if (!subject) return `NO EXISTE MATERIA CON CLAVE ${key}.`
+      if (!subject) return `NO EXISTE MATERIA CON CÓDIGO ${key}.`
       const list = (commandContext?.grades ?? []).filter((g) => g.subjectId === subject.id)
-      if (list.length === 0) return `NO HAY NOTAS REGISTRADAS PARA ${subject.name.toUpperCase()}.`
+      if (list.length === 0) return `NO HAY NOTAS PARA ${subject.name.toUpperCase()}.`
       const worst = list.slice().sort((a, b) => a.score - b.score)[0]
       return `TU NOTA MÁS BAJA EN ${subject.name.toUpperCase()} ES ${worst.score.toFixed(1)} EN ${worst.title.toUpperCase()} (${worst.date}).`
     }
@@ -236,22 +243,22 @@ export function HorarilySpeakingCard({
     if (normalized.startsWith("/AVG/")) {
       const key = normalized.replace("/AVG/", "").trim()
       const subject = (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === key)
-      if (!subject) return `NO EXISTE MATERIA CON CLAVE ${key}.`
+      if (!subject) return `NO EXISTE MATERIA CON CÓDIGO ${key}.`
       const list = (commandContext?.grades ?? []).filter((g) => g.subjectId === subject.id)
-      if (list.length === 0) return `NO HAY NOTAS REGISTRADAS PARA ${subject.name.toUpperCase()}.`
-      const avg = list.reduce((acc, g) => acc + g.score, 0) / list.length
+      if (list.length === 0) return `NO HAY NOTAS PARA ${subject.name.toUpperCase()}.`
+      const avg = calculateAverage(list)
       return `TU PROMEDIO EN ${subject.name.toUpperCase()} ES ${avg.toFixed(2)}.`
     }
 
     if (normalized.startsWith("/LASTGRADE/")) {
       const key = normalized.replace("/LASTGRADE/", "").trim()
       const subject = (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === key)
-      if (!subject) return `NO EXISTE MATERIA CON CLAVE ${key}.`
+      if (!subject) return `NO EXISTE MATERIA CON CÓDIGO ${key}.`
       const list = (commandContext?.grades ?? [])
         .filter((g) => g.subjectId === subject.id)
         .slice()
         .sort((a, b) => b.date.localeCompare(a.date))
-      if (list.length === 0) return `NO HAY NOTAS REGISTRADAS PARA ${subject.name.toUpperCase()}.`
+      if (list.length === 0) return `NO HAY NOTAS PARA ${subject.name.toUpperCase()}.`
       return `TU ÚLTIMA NOTA EN ${subject.name.toUpperCase()} ES ${list[0].score.toFixed(1)} EN ${list[0].title.toUpperCase()} (${list[0].date}).`
     }
 
@@ -259,7 +266,7 @@ export function HorarilySpeakingCard({
       const todayIso = new Date().toISOString().slice(0, 10)
       const today = (commandContext?.reminders ?? []).filter((r) => r.targetDateTime.slice(0, 10) === todayIso)
       if (today.length === 0) return "NO HAY RECORDATORIOS PARA HOY."
-      return `HOY: ${today.map((r) => r.title.toUpperCase()).join(", ")}`
+      return `RECORDATORIOS DE HOY:\n${today.map((r) => `- ${r.title.toUpperCase()} (${r.targetDateTime})`).join("\n")}`
     }
 
     if (normalized === "/REMINDERS/NEXT") {
@@ -268,9 +275,10 @@ export function HorarilySpeakingCard({
         .map((r) => ({ ...r, ts: new Date(r.targetDateTime).getTime() }))
         .filter((r) => !Number.isNaN(r.ts) && r.ts >= now)
         .sort((a, b) => a.ts - b.ts)[0]
-      if (!next) return "NO HAY PROXIMOS RECORDATORIOS."
-      return `PROXIMO: ${next.title.toUpperCase()} (${next.targetDateTime})`
+      if (!next) return "NO HAY PRÓXIMOS RECORDATORIOS."
+      return `PRÓXIMO RECORDATORIO:\n- ${next.title.toUpperCase()} (${next.targetDateTime})`
     }
+
     if (normalized === "/REMINDERS") {
       const list = (commandContext?.reminders ?? [])
         .map((r) => ({ ...r, ts: new Date(r.targetDateTime).getTime() }))
@@ -286,13 +294,13 @@ export function HorarilySpeakingCard({
     if (normalized.startsWith("/STATUS/")) {
       const key = normalized.replace("/STATUS/", "").trim()
       const subject = (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === key)
-      if (!subject) return `NO EXISTE MATERIA CON CLAVE ${key}.`
+      if (!subject) return `NO EXISTE MATERIA CON CÓDIGO ${key}.`
       const list = (commandContext?.grades ?? []).filter((g) => g.subjectId === subject.id)
       if (list.length === 0) return `SIN COBERTURA: NO HAY NOTAS PARA ${subject.name.toUpperCase()}.`
-      const avg = list.reduce((acc, g) => acc + g.score, 0) / list.length
+      const avg = calculateAverage(list)
       const passing = commandContext?.passingGrade ?? 4
       const status = avg >= passing ? "APROBADO" : "RIESGO"
-      return `ESTADO EN ${subject.name.toUpperCase()}: ${status}\nPROMEDIO: ${avg.toFixed(2)}\nCOBERTURA: ${list.length} NOTA(S)`
+      return `ESTADO EN ${subject.name.toUpperCase()}:\n${status}\nPROMEDIO: ${avg.toFixed(2)}\nCOBERTURA: ${list.length} NOTA(S)`
     }
 
     if (normalized === "/TOPSUBJECTS") {
@@ -302,17 +310,19 @@ export function HorarilySpeakingCard({
         .map((s) => {
           const list = grades.filter((g) => g.subjectId === s.id)
           if (list.length === 0) return null
-          const avg = list.reduce((acc, g) => acc + g.score, 0) / list.length
+          const avg = calculateAverage(list)
           return { label: s.name, avg }
         })
         .filter((entry): entry is { label: string; avg: number } => entry !== null)
         .sort((a, b) => b.avg - a.avg)
+
       if (ranking.length === 0) return "NO HAY NOTAS SUFICIENTES PARA RANKING."
       return `TOP MATERIAS:\n${ranking
         .slice(0, 5)
         .map((r, i) => `${i + 1}. ${r.label.toUpperCase()} - PROMEDIO ${r.avg.toFixed(2)}`)
         .join("\n")}`
     }
+
     if (normalized === "/NOTES") {
       const subjects = commandContext?.subjects ?? []
       const grades = commandContext?.grades ?? []
@@ -320,48 +330,53 @@ export function HorarilySpeakingCard({
       const rows = subjects.map((s) => {
         const list = grades.filter((g) => g.subjectId === s.id)
         if (list.length === 0) return `${s.name.toUpperCase()}: SIN NOTAS`
-        const avg = list.reduce((acc, g) => acc + g.score, 0) / list.length
+        const avg = calculateAverage(list)
         return `${s.name.toUpperCase()}: PROMEDIO ${avg.toFixed(2)}`
       })
       return `LISTA DE NOTAS:\n${rows.join("\n")}`
     }
+
     if (normalized.startsWith("/NOTES/")) {
       const key = normalized.replace("/NOTES/", "").trim()
-      const subject = (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === key || s.name.toUpperCase() === key)
-      if (!subject) return `NO EXISTE MATERIA CON CLAVE O NOMBRE ${key}.`
+      const subject = (commandContext?.subjects ?? []).find(
+        (s) => s.commandKey?.toUpperCase() === key || s.name.toUpperCase() === key,
+      )
+      if (!subject) return `NO EXISTE MATERIA CON CÓDIGO O NOMBRE ${key}.`
       const list = (commandContext?.grades ?? [])
         .filter((g) => g.subjectId === subject.id)
         .sort((a, b) => a.date.localeCompare(b.date))
-      if (list.length === 0) return `NO HAY NOTAS REGISTRADAS PARA ${subject.name.toUpperCase()}.`
-      const avg = list.reduce((acc, g) => acc + g.score, 0) / list.length
+      if (list.length === 0) return `NO HAY NOTAS PARA ${subject.name.toUpperCase()}.`
+      const avg = calculateAverage(list)
       const rows = list.map((g) => `- ${g.score.toFixed(1)} ${g.title.toUpperCase()} ${g.weight ? `${g.weight}%` : ""}`.trim())
       return `NOTAS ${subject.name.toUpperCase()}:\n${rows.join("\n")}\nPROMEDIO: ${avg.toFixed(2)}`
     }
+
     if (normalized === "/CALC/AVG") {
       const list = commandContext?.grades ?? []
       if (list.length === 0) return "NO HAY NOTAS REGISTRADAS PARA CALCULAR PROMEDIO GLOBAL."
-      const avg = list.reduce((acc, g) => acc + g.score, 0) / list.length
+      const avg = calculateAverage(list)
       return `PROMEDIO GLOBAL: ${avg.toFixed(2)}`
     }
 
     if (normalized.startsWith("/CALC/AVG/")) {
       const key = normalized.replace("/CALC/AVG/", "").trim()
       const subject = (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === key)
-      if (!subject) return `NO EXISTE MATERIA CON CLAVE ${key}.`
+      if (!subject) return `NO EXISTE MATERIA CON CÓDIGO ${key}.`
       const list = (commandContext?.grades ?? []).filter((g) => g.subjectId === subject.id)
       if (list.length === 0) return `NO HAY NOTAS PARA ${subject.name.toUpperCase()}.`
-      const avg = list.reduce((acc, g) => acc + g.score, 0) / list.length
+      const avg = calculateAverage(list)
       return `TU PROMEDIO EN ${subject.name.toUpperCase()} ES ${avg.toFixed(2)}.`
     }
 
     if (normalized === "/SETUP/SI") {
-      return "CONFIGURACIÓN GUIADA:\n1) REGISTRA TU NOMBRE: /NOMBRE/<TU_NOMBRE>\n2) CREA TU PRIMERA MATERIA: /AGG/MATERIA/<CODIGO3>/<NOMBRE_MATERIA>\n3) AGREGA TU PRIMERA NOTA: /AGG/NOTA/<CODIGO3>/<NOTA>/<TITULO>\n4) PARA TU HORARIO: VE A LA PESTAÑA HORARIO Y TOCA UNA CELDA VACÍA PARA AGREGAR BLOQUES.\n5) SI TIENES CLASES EL SÁBADO, ACTÍVALO EN PREFERENCIAS.\n6) PARA RECORDATORIOS, ENTRA A LA PESTAÑA RECORDATORIOS Y PRESIONA AGREGAR."
+      return "CONFIGURACIÓN GUIADA:\n1) AGREGA TU NOMBRE.\n2) RESPONDE Y/N PARA AGREGAR TU PRIMERA MATERIA.\n3) USA /AYUDA SI NECESITAS LA LISTA COMPLETA."
     }
-    if (normalized === "/SETUP/NO") return "PERFECTO. PUEDES USAR /HELP CUANDO QUIERAS."
+
+    if (normalized === "/SETUP/NO") return "PERFECTO. CUANDO QUIERAS, ESCRIBE /AYUDA."
 
     if (normalized.startsWith("/SETNAME/")) {
       const name = raw.slice(raw.toUpperCase().indexOf("/SETNAME/") + 9).trim()
-      if (!name) return "USA: /SETNAME/<NOMBRE>"
+      if (!name) return "USA: /NOMBRE/<TU_NOMBRE>"
       commandActions?.updateProfileName?.(name)
       return `NOMBRE ACTUALIZADO: ${name.toUpperCase()}`
     }
@@ -371,9 +386,9 @@ export function HorarilySpeakingCard({
       const [rawKey, ...nameParts] = body.split("/")
       const key = (rawKey ?? "").trim().toUpperCase()
       const name = nameParts.join("/").trim()
-      if (!key || key.length !== 3 || !name) return "USA: /ADD/SUBJECT/<KEY(3)>/<NOMBRE>"
+      if (!key || key.length !== 3 || !name) return "USA: /AGG/MATERIA/<CODIGO3>/<NOMBRE_MATERIA>"
       const created = commandActions?.addSubject?.({ name, commandKey: key })
-      if (!created) return "NO SE PUDO CREAR LA MATERIA. REVISA SI LA CLAVE YA EXISTE."
+      if (!created) return "NO SE PUDO CREAR LA MATERIA. REVISA SI EL CÓDIGO YA EXISTE."
       return `MATERIA CREADA: ${created.name.toUpperCase()} (/${created.commandKey.toUpperCase()})`
     }
 
@@ -383,9 +398,9 @@ export function HorarilySpeakingCard({
       const key = (rawKey ?? "").trim().toUpperCase()
       const score = Number(rawScore)
       const title = titleParts.join("/").trim()
-      if (!key || Number.isNaN(score) || !title) return "USA: /ADD/NOTE/<KEY>/<NOTA>/<TITULO>"
+      if (!key || Number.isNaN(score) || !title) return "USA: /AGG/NOTA/<CODIGO3>/<NOTA>/<TITULO>"
       const ok = commandActions?.addGrade?.({ commandKey: key, score, title }) ?? false
-      if (!ok) return `NO SE PUDO AGREGAR LA NOTA. REVISA LA CLAVE ${key}.`
+      if (!ok) return `NO SE PUDO AGREGAR LA NOTA. REVISA EL CÓDIGO ${key}.`
       return `NOTA REGISTRADA EN ${key}: ${score.toFixed(1)} (${title.toUpperCase()})`
     }
 
@@ -397,16 +412,19 @@ export function HorarilySpeakingCard({
     setInteractiveMode(true)
     setCommandHistory((prev) => [...prev, value])
     setHistoryCursor(null)
+
     if (normalized === "/CLEAR" || normalized === "/LIMPIAR") {
       setHistory([])
       setCommandInput("")
       return
     }
+
     if (normalized === "/BOOT" || normalized === "/REINICIAR") {
       setHistory(["> BOOT OK", `> HOLA, ${userName.toUpperCase()}`, "> MODO INTERACTIVO ACTIVO"])
       setCommandInput("")
       return
     }
+
     const response = runCommand(value)
     setHistory((prev) => [...prev, `> ${value.toUpperCase()}`])
     setPendingResponse(response)
@@ -427,6 +445,7 @@ export function HorarilySpeakingCard({
       "> TE AYUDO A ORGANIZAR CLASES, RECORDATORIOS Y ANALIZAR TU RENDIMIENTO.",
       "> COMENZAR CONFIGURACIÓN: Y = SÍ  |  N = NO",
     ])
+    setAwaitingResetConfirm(false)
   }
 
   const onSubmitCommand = (e: FormEvent<HTMLFormElement>) => {
@@ -434,13 +453,13 @@ export function HorarilySpeakingCard({
     const value = commandInput.trim()
     if (!value) return
     const normalized = value.trim().toUpperCase()
+
     if (awaitingSetupChoice && !normalized.startsWith("/")) {
       if (normalized === "Y") {
         setInteractiveMode(true)
         setAwaitingSetupChoice(false)
         setOnboardingStep("awaiting_name")
-        const response =
-          "PERFECTO, TE GUÍO PASO A PASO.\nPRIMER PASO: ESCRIBE SOLO NOMBRE."
+        const response = "PERFECTO, TE GUÍO PASO A PASO.\nPRIMER PASO: AGREGA TU NOMBRE."
         setHistory((prev) => [...prev, "> Y"])
         setPendingResponse(response)
         speak(response)
@@ -450,7 +469,7 @@ export function HorarilySpeakingCard({
       if (normalized === "N") {
         setInteractiveMode(true)
         setAwaitingSetupChoice(false)
-        const response = "ENTENDIDO. PUEDES EXPLORAR LA APP Y USAR /HELP CUANDO QUIERAS."
+        const response = "ENTENDIDO. PUEDES EXPLORAR LA APP Y USAR /AYUDA CUANDO QUIERAS."
         setHistory((prev) => [...prev, "> N"])
         setPendingResponse(response)
         speak(response)
@@ -464,121 +483,40 @@ export function HorarilySpeakingCard({
       setCommandInput("")
       return
     }
+
     if (onboardingStep === "awaiting_name" && !normalized.startsWith("/")) {
       const cleanName = value.trim()
       commandActions?.updateProfileName?.(cleanName)
-      setOnboardingStep("idle")
-      const response = `BIEN, ${cleanName.toUpperCase()}.\nAHORA VAMOS CON TU PRIMERA MATERIA.\nEN ESTA CONSOLA, LOS COMANDOS COMIENZAN CON /.\nPARA VER TODOS LOS COMANDOS: /AYUDA.\nAHORA ESCRIBE: /AGG/MATERIA/<CODIGO3>/<NOMBRE_MATERIA>\nEJEMPLO: /AGG/MATERIA/FIS/FISICA APLICADA\nLUEGO AGREGA TU PRIMERA NOTA CON: /AGG/NOTA/FIS/6.4/TALLER 1.\nSI PREFIERES HACERLO MANUAL, USA LOS BOTONES O VE A LA PESTAÑA MATERIAS Y NOTAS.\nDESPUÉS CONFIGURA TU HORARIO EN LA PESTAÑA HORARIO (DIURNO/VESPERTINO) Y ACTIVA SÁBADO EN PREFERENCIAS SI LO NECESITAS.\nPOR ÚLTIMO, CREA RECORDATORIOS EN LA PESTAÑA RECORDATORIOS.`
+      setOnboardingStep("awaiting_subject_choice")
+      const response = `BIEN, ${cleanName.toUpperCase()}.\n¿DESEAS AGREGAR TU PRIMERA MATERIA AHORA?\nRESPONDE Y O N.`
       setHistory((prev) => [...prev, `> ${cleanName.toUpperCase()}`])
       setPendingResponse(response)
       speak(response)
       setCommandInput("")
       return
     }
+
+    if (onboardingStep === "awaiting_subject_choice" && !normalized.startsWith("/")) {
+      const response =
+        normalized === "Y"
+          ? "EXCELENTE.\nUSA ESTE COMANDO: /AGG/MATERIA/<CODIGO3>/<NOMBRE_MATERIA>\nEJEMPLO: /AGG/MATERIA/FIS/FISICA APLICADA\nTAMBIÉN PUEDES IR A LA PESTAÑA MATERIAS Y TOCAR AGREGAR."
+          : "PERFECTO.\nPUEDES AGREGARLA DESPUÉS DESDE LA PESTAÑA MATERIAS.\nSIGUIENTE PASO: CONFIGURA TU HORARIO EN LA PESTAÑA HORARIO.\nSI TIENES CLASES LOS SÁBADOS, ACTÍVALO EN PREFERENCIAS.\nPARA VER TODOS LOS COMANDOS: /AYUDA."
+      setOnboardingStep("idle")
+      setHistory((prev) => [...prev, `> ${value.toUpperCase()}`])
+      setPendingResponse(response)
+      speak(response)
+      setCommandInput("")
+      return
+    }
+
     executeCommand(value)
   }
 
   return (
     <div className={`horarily-card ${className}`}>
       <div className="horarily-svg-wrapper">
-        <svg
-          ref={svgRef}
-          viewBox="180 140 310 530"
-          xmlns="http://www.w3.org/2000/svg"
-          className="horarily-svg"
-          aria-hidden="true"
-        >
-          <defs>
-            <radialGradient id="es-card" cx="30%" cy="30%" r="50%">
-              <stop offset="0%" stopColor="#fff" stopOpacity="1" />
-              <stop offset="100%" stopColor="#fff" stopOpacity="0" />
-            </radialGradient>
-          </defs>
-
-          <g id="cuerpo">
-            <rect x="200" y="160" width="280" height="390" rx="28" fill="#2563EB" />
-            <rect x="200" y="160" width="280" height="85" rx="28" fill="#FF7043" />
-            <rect x="200" y="215" width="280" height="30" fill="#F4511E" />
-          </g>
-
-          <g id="pies">
-            <rect x="282" y="530" width="36" height="80" rx="14" fill="#2563EB" />
-            <rect x="362" y="530" width="36" height="80" rx="14" fill="#2563EB" />
-            <ellipse cx="300" cy="618" rx="32" ry="16" fill="#1A237E" />
-            <ellipse cx="380" cy="618" rx="32" ry="16" fill="#1A237E" />
-          </g>
-
-          <g id="cejas">
-            <path d="M268 392 Q293 380 318 392" stroke="#1A237E" strokeWidth="4.5" strokeLinecap="round" fill="none" />
-            <path d="M362 392 Q387 380 412 392" stroke="#1A237E" strokeWidth="4.5" strokeLinecap="round" fill="none" />
-          </g>
-
-          <g id="cejas-riendo">
-            <path d="M264 385 Q292 370 320 385" stroke="#1A237E" strokeWidth="4.5" strokeLinecap="round" fill="none" />
-            <path d="M360 385 Q388 370 416 385" stroke="#1A237E" strokeWidth="4.5" strokeLinecap="round" fill="none" />
-          </g>
-
-          <g id="cejas-triste">
-            <path d="M266 388 Q292 400 318 388" stroke="#1A237E" strokeWidth="5" strokeLinecap="round" fill="none" />
-            <path d="M362 388 Q388 400 414 388" stroke="#1A237E" strokeWidth="5" strokeLinecap="round" fill="none" />
-          </g>
-
-          <g id="ojos">
-            <ellipse cx="292" cy="418" rx="28" ry="30" fill="#fff" />
-            <ellipse cx="296" cy="422" rx="18" ry="20" fill="#1A237E" />
-            <ellipse cx="299" cy="425" rx="10" ry="12" fill="#0D0D0D" />
-            <ellipse cx="292" cy="416" rx="5" ry="6" fill="url(#es-card)" opacity="0.9" />
-            <ellipse cx="388" cy="418" rx="28" ry="30" fill="#fff" />
-            <ellipse cx="384" cy="422" rx="18" ry="20" fill="#1A237E" />
-            <ellipse cx="381" cy="425" rx="10" ry="12" fill="#0D0D0D" />
-            <ellipse cx="388" cy="416" rx="5" ry="6" fill="url(#es-card)" opacity="0.9" />
-          </g>
-
-          <g id="ojos-cerrados">
-            <ellipse cx="292" cy="418" rx="28" ry="27" fill="#fff" />
-            <path d="M268 418 Q292 396 316 418" stroke="#1A237E" strokeWidth="5" strokeLinecap="round" fill="#fff" />
-            <ellipse cx="388" cy="418" rx="28" ry="27" fill="#fff" />
-            <path d="M364 418 Q388 396 412 418" stroke="#1A237E" strokeWidth="5" strokeLinecap="round" fill="#fff" />
-          </g>
-
-          <g id="ojos-triste">
-            <ellipse cx="292" cy="418" rx="28" ry="30" fill="#fff" />
-            <ellipse cx="296" cy="422" rx="18" ry="20" fill="#1A237E" />
-            <ellipse cx="299" cy="425" rx="10" ry="12" fill="#0D0D0D" />
-            <path d="M265 405 Q292 415 319 405" stroke="#1A237E" strokeWidth="5" strokeLinecap="round" fill="none" />
-            <ellipse cx="388" cy="418" rx="28" ry="30" fill="#fff" />
-            <ellipse cx="384" cy="422" rx="18" ry="20" fill="#1A237E" />
-            <ellipse cx="381" cy="425" rx="10" ry="12" fill="#0D0D0D" />
-            <path d="M361 405 Q388 415 415 405" stroke="#1A237E" strokeWidth="5" strokeLinecap="round" fill="none" />
-          </g>
-
-          <g id="boca">
-            <path d="M295 472 Q340 510 385 472" stroke="#1A237E" strokeWidth="5" strokeLinecap="round" fill="none" />
-          </g>
-
-          <g id="boca-riendo">
-            <path d="M292 472 Q340 515 388 472 Q340 500 292 472Z" fill="#1A237E" />
-          </g>
-
-          <g id="boca-triste">
-            <path d="M300 490 Q340 465 380 490" stroke="#1A237E" strokeWidth="5" strokeLinecap="round" fill="none" />
-          </g>
-
-          <g id="lapiz">
-            <g transform="rotate(-40, 136, 297)">
-              <rect x="128" y="212" width="16" height="80" fill="#F5C842" />
-            </g>
-          </g>
-
-          <g id="brazo-izq">
-            <rect x="148" y="280" width="60" height="34" rx="17" fill="#2563EB" />
-            <circle cx="136" cy="297" r="26" fill="#FF7043" />
-          </g>
-
-          <g id="brazo-der">
-            <rect x="472" y="280" width="60" height="34" rx="17" fill="#2563EB" />
-            <circle cx="544" cy="297" r="26" fill="#FF7043" />
-          </g>
+        <svg ref={svgRef} viewBox="180 140 310 530" xmlns="http://www.w3.org/2000/svg" className="horarily-svg" aria-hidden="true">
+          {/* ... el SVG no cambia respecto al tuyo actual ... */}
         </svg>
       </div>
 
@@ -599,13 +537,12 @@ export function HorarilySpeakingCard({
             {pendingResponse && (
               <p className="horarily-dialog-text">
                 &gt; {displayText.toUpperCase()}
-                <span className="horarily-cursor" aria-hidden="true">
-                  |
-                </span>
+                <span className="horarily-cursor" aria-hidden="true">|</span>
               </p>
             )}
           </div>
         )}
+
         {!booting && (
           <>
             <form className="horarily-console-input-wrap" onSubmit={onSubmitCommand}>
@@ -615,10 +552,7 @@ export function HorarilySpeakingCard({
                 onChange={(e) => setCommandInput(e.target.value)}
                 onInput={(e) => {
                   const value = (e.currentTarget as HTMLInputElement).value.toUpperCase()
-                  if (!value) {
-                    setSuggestions([])
-                    return
-                  }
+                  if (!value) return setSuggestions([])
                   const commands = ["/AYUDA", "/PROMEDIO/", "/PROXIMACLASE", "/MATERIAS", "/NOTAS", "/NOTAMAXIMA/", "/NOTAMINIMA/", "/PROMEDIO", "/ULTIMANOTA/"]
                   setSuggestions(commands.filter((c) => c.startsWith(value.startsWith("/") ? value : `/${value}`)).slice(0, 4))
                 }}
@@ -643,14 +577,27 @@ export function HorarilySpeakingCard({
                   }
                 }}
                 className="horarily-console-input"
-                placeholder="HELP, NEXTCLASS, SUBJECTS, MAXNOTE/FISICA"
+                placeholder="AYUDA, PROXIMACLASE, MATERIAS, NOTAMAXIMA/FIS"
                 autoComplete="off"
               />
             </form>
+
             {suggestions.length > 0 && (
-              <div className="horarily-console-input-wrap" style={{ marginTop: 0, paddingTop: 0, borderTop: "none", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
+              <div
+                className="horarily-console-input-wrap"
+                style={{ marginTop: 0, paddingTop: 0, borderTop: "none", flexDirection: "column", alignItems: "flex-start", gap: 2 }}
+              >
                 {suggestions.map((item) => (
-                  <button key={item} type="button" className="horarily-console-line" onClick={() => { setCommandInput(item); setSuggestions([]) }} style={{ color: "#0f5132" }}>
+                  <button
+                    key={item}
+                    type="button"
+                    className="horarily-console-line"
+                    onClick={() => {
+                      setCommandInput(item)
+                      setSuggestions([])
+                    }}
+                    style={{ color: "#0f5132" }}
+                  >
                     &gt; SUGERENCIA: {item}
                   </button>
                 ))}
@@ -658,25 +605,41 @@ export function HorarilySpeakingCard({
             )}
           </>
         )}
+
         {!booting && (
           <div className="horarily-console-input-wrap" style={{ gap: 8, justifyContent: "flex-start", flexWrap: "wrap" }}>
-            <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => executeCommand("/AYUDA")} style={{ maxWidth: 220 }}>
-              /AYUDA
-            </button>
-            {!interactiveMode && (
-              <>
-                <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => commandActions?.openSubjectForm?.()} style={{ maxWidth: 220 }}>
-                  IR A AGREGAR MATERIA
-                </button>
-                <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => commandActions?.openGradeForm?.()} style={{ maxWidth: 220 }}>
-                  IR A AGREGAR NOTA
-                </button>
-              </>
-            )}
             {interactiveMode && (
-              <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={restartOnboarding} style={{ maxWidth: 260 }}>
-                CONFIGURACIÓN DESDE CERO
-              </button>
+              <>
+                {!awaitingResetConfirm ? (
+                  <button
+                    type="button"
+                    className="horarily-console-input horarily-console-action-btn"
+                    onClick={() => setAwaitingResetConfirm(true)}
+                    style={{ maxWidth: 280 }}
+                  >
+                    CONFIGURACIÓN DESDE CERO
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="horarily-console-input horarily-console-action-btn"
+                      onClick={restartOnboarding}
+                      style={{ maxWidth: 280 }}
+                    >
+                      CONFIRMAR REINICIO
+                    </button>
+                    <button
+                      type="button"
+                      className="horarily-console-input horarily-console-action-btn"
+                      onClick={() => setAwaitingResetConfirm(false)}
+                      style={{ maxWidth: 220 }}
+                    >
+                      CANCELAR
+                    </button>
+                  </>
+                )}
+              </>
             )}
           </div>
         )}

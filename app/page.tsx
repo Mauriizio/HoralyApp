@@ -337,7 +337,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         <main className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 py-4 sm:py-6">
           {/* Greeting */}
           <div className="mb-4">
-            <HorarilySpeakingCard
+          <HorarilySpeakingCard
   userName={data.profile.displayName}
   message={`${t("profile.assistant.hello")} ${assistantMessage}`}
   commandContext={{
