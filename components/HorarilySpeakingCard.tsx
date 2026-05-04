@@ -37,6 +37,7 @@ interface HorarilySpeakingCardProps {
     reminders?: Array<{ title: string; targetDateTime: string }>
     passingGrade?: number
     hasAnyData?: boolean
+    language?: "es" | "en"
   }
   commandActions?: {
     addSubject?: (payload: { name: string; commandKey: string }) => { name: string; commandKey: string } | null
@@ -182,6 +183,9 @@ export function HorarilySpeakingCard({
       .replace("/RECORDATORIOS/HOY", "/REMINDERS/TODAY")
       .replace("/RECORDATORIOS/PROXIMO", "/REMINDERS/NEXT")
       .replace("/NOTAS", "/NOTES")
+      .replace("/NOMBRE/", "/SETNAME/")
+      .replace("/AGG/MATERIA/", "/ADD/SUBJECT/")
+      .replace("/AGG/NOTA/", "/ADD/NOTE/")
     if (!normalized.startsWith("/")) {
       return "ERROR: EL COMANDO DEBE INICIAR CON /"
     }
@@ -333,7 +337,7 @@ export function HorarilySpeakingCard({
     }
 
     if (normalized === "/SETUP/SI") {
-      return "CONFIGURACIÓN GUIADA: 1) /SETNAME/<NOMBRE> 2) /ADD/SUBJECT/<KEY>/<NOMBRE> 3) /ADD/NOTE/<KEY>/<NOTA>/<TITULO>"
+      return "CONFIGURACIÓN GUIADA:\n1) REGISTRA TU NOMBRE: /NOMBRE/<TU_NOMBRE>\n2) CREA TU PRIMERA MATERIA: /AGG/MATERIA/<CODIGO3>/<NOMBRE_MATERIA>\n3) AGREGA TU PRIMERA NOTA: /AGG/NOTA/<CODIGO3>/<NOTA>/<TITULO>\n4) PARA TU HORARIO: VE A LA PESTAÑA HORARIO Y TOCA UNA CELDA VACÍA PARA AGREGAR BLOQUES.\n5) SI TIENES CLASES EL SÁBADO, ACTÍVALO EN PREFERENCIAS.\n6) PARA RECORDATORIOS, ENTRA A LA PESTAÑA RECORDATORIOS Y PRESIONA AGREGAR."
     }
     if (normalized === "/SETUP/NO") return "PERFECTO. PUEDES USAR /HELP CUANDO QUIERAS."
 
@@ -403,7 +407,7 @@ export function HorarilySpeakingCard({
         setInteractiveMode(true)
         setAwaitingSetupChoice(false)
         const response =
-          "PERFECTO. PRIMER PASO: ESCRIBE /SETNAME/<NOMBRE>. LUEGO USA /ADD/SUBJECT/<KEY>/<NOMBRE> Y /ADD/NOTE/<KEY>/<NOTA>/<TITULO>."
+          "PERFECTO, TE GUÍO PASO A PASO.\nPRIMER PASO: REGISTRA TU NOMBRE CON /NOMBRE/<TU_NOMBRE>.\nDESPUÉS TE ENSEÑO A AGREGAR TU PRIMERA MATERIA Y TU PRIMERA NOTA."
         setHistory((prev) => [...prev, "> Y"])
         setPendingResponse(response)
         speak(response)

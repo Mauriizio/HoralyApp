@@ -360,6 +360,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
     })),
     passingGrade: data.settings.gradeScale.passing,
     hasAnyData,
+    language: data.settings.language,
   }}
   commandActions={{
     addSubject: addSubjectFromConsole,
