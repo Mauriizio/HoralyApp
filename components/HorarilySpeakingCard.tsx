@@ -217,7 +217,9 @@ export function HorarilySpeakingCard({
         </p>
         <p className="horarily-dialog-text">
           {booting ? (
-            <span className="horarily-boot-text">HORARY NOTE 1.0 BY MAURIZIO.DEV</span>
+            <span className="horarily-boot-viewport" aria-live="polite">
+              <span className="horarily-boot-text">HORARILY NOTE :: BOOTING SYSTEM...</span>
+            </span>
           ) : (
             <>
               {displayText}

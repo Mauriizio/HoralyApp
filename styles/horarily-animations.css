@@ -320,6 +320,8 @@
   border-radius: 0.4rem;
   padding: 0.5rem 0.6rem;
   box-shadow: inset 0 0 0 1px rgba(122, 156, 94, 0.3);
+  overflow: hidden;
+  position: relative;
 }
 
 .horarily-dialog-greeting {
@@ -334,13 +336,31 @@
 
 .horarily-dialog-text {
   margin-top: 0.25rem;
-  color: #1f3d1f;
-  font-size: 0.9rem;
-  font-family: "TiltNeon", "Share Tech Mono", "Courier New", monospace;
-  line-height: 1.45;
+  color: #173617;
+  font-size: 1rem;
+  font-family: "VT323", "Courier New", monospace;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
   overflow-wrap: anywhere;
   word-break: break-word;
   white-space: normal;
+  text-transform: uppercase;
+  text-shadow: 0 0 2px rgba(42, 88, 42, 0.3);
+}
+
+.horarily-dialog-text::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(32, 86, 32, 0.05) 0px,
+      rgba(32, 86, 32, 0.05) 1px,
+      rgba(255, 255, 255, 0) 1px,
+      rgba(255, 255, 255, 0) 3px
+    );
 }
 
 .horarily-cursor {
@@ -350,20 +370,40 @@
 
 @keyframes horarily-boot-scan {
   from {
-    transform: translateX(-100%);
+    transform: translateX(-120%);
   }
   to {
-    transform: translateX(100%);
+    transform: translateX(120%);
   }
+}
+
+@keyframes horarily-boot-glow {
+  0%,
+  100% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.horarily-boot-viewport {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .horarily-boot-text {
   display: inline-block;
   white-space: nowrap;
-  animation: horarily-boot-scan 1.8s linear infinite;
+  padding-right: 1.25rem;
+  animation:
+    horarily-boot-scan 1.9s steps(22, end) infinite,
+    horarily-boot-glow 0.7s steps(2, end) infinite;
 }
 @font-face {
-  font-family: "TiltNeon";
-  src: url("/fonts/TiltNeon.ttf") format("truetype");
+  font-family: "VT323";
+  src: url("/fonts/VT323-Regular.ttf") format("truetype");
   font-display: swap;
 }
