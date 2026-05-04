@@ -33,7 +33,7 @@ interface HorarilySpeakingCardProps {
   commandContext?: {
     nextClassText?: string
     subjects?: Array<{ id: string; name: string; commandKey?: string }>
-    grades?: Array<{ subjectId: string; title: string; score: number; date: string }>
+    grades?: Array<{ subjectId: string; title: string; score: number; date: string; weight?: number }>
     reminders?: Array<{ title: string; targetDateTime: string }>
     passingGrade?: number
     hasAnyData?: boolean
@@ -69,6 +69,7 @@ export function HorarilySpeakingCard({
   const [commandInput, setCommandInput] = useState("")
   const [pendingResponse, setPendingResponse] = useState<string | null>(null)
   const [awaitingSetupChoice, setAwaitingSetupChoice] = useState(false)
+  const [suggestions, setSuggestions] = useState<string[]>([])
   const consoleRef = useRef<HTMLDivElement>(null)
   const { displayText, speak, setContext } = useHorarlyState(svgRef)
 
@@ -200,6 +201,16 @@ export function HorarilySpeakingCard({
       const best = list.slice().sort((a, b) => b.score - a.score)[0]
       return `MAXNOTE ${key}: ${best.score.toFixed(1)} EN ${best.title.toUpperCase()} (${best.date}).`
     }
+    if (normalized.startsWith("/MINNOTE/")) {
+      const key = normalized.replace("/MINNOTE/", "").trim()
+      if (!key) return "USA: /MINNOTE/<KEY>"
+      const subject = (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === key)
+      if (!subject) return `NO EXISTE MATERIA CON CLAVE ${key}.`
+      const list = (commandContext?.grades ?? []).filter((g) => g.subjectId === subject.id)
+      if (list.length === 0) return `NO HAY NOTAS REGISTRADAS PARA ${subject.name.toUpperCase()}.`
+      const worst = list.slice().sort((a, b) => a.score - b.score)[0]
+      return `MINNOTE ${key}: ${worst.score.toFixed(1)} EN ${worst.title.toUpperCase()} (${worst.date}).`
+    }
 
     if (normalized.startsWith("/AVG/")) {
       const key = normalized.replace("/AVG/", "").trim()
@@ -266,6 +277,30 @@ export function HorarilySpeakingCard({
         .sort((a, b) => b.avg - a.avg)
       if (ranking.length === 0) return "NO HAY NOTAS SUFICIENTES PARA RANKING."
       return `TOP: ${ranking.slice(0, 5).map((r, i) => `${i + 1}.${r.key.toUpperCase()}(${r.avg.toFixed(2)})`).join(" ")}`
+    }
+    if (normalized === "/NOTES") {
+      const subjects = commandContext?.subjects ?? []
+      const grades = commandContext?.grades ?? []
+      if (subjects.length === 0) return "NO HAY MATERIAS REGISTRADAS."
+      const rows = subjects.map((s) => {
+        const list = grades.filter((g) => g.subjectId === s.id)
+        if (list.length === 0) return `${s.name.toUpperCase()}: SIN NOTAS`
+        const avg = list.reduce((acc, g) => acc + g.score, 0) / list.length
+        return `${s.name.toUpperCase()}: PROMEDIO ${avg.toFixed(2)}`
+      })
+      return `LISTA DE NOTAS:\n${rows.join("\n")}`
+    }
+    if (normalized.startsWith("/NOTES/")) {
+      const key = normalized.replace("/NOTES/", "").trim()
+      const subject = (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === key || s.name.toUpperCase() === key)
+      if (!subject) return `NO EXISTE MATERIA CON CLAVE O NOMBRE ${key}.`
+      const list = (commandContext?.grades ?? [])
+        .filter((g) => g.subjectId === subject.id)
+        .sort((a, b) => a.date.localeCompare(b.date))
+      if (list.length === 0) return `NO HAY NOTAS REGISTRADAS PARA ${subject.name.toUpperCase()}.`
+      const avg = list.reduce((acc, g) => acc + g.score, 0) / list.length
+      const rows = list.map((g) => `- ${g.score.toFixed(1)} ${g.title.toUpperCase()} ${g.weight ? `${g.weight}%` : ""}`.trim())
+      return `NOTAS ${subject.name.toUpperCase()}:\n${rows.join("\n")}\nPROMEDIO: ${avg.toFixed(2)}`
     }
     if (normalized === "/CALC/AVG") {
       const list = commandContext?.grades ?? []
@@ -374,6 +409,7 @@ export function HorarilySpeakingCard({
     setPendingResponse(response)
     speak(response)
     setCommandInput("")
+    setSuggestions([])
   }
 
   return (
@@ -510,6 +546,15 @@ export function HorarilySpeakingCard({
             <input
               value={commandInput}
               onChange={(e) => setCommandInput(e.target.value)}
+              onInput={(e) => {
+                const value = (e.currentTarget as HTMLInputElement).value.toUpperCase()
+                if (!value) {
+                  setSuggestions([])
+                  return
+                }
+                const commands = ["/AYUDA", "/HELP", "/NEXTCLASS", "/SUBJECTS", "/NOTES", "/MAXNOTE/", "/MINNOTE/", "/AVG/", "/LASTGRADE/"]
+                setSuggestions(commands.filter((c) => c.startsWith(value.startsWith("/") ? value : `/${value}`)).slice(0, 4))
+              }}
               onKeyDown={(e) => {
                 if (e.key === "ArrowUp") {
                   e.preventDefault()
@@ -535,6 +580,15 @@ export function HorarilySpeakingCard({
               autoComplete="off"
             />
           </form>
+          {suggestions.length > 0 && (
+            <div className="horarily-console-input-wrap" style={{ marginTop: 0, paddingTop: 0, borderTop: "none", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
+              {suggestions.map((item) => (
+                <button key={item} type="button" className="horarily-console-line" onClick={() => { setCommandInput(item); setSuggestions([]) }} style={{ color: "#0f5132" }}>
+                  &gt; SUGERENCIA: {item}
+                </button>
+              ))}
+            </div>
+          )}
         )}
         {!booting && (
           <div className="horarily-console-input-wrap" style={{ gap: 8, justifyContent: "flex-start", flexWrap: "wrap" }}>

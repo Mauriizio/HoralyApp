@@ -352,6 +352,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
       title: g.title,
       score: g.score,
       date: g.date,
+      weight: g.weight,
     })),
     reminders: data.reminders.map((r) => ({
       title: r.title,

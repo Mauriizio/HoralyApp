@@ -449,6 +449,7 @@
   line-height: 1.05rem;
   color: #1f3d1f;
   text-transform: uppercase;
+  white-space: pre-wrap;
 }
 
 .horarily-console-input-wrap {
@@ -475,6 +476,15 @@
   font-size: 1.05rem;
   color: #173617;
   text-transform: uppercase;
+}
+
+button.horarily-console-input {
+  border: 1px solid rgba(37, 99, 235, 0.4);
+  border-radius: 0.3rem;
+  padding: 0.1rem 0.4rem;
+  color: #124412;
+  background: rgba(255, 255, 255, 0.32);
+  cursor: pointer;
 }
 
 .horarily-console-input::placeholder {
