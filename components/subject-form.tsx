@@ -46,6 +46,7 @@ export interface SubjectFormProps {
 export function SubjectForm({ open, onOpenChange, initial, onSubmit }: SubjectFormProps) {
   const [name, setName] = useState(initial?.name ?? "")
   const [color, setColor] = useState(initial?.color ?? SUBJECT_COLORS[0])
+  const [commandKey, setCommandKey] = useState(initial?.commandKey ?? "")
   const [icon, setIcon] = useState(initial?.icon ?? "")
   const [notes, setNotes] = useState(initial?.notes ?? "")
   const [difficulty, setDifficulty] = useState<DifficultyLevel>(initial?.difficulty ?? 3)
@@ -59,6 +60,7 @@ export function SubjectForm({ open, onOpenChange, initial, onSubmit }: SubjectFo
     if (!name.trim()) return
     onSubmit({
       name: name.trim(),
+      commandKey: commandKey.trim().toUpperCase() || undefined,
       color,
       icon: icon || undefined,
       notes: notes.trim() || undefined,
@@ -86,6 +88,17 @@ export function SubjectForm({ open, onOpenChange, initial, onSubmit }: SubjectFo
               placeholder="Ej: Matemáticas"
               autoFocus
               required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="subject-command">Comando (clave)</Label>
+            <Input
+              id="subject-command"
+              value={commandKey}
+              onChange={(e) => setCommandKey(e.target.value.replace(/\s+/g, "").toUpperCase())}
+              placeholder="Ej: FIS, MAT, PROG"
+              maxLength={8}
             />
           </div>
 
@@ -138,12 +151,12 @@ export function SubjectForm({ open, onOpenChange, initial, onSubmit }: SubjectFo
                   {SUBJECT_ICON_OPTIONS.map((opt) => {
                     const IconComp = getLucideIcon(opt.value)
                     return (
-                    <SelectItem key={opt.value || "_none"} value={opt.value || "_none"}>
-                      <span className="flex items-center gap-2">
-                        {IconComp ? <IconComp className="h-4 w-4" /> : null}
-                        <span>{opt.label}</span>
-                      </span>
-                    </SelectItem>
+                      <SelectItem key={opt.value || "_none"} value={opt.value || "_none"}>
+                        <span className="flex items-center gap-2">
+                          {IconComp ? <IconComp className="h-4 w-4" /> : null}
+                          <span>{opt.label}</span>
+                        </span>
+                      </SelectItem>
                     )
                   })}
                 </SelectContent>

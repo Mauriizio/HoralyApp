@@ -311,7 +311,17 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
   message={`${t("profile.assistant.hello")} ${assistantMessage}`}
   commandContext={{
     nextClassText: assistantMessage,
-    subjects: data.subjects.map((s) => ({ name: s.name })),
+    subjects: data.subjects.map((s) => ({
+      id: s.id,
+      name: s.name,
+      commandKey: s.commandKey,
+    })),
+    grades: data.grades.map((g) => ({
+      subjectId: g.subjectId,
+      title: g.title,
+      score: g.score,
+      date: g.date,
+    })),
     remindersTodayCount: data.reminders.length,
   }}
   grade={data.grades.length > 0 ? data.grades[data.grades.length - 1]?.score : undefined}

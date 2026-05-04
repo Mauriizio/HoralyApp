@@ -32,7 +32,8 @@ interface HorarilySpeakingCardProps {
   className?: string
   commandContext?: {
     nextClassText?: string
-    subjects?: Array<{ name: string }>
+    subjects?: Array<{ id: string; name: string; commandKey?: string }>
+    grades?: Array<{ subjectId: string; title: string; score: number; date: string }>
     remindersTodayCount?: number
   }
 }
@@ -143,7 +144,7 @@ export function HorarilySpeakingCard({
     }
 
     if (normalized === "/HELP") {
-      return "COMANDOS: /HELP, /NEXTCLASS, /SUBJECTS, /MAXNOTE/<MATERIA>"
+      return "COMANDOS: /HELP, /NEXTCLASS, /SUBJECTS, /MAXNOTE/<KEY>, /AVG/<KEY>, /LASTGRADE/<KEY>"
     }
 
     if (normalized === "/NEXTCLASS") {
@@ -153,13 +154,40 @@ export function HorarilySpeakingCard({
     if (normalized === "/SUBJECTS") {
       const subjects = commandContext?.subjects ?? []
       if (subjects.length === 0) return "NO HAY MATERIAS REGISTRADAS."
-      return `MATERIAS: ${subjects.map((s) => s.name.toUpperCase()).join(", ")}`
+      return `MATERIAS: ${subjects.map((s) => `${s.name.toUpperCase()}${s.commandKey ? `(/${s.commandKey.toUpperCase()})` : ""}`).join(", ")}`
     }
 
     if (normalized.startsWith("/MAXNOTE/")) {
       const key = normalized.replace("/MAXNOTE/", "").trim()
-      if (!key) return "USA: /MAXNOTE/<MATERIA>"
-      return `MAXNOTE ${key}: (DEMO) ESTA RESPUESTA SE COMPLETARÁ CON NOTAS POR MATERIA EN LA SIGUIENTE FASE.`
+      if (!key) return "USA: /MAXNOTE/<KEY>"
+      const subject = (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === key)
+      if (!subject) return `NO EXISTE MATERIA CON CLAVE ${key}.`
+      const list = (commandContext?.grades ?? []).filter((g) => g.subjectId === subject.id)
+      if (list.length === 0) return `NO HAY NOTAS REGISTRADAS PARA ${subject.name.toUpperCase()}.`
+      const best = list.slice().sort((a, b) => b.score - a.score)[0]
+      return `MAXNOTE ${key}: ${best.score.toFixed(1)} EN ${best.title.toUpperCase()} (${best.date}).`
+    }
+
+    if (normalized.startsWith("/AVG/")) {
+      const key = normalized.replace("/AVG/", "").trim()
+      const subject = (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === key)
+      if (!subject) return `NO EXISTE MATERIA CON CLAVE ${key}.`
+      const list = (commandContext?.grades ?? []).filter((g) => g.subjectId === subject.id)
+      if (list.length === 0) return `NO HAY NOTAS REGISTRADAS PARA ${subject.name.toUpperCase()}.`
+      const avg = list.reduce((acc, g) => acc + g.score, 0) / list.length
+      return `PROMEDIO ${key}: ${avg.toFixed(2)}`
+    }
+
+    if (normalized.startsWith("/LASTGRADE/")) {
+      const key = normalized.replace("/LASTGRADE/", "").trim()
+      const subject = (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === key)
+      if (!subject) return `NO EXISTE MATERIA CON CLAVE ${key}.`
+      const list = (commandContext?.grades ?? [])
+        .filter((g) => g.subjectId === subject.id)
+        .slice()
+        .sort((a, b) => b.date.localeCompare(a.date))
+      if (list.length === 0) return `NO HAY NOTAS REGISTRADAS PARA ${subject.name.toUpperCase()}.`
+      return `ULTIMA NOTA ${key}: ${list[0].score.toFixed(1)} EN ${list[0].title.toUpperCase()} (${list[0].date}).`
     }
 
     return "COMANDO NO RECONOCIDO. USA /HELP"
