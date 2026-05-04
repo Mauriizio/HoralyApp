@@ -541,54 +541,56 @@ export function HorarilySpeakingCard({
           </div>
         )}
         {!booting && (
-          <form className="horarily-console-input-wrap" onSubmit={onSubmitCommand}>
-            <span className="horarily-console-prompt">/</span>
-            <input
-              value={commandInput}
-              onChange={(e) => setCommandInput(e.target.value)}
-              onInput={(e) => {
-                const value = (e.currentTarget as HTMLInputElement).value.toUpperCase()
-                if (!value) {
-                  setSuggestions([])
-                  return
-                }
-                const commands = ["/AYUDA", "/HELP", "/NEXTCLASS", "/SUBJECTS", "/NOTES", "/MAXNOTE/", "/MINNOTE/", "/AVG/", "/LASTGRADE/"]
-                setSuggestions(commands.filter((c) => c.startsWith(value.startsWith("/") ? value : `/${value}`)).slice(0, 4))
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "ArrowUp") {
-                  e.preventDefault()
-                  if (commandHistory.length === 0) return
-                  const nextCursor = historyCursor === null ? commandHistory.length - 1 : Math.max(0, historyCursor - 1)
-                  setHistoryCursor(nextCursor)
-                  setCommandInput(commandHistory[nextCursor] ?? "")
-                } else if (e.key === "ArrowDown") {
-                  if (historyCursor === null) return
-                  e.preventDefault()
-                  const nextCursor = historyCursor + 1
-                  if (nextCursor >= commandHistory.length) {
-                    setHistoryCursor(null)
-                    setCommandInput("")
+          <>
+            <form className="horarily-console-input-wrap" onSubmit={onSubmitCommand}>
+              <span className="horarily-console-prompt">/</span>
+              <input
+                value={commandInput}
+                onChange={(e) => setCommandInput(e.target.value)}
+                onInput={(e) => {
+                  const value = (e.currentTarget as HTMLInputElement).value.toUpperCase()
+                  if (!value) {
+                    setSuggestions([])
                     return
                   }
-                  setHistoryCursor(nextCursor)
-                  setCommandInput(commandHistory[nextCursor] ?? "")
-                }
-              }}
-              className="horarily-console-input"
-              placeholder="HELP, NEXTCLASS, SUBJECTS, MAXNOTE/FISICA"
-              autoComplete="off"
-            />
-          </form>
-          {suggestions.length > 0 && (
-            <div className="horarily-console-input-wrap" style={{ marginTop: 0, paddingTop: 0, borderTop: "none", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
-              {suggestions.map((item) => (
-                <button key={item} type="button" className="horarily-console-line" onClick={() => { setCommandInput(item); setSuggestions([]) }} style={{ color: "#0f5132" }}>
-                  &gt; SUGERENCIA: {item}
-                </button>
-              ))}
-            </div>
-          )}
+                  const commands = ["/AYUDA", "/HELP", "/NEXTCLASS", "/SUBJECTS", "/NOTES", "/MAXNOTE/", "/MINNOTE/", "/AVG/", "/LASTGRADE/"]
+                  setSuggestions(commands.filter((c) => c.startsWith(value.startsWith("/") ? value : `/${value}`)).slice(0, 4))
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowUp") {
+                    e.preventDefault()
+                    if (commandHistory.length === 0) return
+                    const nextCursor = historyCursor === null ? commandHistory.length - 1 : Math.max(0, historyCursor - 1)
+                    setHistoryCursor(nextCursor)
+                    setCommandInput(commandHistory[nextCursor] ?? "")
+                  } else if (e.key === "ArrowDown") {
+                    if (historyCursor === null) return
+                    e.preventDefault()
+                    const nextCursor = historyCursor + 1
+                    if (nextCursor >= commandHistory.length) {
+                      setHistoryCursor(null)
+                      setCommandInput("")
+                      return
+                    }
+                    setHistoryCursor(nextCursor)
+                    setCommandInput(commandHistory[nextCursor] ?? "")
+                  }
+                }}
+                className="horarily-console-input"
+                placeholder="HELP, NEXTCLASS, SUBJECTS, MAXNOTE/FISICA"
+                autoComplete="off"
+              />
+            </form>
+            {suggestions.length > 0 && (
+              <div className="horarily-console-input-wrap" style={{ marginTop: 0, paddingTop: 0, borderTop: "none", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
+                {suggestions.map((item) => (
+                  <button key={item} type="button" className="horarily-console-line" onClick={() => { setCommandInput(item); setSuggestions([]) }} style={{ color: "#0f5132" }}>
+                    &gt; SUGERENCIA: {item}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         )}
         {!booting && (
           <div className="horarily-console-input-wrap" style={{ gap: 8, justifyContent: "flex-start", flexWrap: "wrap" }}>
