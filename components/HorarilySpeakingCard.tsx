@@ -66,6 +66,7 @@ export function HorarilySpeakingCard({
   const [interactiveMode, setInteractiveMode] = useState(false)
   const [commandInput, setCommandInput] = useState("")
   const [pendingResponse, setPendingResponse] = useState<string | null>(null)
+  const [awaitingSetupChoice, setAwaitingSetupChoice] = useState(false)
   const consoleRef = useRef<HTMLDivElement>(null)
   const { displayText, speak, setContext } = useHorarlyState(svgRef)
 
@@ -135,10 +136,11 @@ export function HorarilySpeakingCard({
       if (prev.length > 0) return prev
       const isNewUser = !userName.trim() && !commandContext?.hasAnyData
       if (isNewUser) {
+        setAwaitingSetupChoice(true)
         return [
           "> ¡BIENVENIDO! SOY HORARILY, TU ASISTENTE ACADÉMICO.",
           "> TE AYUDO A ORGANIZAR CLASES, RECORDATORIOS Y ANALIZAR TU RENDIMIENTO.",
-          "> COMENZAR CONFIGURACIÓN: /SETUP/SI O /SETUP/NO",
+          "> COMENZAR CONFIGURACIÓN: Y = SÍ  |  N = NO",
         ]
       }
       return [`> HOLA, ${userName.toUpperCase()}`, `> ${message.toUpperCase()}`, "> ESCRIBE /HELP PARA VER COMANDOS"]
@@ -315,6 +317,35 @@ export function HorarilySpeakingCard({
     const value = commandInput.trim()
     if (!value) return
     const normalized = value.trim().toUpperCase()
+    if (awaitingSetupChoice && !normalized.startsWith("/")) {
+      if (normalized === "Y") {
+        setInteractiveMode(true)
+        setAwaitingSetupChoice(false)
+        const response =
+          "PERFECTO. PRIMER PASO: ESCRIBE /SETNAME/<NOMBRE>. LUEGO USA /ADD/SUBJECT/<KEY>/<NOMBRE> Y /ADD/NOTE/<KEY>/<NOTA>/<TITULO>."
+        setHistory((prev) => [...prev, "> Y"])
+        setPendingResponse(response)
+        speak(response)
+        setCommandInput("")
+        return
+      }
+      if (normalized === "N") {
+        setInteractiveMode(true)
+        setAwaitingSetupChoice(false)
+        const response = "ENTENDIDO. PUEDES EXPLORAR LA APP Y USAR /HELP CUANDO QUIERAS."
+        setHistory((prev) => [...prev, "> N"])
+        setPendingResponse(response)
+        speak(response)
+        setCommandInput("")
+        return
+      }
+      const response = "RESPUESTA NO VÁLIDA. ESCRIBE Y PARA COMENZAR O N PARA OMITIR."
+      setHistory((prev) => [...prev, `> ${value.toUpperCase()}`])
+      setPendingResponse(response)
+      speak(response)
+      setCommandInput("")
+      return
+    }
     setInteractiveMode(true)
     setCommandHistory((prev) => [...prev, value])
     setHistoryCursor(null)
