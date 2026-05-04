@@ -103,7 +103,7 @@ export function HorarilySpeakingCard({
   }, [autoSpeak, message, speak, usingMasterSvg, booting])
 
   useEffect(() => {
-    const timeoutId = setTimeout(() => setBooting(false), 2200)
+    const timeoutId = setTimeout(() => setBooting(false), 3600)
     return () => clearTimeout(timeoutId)
   }, [])
 
@@ -212,23 +212,25 @@ export function HorarilySpeakingCard({
       </div>
 
       <div className="horarily-dialog">
-        <p className="horarily-dialog-greeting">
-          ¡Hola! <span className="horarily-username">{userName}</span>
-        </p>
-        <p className="horarily-dialog-text">
-          {booting ? (
-            <span className="horarily-boot-viewport" aria-live="polite">
-              <span className="horarily-boot-text">HORARILY NOTE :: BOOTING SYSTEM...</span>
+        {booting ? (
+          <div className="horarily-dialog-text horarily-boot-screen" aria-live="polite">
+            <span className="horarily-boot-viewport">
+              <span className="horarily-boot-text">HORARILY NOTE</span>
             </span>
-          ) : (
-            <>
+          </div>
+        ) : (
+          <>
+            <p className="horarily-dialog-greeting">
+              ¡Hola! <span className="horarily-username">{userName}</span>
+            </p>
+            <p className="horarily-dialog-text">
               {displayText}
               <span className="horarily-cursor" aria-hidden="true">
                 |
               </span>
-            </>
-          )}
-        </p>
+            </p>
+          </>
+        )}
       </div>
     </div>
   )
