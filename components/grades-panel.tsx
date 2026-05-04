@@ -168,7 +168,7 @@ export function GradesPanel({ store }: { store: ScheduleStore }) {
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-7 w-7 opacity-0 group-hover:opacity-100"
+                            className="h-7 w-7 opacity-100 md:opacity-0 md:group-hover:opacity-100"
                             onClick={() => onEdit(g)}
                             aria-label={t("common.edit")}
                           >
@@ -177,7 +177,7 @@ export function GradesPanel({ store }: { store: ScheduleStore }) {
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                            className="h-7 w-7 opacity-100 md:opacity-0 md:group-hover:opacity-100 text-muted-foreground hover:text-destructive"
                             onClick={() => deleteGrade(g.id)}
                             aria-label={t("common.delete")}
                           >

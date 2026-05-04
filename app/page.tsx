@@ -170,14 +170,6 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
       })
     }
 
-    const gradesToday = data.grades.filter((g) => g.date === todayIso)
-    if (gradesToday.length > 0) {
-      return t("profile.assistant.grades", {
-        title: gradesToday[0].title,
-        count: gradesToday.length,
-      })
-    }
-
     if (todayKey && todayKey !== "domingo") {
       const modulesById = new Map(data.modules.map((m) => [m.id, m]))
       const nextBlock = data.blocks
@@ -205,7 +197,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
       if (nextBlock) {
         return t("profile.assistant.nextClass", {
           subject: nextBlock.subject.name,
-          time: formatTime(nextBlock.module.start, data.settings.timeFormat),
+          time: nextBlock.module.start,
           minutes: nextBlock.startMinutes - nowMinutes,
         })
       }
