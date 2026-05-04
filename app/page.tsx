@@ -336,9 +336,8 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         {/* Content */}
         <main className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 py-4 sm:py-6">
           {/* Greeting */}
-          {data.profile.displayName && (
-            <div className="mb-4">
-              <HorarilySpeakingCard
+          <div className="mb-4">
+            <HorarilySpeakingCard
   userName={data.profile.displayName}
   message={`${t("profile.assistant.hello")} ${assistantMessage}`}
   commandContext={{
@@ -376,8 +375,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
   })}
   isLoading={!store.hydrated}
 />
-            </div>
-          )}
+          </div>
 
           {/* Welcome banner when empty */}
           {subjectCount === 0 && (
