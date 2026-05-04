@@ -35,6 +35,13 @@ interface HorarilySpeakingCardProps {
     subjects?: Array<{ id: string; name: string; commandKey?: string }>
     grades?: Array<{ subjectId: string; title: string; score: number; date: string }>
     reminders?: Array<{ title: string; targetDateTime: string }>
+    passingGrade?: number
+    hasAnyData?: boolean
+  }
+  commandActions?: {
+    addSubject?: (payload: { name: string; commandKey: string }) => { name: string; commandKey: string } | null
+    addGrade?: (payload: { commandKey: string; score: number; title: string }) => boolean
+    updateProfileName?: (name: string) => void
   }
 }
 
@@ -48,6 +55,7 @@ export function HorarilySpeakingCard({
   autoSpeak = true,
   className = "",
   commandContext,
+  commandActions,
 }: HorarilySpeakingCardProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [usingMasterSvg, setUsingMasterSvg] = useState(false)
@@ -125,13 +133,17 @@ export function HorarilySpeakingCard({
     if (booting) return
     setHistory((prev) => {
       if (prev.length > 0) return prev
-      return [
-        "> BOOT OK",
-        `> HOLA, ${userName.toUpperCase()}`,
-        "> ESCRIBE /HELP PARA VER COMANDOS",
-      ]
+      const isNewUser = !userName.trim() && !commandContext?.hasAnyData
+      if (isNewUser) {
+        return [
+          "> ¡BIENVENIDO! SOY HORARILY, TU ASISTENTE ACADÉMICO.",
+          "> TE AYUDO A ORGANIZAR CLASES, RECORDATORIOS Y ANALIZAR TU RENDIMIENTO.",
+          "> COMENZAR CONFIGURACIÓN: /SETUP/SI O /SETUP/NO",
+        ]
+      }
+      return [`> HOLA, ${userName.toUpperCase()}`, `> ${message.toUpperCase()}`, "> ESCRIBE /HELP PARA VER COMANDOS"]
     })
-  }, [booting, userName])
+  }, [booting, userName, commandContext?.hasAnyData, message])
 
   useEffect(() => {
     if (booting) return
@@ -153,7 +165,7 @@ export function HorarilySpeakingCard({
     }
 
     if (normalized === "/HELP") {
-      return "COMANDOS: /HELP, /NEXTCLASS, /SUBJECTS, /MAXNOTE/<KEY>, /AVG/<KEY>, /LASTGRADE/<KEY>, /REMINDERS/TODAY, /REMINDERS/NEXT, /STATUS/<KEY>, /TOPSUBJECTS, /CLEAR, /BOOT"
+      return "COMANDOS: /HELP, /NEXTCLASS, /SUBJECTS, /MAXNOTE/<KEY>, /AVG/<KEY>, /LASTGRADE/<KEY>, /REMINDERS/TODAY, /REMINDERS/NEXT, /STATUS/<KEY>, /TOPSUBJECTS, /CALC/AVG, /CALC/AVG/<KEY>, /ADD/SUBJECT/<KEY>/<NOMBRE>, /ADD/NOTE/<KEY>/<NOTA>/<TITULO>, /SETUP/SI, /SETNAME/<NOMBRE>, /CLEAR, /BOOT"
     }
 
     if (normalized === "/NEXTCLASS") {
@@ -223,7 +235,8 @@ export function HorarilySpeakingCard({
       const list = (commandContext?.grades ?? []).filter((g) => g.subjectId === subject.id)
       if (list.length === 0) return `SIN COBERTURA: NO HAY NOTAS PARA ${subject.name.toUpperCase()}.`
       const avg = list.reduce((acc, g) => acc + g.score, 0) / list.length
-      const status = avg >= 11 ? "APROBADO" : "RIESGO"
+      const passing = commandContext?.passingGrade ?? 4
+      const status = avg >= passing ? "APROBADO" : "RIESGO"
       return `STATUS ${key}: ${status} | PROMEDIO ${avg.toFixed(2)} | COBERTURA ${list.length} NOTA(S)`
     }
 
@@ -241,6 +254,57 @@ export function HorarilySpeakingCard({
         .sort((a, b) => b.avg - a.avg)
       if (ranking.length === 0) return "NO HAY NOTAS SUFICIENTES PARA RANKING."
       return `TOP: ${ranking.slice(0, 5).map((r, i) => `${i + 1}.${r.key.toUpperCase()}(${r.avg.toFixed(2)})`).join(" ")}`
+    }
+    if (normalized === "/CALC/AVG") {
+      const list = commandContext?.grades ?? []
+      if (list.length === 0) return "NO HAY NOTAS REGISTRADAS PARA CALCULAR PROMEDIO GLOBAL."
+      const avg = list.reduce((acc, g) => acc + g.score, 0) / list.length
+      return `PROMEDIO GLOBAL: ${avg.toFixed(2)}`
+    }
+
+    if (normalized.startsWith("/CALC/AVG/")) {
+      const key = normalized.replace("/CALC/AVG/", "").trim()
+      const subject = (commandContext?.subjects ?? []).find((s) => s.commandKey?.toUpperCase() === key)
+      if (!subject) return `NO EXISTE MATERIA CON CLAVE ${key}.`
+      const list = (commandContext?.grades ?? []).filter((g) => g.subjectId === subject.id)
+      if (list.length === 0) return `NO HAY NOTAS PARA ${subject.name.toUpperCase()}.`
+      const avg = list.reduce((acc, g) => acc + g.score, 0) / list.length
+      return `PROMEDIO ${key}: ${avg.toFixed(2)}`
+    }
+
+    if (normalized === "/SETUP/SI") {
+      return "CONFIGURACIÓN GUIADA: 1) /SETNAME/<NOMBRE> 2) /ADD/SUBJECT/<KEY>/<NOMBRE> 3) /ADD/NOTE/<KEY>/<NOTA>/<TITULO>"
+    }
+    if (normalized === "/SETUP/NO") return "PERFECTO. PUEDES USAR /HELP CUANDO QUIERAS."
+
+    if (normalized.startsWith("/SETNAME/")) {
+      const name = raw.slice(raw.toUpperCase().indexOf("/SETNAME/") + 9).trim()
+      if (!name) return "USA: /SETNAME/<NOMBRE>"
+      commandActions?.updateProfileName?.(name)
+      return `NOMBRE ACTUALIZADO: ${name.toUpperCase()}`
+    }
+
+    if (normalized.startsWith("/ADD/SUBJECT/")) {
+      const body = raw.slice(raw.toUpperCase().indexOf("/ADD/SUBJECT/") + 13).trim()
+      const [rawKey, ...nameParts] = body.split("/")
+      const key = (rawKey ?? "").trim().toUpperCase()
+      const name = nameParts.join("/").trim()
+      if (!key || key.length !== 3 || !name) return "USA: /ADD/SUBJECT/<KEY(3)>/<NOMBRE>"
+      const created = commandActions?.addSubject?.({ name, commandKey: key })
+      if (!created) return "NO SE PUDO CREAR LA MATERIA. REVISA SI LA CLAVE YA EXISTE."
+      return `MATERIA CREADA: ${created.name.toUpperCase()} (/${created.commandKey.toUpperCase()})`
+    }
+
+    if (normalized.startsWith("/ADD/NOTE/")) {
+      const body = raw.slice(raw.toUpperCase().indexOf("/ADD/NOTE/") + 10).trim()
+      const [rawKey, rawScore, ...titleParts] = body.split("/")
+      const key = (rawKey ?? "").trim().toUpperCase()
+      const score = Number(rawScore)
+      const title = titleParts.join("/").trim()
+      if (!key || Number.isNaN(score) || !title) return "USA: /ADD/NOTE/<KEY>/<NOTA>/<TITULO>"
+      const ok = commandActions?.addGrade?.({ commandKey: key, score, title }) ?? false
+      if (!ok) return `NO SE PUDO AGREGAR LA NOTA. REVISA LA CLAVE ${key}.`
+      return `NOTA REGISTRADA EN ${key}: ${score.toFixed(1)} (${title.toUpperCase()})`
     }
 
     return "COMANDO NO RECONOCIDO. USA /HELP"
@@ -389,12 +453,14 @@ export function HorarilySpeakingCard({
                 {line}
               </p>
             ))}
-            <p className="horarily-dialog-text">
-              &gt; {displayText.toUpperCase()}
-              <span className="horarily-cursor" aria-hidden="true">
-                |
-              </span>
-            </p>
+            {pendingResponse && (
+              <p className="horarily-dialog-text">
+                &gt; {displayText.toUpperCase()}
+                <span className="horarily-cursor" aria-hidden="true">
+                  |
+                </span>
+              </p>
+            )}
           </div>
         )}
         {!booting && (

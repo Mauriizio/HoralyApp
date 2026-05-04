@@ -65,6 +65,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
     addReminder,
     addStudyBlock,
     addGrade,
+    updateProfile,
     updateSettings,
   } = store
   const { t, day: tDay } = useI18n()
@@ -206,6 +207,37 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
     return t("profile.assistant.empty")
   }, [data, t, todayKey])
 
+  const hasAnyData =
+    data.subjects.length > 0 ||
+    data.blocks.length > 0 ||
+    data.reminders.length > 0 ||
+    data.studyBlocks.length > 0 ||
+    data.grades.length > 0
+
+  const addSubjectFromConsole = ({ name, commandKey }: { name: string; commandKey: string }) => {
+    if (data.subjects.some((s) => (s.commandKey ?? "").toUpperCase() === commandKey.toUpperCase())) return null
+    const created = addSubject({
+      name: name.trim(),
+      color: "#2563EB",
+      difficulty: 3,
+      commandKey: commandKey.toUpperCase(),
+    })
+    return { name: created.name, commandKey: created.commandKey ?? commandKey.toUpperCase() }
+  }
+
+  const addGradeFromConsole = ({ commandKey, score, title }: { commandKey: string; score: number; title: string }) => {
+    const subject = data.subjects.find((s) => (s.commandKey ?? "").toUpperCase() === commandKey.toUpperCase())
+    if (!subject) return false
+    addGrade({
+      subjectId: subject.id,
+      title: title.trim(),
+      score,
+      weight: 100,
+      date: new Date().toISOString().slice(0, 10),
+    })
+    return true
+  }
+
   if (!store.hydrated) {
     return (
       <div className="min-h-screen flex items-center justify-center text-muted-foreground">
@@ -326,6 +358,13 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
       title: r.title,
       targetDateTime: r.targetDateTime,
     })),
+    passingGrade: data.settings.gradeScale.passing,
+    hasAnyData,
+  }}
+  commandActions={{
+    addSubject: addSubjectFromConsole,
+    addGrade: addGradeFromConsole,
+    updateProfileName: (name) => updateProfile({ displayName: name }),
   }}
   grade={data.grades.length > 0 ? data.grades[data.grades.length - 1]?.score : undefined}
   isTyping={subjectOpen || reminderOpen || studyOpen || gradeOpen}
