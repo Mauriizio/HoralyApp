@@ -45,6 +45,7 @@ export function HorarilySpeakingCard({
   const svgRef = useRef<SVGSVGElement>(null)
   const [usingMasterSvg, setUsingMasterSvg] = useState(false)
   const [booting, setBooting] = useState(true)
+  const [history, setHistory] = useState<string[]>([])
   const { displayText, speak, setContext } = useHorarlyState(svgRef)
 
   useEffect(() => {
@@ -106,6 +107,15 @@ export function HorarilySpeakingCard({
     const timeoutId = setTimeout(() => setBooting(false), 3600)
     return () => clearTimeout(timeoutId)
   }, [])
+
+  useEffect(() => {
+    if (booting) return
+    setHistory((prev) => {
+      const greetingLine = `> HOLA, ${userName.toUpperCase()}`
+      if (prev.includes(greetingLine)) return prev
+      return [...prev, greetingLine]
+    })
+  }, [booting, userName])
 
   return (
     <div className={`horarily-card ${className}`}>
@@ -219,17 +229,19 @@ export function HorarilySpeakingCard({
             </span>
           </div>
         ) : (
-          <>
-            <p className="horarily-dialog-greeting">
-              ¡Hola! <span className="horarily-username">{userName}</span>
-            </p>
+          <div className="horarily-console">
+            {history.map((line, idx) => (
+              <p key={`${line}-${idx}`} className="horarily-console-line">
+                {line}
+              </p>
+            ))}
             <p className="horarily-dialog-text">
-              {displayText}
+              &gt; {displayText}
               <span className="horarily-cursor" aria-hidden="true">
                 |
               </span>
             </p>
-          </>
+          </div>
         )}
       </div>
     </div>
