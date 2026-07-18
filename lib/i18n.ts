@@ -109,6 +109,8 @@ export const TRANSLATIONS = {
     "subject.create": "Crear materia",
     "subject.edit": "Editar materia",
     "subject.empty": "Aún no hay materias. Crea la primera para empezar.",
+    "subject.emptyDesc": "Tus materias aparecerán aquí junto con sus claves de comando.",
+    "subject.count": "{count} materia(s)",
 
     // Reminder form
     "reminder.title": "Título",
@@ -374,6 +376,8 @@ export const TRANSLATIONS = {
     "subject.create": "Create subject",
     "subject.edit": "Edit subject",
     "subject.empty": "No subjects yet. Create one to get started.",
+    "subject.emptyDesc": "Your subjects will appear here with their command keys.",
+    "subject.count": "{count} subject(s)",
 
     "reminder.title": "Title",
     "reminder.description": "Description",

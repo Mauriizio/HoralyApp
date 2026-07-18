@@ -11,4 +11,10 @@
 
 ## 2026-07-18 — Runner de pruebas
 
-- Se usa `node:test` nativo con `--experimental-strip-types` para evitar dependencias nuevas durante la línea base. La instalación de Vitest quedó descartada en esta ejecución porque el registry devolvió 403 al intentar descargar paquetes.
+- Se usa `node:test` nativo con un loader local de TypeScript para evitar dependencias nuevas durante la línea base y mantener compatibilidad con Node 20/22. La instalación de Vitest quedó descartada en esta ejecución porque el registry devolvió 403 al intentar descargar paquetes.
+
+## 2026-07-18 — ESLint diferido
+
+- La integración completa de ESLint queda registrada como deuda técnica P1.
+- No se mantiene un script `lint` incompleto ni un sustituto basado en `tsc`.
+- La implementación posterior debe cubrir Next.js, TypeScript, TSX y React Hooks con configuración flat real y dependencias sincronizadas en `pnpm-lock.yaml`.

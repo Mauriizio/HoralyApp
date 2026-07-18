@@ -52,18 +52,18 @@ export function useScheduleStore() {
 
   // --- Subjects ---
   const addSubject = useCallback((subject: Omit<Subject, "id" | "createdAt">) => {
-    let createdSubject: Subject | null = null
+    const id = uid()
+    const createdAt = Date.now()
+    let createdSubject = normalizeSubjectForStorage(subject, data.subjects, { id, createdAt })
+
     setData((d) => {
-      const newSubject = normalizeSubjectForStorage(subject, d.subjects, {
-        id: uid(),
-        createdAt: Date.now(),
-      })
+      const newSubject = normalizeSubjectForStorage(subject, d.subjects, { id, createdAt })
       createdSubject = newSubject
       return { ...d, subjects: [...d.subjects, newSubject] }
     })
-    if (!createdSubject) throw new Error("No se pudo crear la materia.")
+
     return createdSubject
-  }, [])
+  }, [data.subjects])
 
   const updateSubject = useCallback((id: string, patch: Partial<Subject>) => {
     setData((d) => ({

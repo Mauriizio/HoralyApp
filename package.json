@@ -6,10 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --experimental-specifier-resolution=node --test test/*.test.ts",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "test": "node --loader ./test/typescript-loader.mjs --test test/*.test.ts",
+    "check": "pnpm typecheck && pnpm test && pnpm build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

@@ -13,6 +13,7 @@
 - Migración localStorage a usuario autenticado.
 - Escala por semestre.
 - Recordatorios persistentes con estrategia backend.
+- Integrar ESLint real con soporte para Next.js, TypeScript, TSX y React Hooks cuando el entorno permita actualizar dependencias y lockfile de forma reproducible.
 
 ## P2
 

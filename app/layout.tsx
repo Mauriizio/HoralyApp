@@ -1,17 +1,8 @@
 import type { Metadata, Viewport } from "next"
-import { Inter, Lora, JetBrains_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { Toaster } from "@/components/ui/sonner"
 import { PwaRegister } from "@/components/pwa-register"
 import "./globals.css"
-
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" })
-const lora = Lora({ subsets: ["latin"], variable: "--font-lora", display: "swap" })
-const jetbrains = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-jetbrains",
-  display: "swap",
-})
 
 export const metadata: Metadata = {
   title: "Horario Escolar — Organiza tu semana",
@@ -70,7 +61,7 @@ export default function RootLayout({
   return (
     <html
       lang="es-419"
-      className={`bg-background ${inter.variable} ${lora.variable} ${jetbrains.variable}`}
+      className="bg-background"
       suppressHydrationWarning
     >
       <body className="font-sans antialiased min-h-svh">
