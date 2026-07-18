@@ -18,7 +18,6 @@ export const metadata: Metadata = {
   description:
     "Planifica tu horario de clases, bloques de estudio y recordatorios con una interfaz moderna y personalizable.",
   applicationName: "Horario Escolar",
-  generator: "v0.app",
   manifest: "/manifest.webmanifest",
   openGraph: {
     title: "Horario Escolar — Organiza tu semana",

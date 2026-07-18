@@ -82,7 +82,7 @@ export function ProfileForm({
       }
       setAvatar(url)
     } catch (err) {
-      console.log("[v0] avatar error:", err)
+      console.log("[Horaly] avatar error:", err)
     }
   }
 

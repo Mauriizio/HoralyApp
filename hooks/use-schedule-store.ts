@@ -18,21 +18,13 @@ import {
 } from "@/lib/types"
 import { loadData, saveData } from "@/lib/storage"
 import { computeTriggerTime, fireNotification } from "@/lib/notifications"
+import { validateModules } from "@/lib/time-modules"
+import { findScheduleBlockConflicts } from "@/lib/schedule-conflicts"
+
+export { validateModules }
 
 function uid() {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
-}
-
-// Validate that a list of modules is sorted, well-formed, and non-overlapping.
-export function validateModules(modules: TimeModule[]): string | null {
-  const sorted = modules.slice().sort((a, b) => a.start.localeCompare(b.start))
-  for (const m of sorted) {
-    if (m.start >= m.end) return "range"
-  }
-  for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i].start < sorted[i - 1].end) return "overlap"
-  }
-  return null
 }
 
 export function useScheduleStore() {
@@ -52,9 +44,13 @@ export function useScheduleStore() {
 
   // --- Subjects ---
   const addSubject = useCallback((subject: Omit<Subject, "id" | "createdAt">) => {
-    const newSubject: Subject = { ...subject, id: uid(), createdAt: Date.now() }
-    setData((d) => ({ ...d, subjects: [...d.subjects, newSubject] }))
-    return newSubject
+    let createdSubject: Subject | null = null
+    setData((d) => {
+      const newSubject: Subject = { ...subject, id: uid(), createdAt: Date.now() }
+      createdSubject = newSubject
+      return { ...d, subjects: [...d.subjects, newSubject] }
+    })
+    return createdSubject as Subject
   }, [])
 
   const updateSubject = useCallback((id: string, patch: Partial<Subject>) => {
@@ -78,15 +74,22 @@ export function useScheduleStore() {
   }, [])
 
   // --- Schedule blocks ---
-  const upsertBlock = useCallback((block: ScheduleBlock) => {
+  const upsertBlock = useCallback((block: ScheduleBlock, options: { replaceConflicts?: boolean } = {}) => {
+    let conflictIds: string[] = []
     setData((d) => {
-      const conflictFreeBlocks = d.blocks.filter((b) => {
+      const conflicts = findScheduleBlockConflicts(block, d.blocks)
+      conflictIds = conflicts.map((conflict) => conflict.id)
+      if (conflicts.length > 0 && !options.replaceConflicts) return d
+      const nextBlocks = d.blocks.filter((b) => {
         if (b.id === block.id) return false
-        if (b.day !== block.day) return true
-        return !b.moduleIds.some((m) => block.moduleIds.includes(m))
+        if (!options.replaceConflicts) return true
+        return !conflictIds.includes(b.id)
       })
-      return { ...d, blocks: [...conflictFreeBlocks, block] }
+      return { ...d, blocks: [...nextBlocks, block] }
     })
+    return conflictIds.length > 0 && !options.replaceConflicts
+      ? { ok: false as const, conflictIds }
+      : { ok: true as const, conflictIds }
   }, [])
 
   const moveBlock = useCallback(
@@ -100,11 +103,9 @@ export function useScheduleStore() {
         const endIdx = Math.min(modules.length - 1, startIdx + span - 1)
         const newModuleIds = modules.slice(startIdx, endIdx + 1).map((m) => m.id)
         const moved: ScheduleBlock = { ...existing, day: targetDay, moduleIds: newModuleIds }
-        const others = d.blocks.filter((b) => {
-          if (b.id === blockId) return false
-          if (b.day !== targetDay) return true
-          return !b.moduleIds.some((m) => newModuleIds.includes(m))
-        })
+        const conflicts = findScheduleBlockConflicts(moved, d.blocks)
+        if (conflicts.length > 0) return d
+        const others = d.blocks.filter((b) => b.id !== blockId)
         return { ...d, blocks: [...others, moved] }
       })
     },

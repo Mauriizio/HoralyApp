@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { useI18n } from "@/components/i18n-provider"
-import { GRADE_SCALE_PRESETS, type GradeScalePresetId } from "@/lib/types"
+import { GRADE_SCALE_PRESETS, type GradeScale, type GradeScalePresetId } from "@/lib/types"
+import { hasGradesOutsideScale } from "@/lib/storage"
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
 
 export function GradeScaleEditor({ store }: { store: ScheduleStore }) {
@@ -27,10 +28,20 @@ export function GradeScaleEditor({ store }: { store: ScheduleStore }) {
     return "custom"
   }, [gradeScale])
 
+  const applyScale = (nextScale: GradeScale) => {
+    if (data.grades.length > 0 && hasGradesOutsideScale(data, nextScale)) {
+      const confirmed = window.confirm(
+        "La nueva escala no es compatible con una o más notas existentes. No se convertirán notas históricas. ¿Deseas aplicar la escala de todas formas?",
+      )
+      if (!confirmed) return
+    }
+    updateSettings({ gradeScale: nextScale })
+  }
+
   const applyPreset = (id: GradeScalePresetId) => {
     const preset = GRADE_SCALE_PRESETS.find((p) => p.id === id)
     if (!preset) return
-    updateSettings({ gradeScale: preset.scale })
+    applyScale(preset.scale)
   }
 
   const setField = (key: "min" | "max" | "passing", value: number) => {
@@ -38,7 +49,7 @@ export function GradeScaleEditor({ store }: { store: ScheduleStore }) {
     const next = { ...gradeScale, [key]: value }
     if (next.min >= next.max) return
     if (next.passing < next.min || next.passing > next.max) return
-    updateSettings({ gradeScale: next })
+    applyScale(next)
   }
 
   return (

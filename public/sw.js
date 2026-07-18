@@ -1,16 +1,24 @@
-// Minimal service worker so the app is installable as a PWA.
-// We do not aggressively cache anything — the app is mostly client-rendered
-// and uses localStorage for data, so a passive network-first fetch handler
-// is enough to satisfy install criteria without breaking dev flows.
+// Service worker conservador para instalación PWA, shell básico offline y assets reales.
 
-const CACHE_NAME = "horario-shell-v1"
-const SHELL_URLS = ["/", "/manifest.webmanifest", "/icon-512.jpg", "/icon.svg"]
+const CACHE_NAME = "horaly-shell-v2"
+const SHELL_URLS = [
+  "/",
+  "/manifest.webmanifest",
+  "/android-chrome-192x192.png",
+  "/android-chrome-512x512.png",
+  "/icon-512.png",
+  "/icon-512-maskable.png",
+]
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(SHELL_URLS).catch(() => undefined)),
+    caches.open(CACHE_NAME).then(async (cache) => {
+      const results = await Promise.allSettled(SHELL_URLS.map((url) => cache.add(url)))
+      const failures = results.filter((result) => result.status === "rejected")
+      if (failures.length > 0) {
+        console.warn("[Horaly] Algunos assets PWA no pudieron precargarse.", failures)
+      }
+    }),
   )
   self.skipWaiting()
 })
@@ -18,17 +26,12 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((k) => k !== CACHE_NAME)
-          .map((k) => caches.delete(k)),
-      ),
+      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))),
     ),
   )
   self.clients.claim()
 })
 
-// Network-first for navigation, falling back to cached shell when offline.
 self.addEventListener("fetch", (event) => {
   const req = event.request
   if (req.method !== "GET") return
@@ -38,16 +41,15 @@ self.addEventListener("fetch", (event) => {
       fetch(req)
         .then((res) => {
           const copy = res.clone()
-          caches.open(CACHE_NAME).then((c) => c.put(req, copy)).catch(() => undefined)
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, copy)).catch((error) => {
+            console.warn("[Horaly] No se pudo actualizar la caché de navegación.", error)
+          })
           return res
         })
-        .catch(() =>
-          caches.match(req).then((cached) => cached || caches.match("/")),
-        ),
+        .catch(() => caches.match(req).then((cached) => cached || caches.match("/"))),
     )
     return
   }
 
-  // For other requests, try cache first then network — fully passive.
   event.respondWith(caches.match(req).then((cached) => cached || fetch(req)))
 })

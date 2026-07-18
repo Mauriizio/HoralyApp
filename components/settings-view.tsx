@@ -52,11 +52,12 @@ export function SettingsView({ store }: { store: ScheduleStore }) {
     reader.onload = () => {
       try {
         const next = importFromJson(String(reader.result))
+        downloadJson(`horario-escolar-respaldo-${new Date().toISOString().slice(0, 10)}.json`, exportAsJson(data))
         replaceAll(next)
         toast.success(t("settings.data.import"))
       } catch (err) {
-        toast.error("Error")
-        console.log("[v0] import error:", err)
+        toast.error("No se pudo importar el archivo. Tus datos actuales se conservaron.")
+        console.warn("[Horaly] Error importando datos:", err)
       }
     }
     reader.readAsText(file)

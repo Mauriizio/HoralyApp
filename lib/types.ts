@@ -100,6 +100,7 @@ export interface Subject {
   color: string
   icon?: string
   notes?: string
+  commandKey?: string
   difficulty: DifficultyLevel
   createdAt: number
 }
