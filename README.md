@@ -68,3 +68,15 @@ pnpm test
 pnpm build
 pnpm check
 ```
+
+
+## Supabase, autenticación y persistencia
+
+La app puede funcionar en modo invitado/local sin variables de Supabase. Para activar cuentas, configura `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`, ejecuta las migraciones en `supabase/migrations/` y revisa las guías:
+
+- `docs/06-supabase-setup.md`
+- `docs/07-auth-y-sesiones.md`
+- `docs/08-modelo-de-datos-y-rls.md`
+- `docs/09-migracion-localstorage.md`
+
+Nunca expongas `SUPABASE_SERVICE_ROLE_KEY` en el cliente ni en variables públicas.

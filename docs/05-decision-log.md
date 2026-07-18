@@ -18,3 +18,10 @@
 - La integración completa de ESLint queda registrada como deuda técnica P1.
 - No se mantiene un script `lint` incompleto ni un sustituto basado en `tsc`.
 - La implementación posterior debe cubrir Next.js, TypeScript, TSX y React Hooks con configuración flat real y dependencias sincronizadas en `pnpm-lock.yaml`.
+
+## 2026-07-18 - Supabase Auth y persistencia privada
+
+- Se incorpora Supabase Auth con correo/contraseña y clientes SSR/browser compatibles con App Router.
+- Se mantiene modo invitado/local cuando faltan variables públicas.
+- Se separa acceso a datos mediante repositorios local y Supabase.
+- El bucket `avatars` queda público para lectura simple de avatar; escrituras quedan restringidas por políticas de Storage basadas en `user_id`.

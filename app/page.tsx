@@ -14,6 +14,9 @@ import {
   Sparkles,
   GraduationCap,
   Settings,
+  Cloud,
+  HardDrive,
+  LogIn,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -46,6 +49,8 @@ import { usePwaInstall } from "@/hooks/use-pwa-install"
 import { I18nProvider, useI18n } from "@/components/i18n-provider"
 import type { DayKey, Subject } from "@/lib/types"
 import { formatTime, parseTime } from "@/lib/time-format"
+import { isSupabaseConfigured } from "@/lib/supabase/client"
+import Link from "next/link"
 
 const DAY_INDEX_TO_KEY: Record<number, DayKey | null> = {
   0: "domingo",
@@ -71,6 +76,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
   const { t, day: tDay } = useI18n()
   const [tab, setTab] = useState("horario")
   const [quickOpen, setQuickOpen] = useState(false)
+  const cloudConfigured = isSupabaseConfigured()
 
   const [subjectOpen, setSubjectOpen] = useState(false)
   const [subjectEditing, setSubjectEditing] = useState<Subject | undefined>()
@@ -282,6 +288,16 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
             </div>
 
             <div className="hidden sm:block flex-1" />
+
+            <Badge variant="outline" className="hidden lg:inline-flex shrink-0" title={cloudConfigured ? "La nube está configurada" : "Modo invitado/local"}>
+              {cloudConfigured ? <Cloud className="h-3 w-3 mr-1" /> : <HardDrive className="h-3 w-3 mr-1" />}
+              {cloudConfigured ? "Sincronizado" : "Guardado local"}
+            </Badge>
+            {!cloudConfigured && (
+              <Button variant="outline" size="sm" className="hidden sm:inline-flex shrink-0" asChild>
+                <Link href="/auth/login"><LogIn className="h-3.5 w-3.5 mr-1.5" />Iniciar sesión</Link>
+              </Button>
+            )}
 
             <Button
               variant="outline"
