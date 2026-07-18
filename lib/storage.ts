@@ -4,13 +4,14 @@ import {
   DEFAULT_PROFILE,
   EMPTY_APP_DATA,
   type GradeScale,
-  type ScheduleBlock,
   type Subject,
-} from "./types"
-import { commandKeyForSubjectName, ensureUniqueCommandKey, normalizeCommandKey } from "./command-key"
-import { validateModules } from "./time-modules"
+} from "./types.ts"
+import { commandKeyForSubjectName, ensureUniqueCommandKey, normalizeCommandKey } from "./command-key.ts"
+import { validateModules } from "./time-modules.ts"
 
-const STORAGE_KEY = "horario-escolar:v1"
+export const STORAGE_KEY = "horario-escolar:v1"
+
+const ARRAY_FIELDS = ["subjects", "blocks", "studyBlocks", "reminders", "modules", "grades"] as const
 
 const daySchema = z.enum(["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"])
 const difficultySchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)])
@@ -113,23 +114,72 @@ const appDataSchema = z.object({
   version: z.literal(3),
 })
 
+export type LoadDataResult =
+  | { ok: true; data: AppData; raw: string | null }
+  | { ok: false; data: AppData; raw: string; errors: string[] }
+
 export interface ImportValidationResult {
   ok: boolean
   data?: AppData
   errors: string[]
 }
 
-function normalizeSubjects(subjects: Subject[]): Subject[] {
-  const result: Subject[] = []
-  for (const subject of subjects) {
-    const preferred = subject.commandKey ? normalizeCommandKey(subject.commandKey) : commandKeyForSubjectName(subject.name, result)
-    const commandKey = ensureUniqueCommandKey(preferred, result, {
-      excludeSubjectId: subject.id,
-      fallbackName: subject.name,
-    })
-    result.push({ ...subject, commandKey })
+function isRecord(input: unknown): input is Record<string, unknown> {
+  return typeof input === "object" && input !== null && !Array.isArray(input)
+}
+
+function validateOriginalShape(input: unknown): string[] {
+  if (!isRecord(input)) return ["El archivo debe contener un objeto JSON."]
+  const errors: string[] = []
+
+  for (const field of ARRAY_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(input, field) && !Array.isArray(input[field])) {
+      errors.push(`El campo ${field} debe ser un arreglo.`)
+    }
   }
-  return result
+
+  for (const field of ["settings", "profile"] as const) {
+    if (Object.prototype.hasOwnProperty.call(input, field) && !isRecord(input[field])) {
+      errors.push(`El campo ${field} debe ser un objeto.`)
+    }
+  }
+
+  return errors
+}
+
+function fallbackId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID()
+  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
+}
+
+export function normalizeSubjectForStorage(
+  subject: Omit<Subject, "id" | "createdAt">,
+  existingSubjects: Pick<Subject, "id" | "name" | "commandKey">[],
+  options: { id?: string; createdAt?: number; excludeSubjectId?: string } = {},
+): Subject {
+  const preferred = subject.commandKey ? normalizeCommandKey(subject.commandKey) : commandKeyForSubjectName(subject.name, existingSubjects, options.excludeSubjectId)
+  return {
+    ...subject,
+    id: options.id ?? fallbackId(),
+    createdAt: options.createdAt ?? Date.now(),
+    commandKey: ensureUniqueCommandKey(preferred, existingSubjects, {
+      excludeSubjectId: options.excludeSubjectId,
+      fallbackName: subject.name,
+    }),
+  }
+}
+
+function normalizeSubjects(subjects: Subject[]): Subject[] {
+  return subjects.reduce<Subject[]>((acc, subject) => {
+    acc.push(
+      normalizeSubjectForStorage(subject, acc, {
+        id: subject.id,
+        createdAt: subject.createdAt,
+        excludeSubjectId: subject.id,
+      }),
+    )
+    return acc
+  }, [])
 }
 
 export function migrateData(parsed: Partial<AppData> & Record<string, unknown>): AppData {
@@ -185,9 +235,6 @@ function validateRelations(data: AppData): string[] {
   for (const grade of data.grades) {
     if (!subjectIds.has(grade.subjectId)) errors.push(`Nota ${grade.id} referencia una materia inexistente.`)
     if (grade.weight <= 0 || grade.weight > 100) errors.push(`Nota ${grade.id} tiene ponderación inválida.`)
-    if (!isGradeCompatibleWithScale(grade.score, data.settings.gradeScale)) {
-      errors.push(`Nota ${grade.id} está fuera de la escala configurada.`)
-    }
   }
 
   return errors
@@ -203,6 +250,9 @@ export function hasGradesOutsideScale(data: AppData, scale: GradeScale): boolean
 
 export function validateImportedData(input: unknown): ImportValidationResult {
   try {
+    const shapeErrors = validateOriginalShape(input)
+    if (shapeErrors.length > 0) return { ok: false, errors: shapeErrors }
+
     const migrated = migrateData(input as Partial<AppData> & Record<string, unknown>)
     const parsed = appDataSchema.safeParse(migrated)
     if (!parsed.success) {
@@ -216,22 +266,28 @@ export function validateImportedData(input: unknown): ImportValidationResult {
   }
 }
 
-export function loadData(): AppData {
-  if (typeof window === "undefined") return EMPTY_APP_DATA
+export function loadDataResult(): LoadDataResult {
+  if (typeof window === "undefined") return { ok: true, data: EMPTY_APP_DATA, raw: null }
+  const raw = window.localStorage.getItem(STORAGE_KEY)
+  if (!raw) return { ok: true, data: EMPTY_APP_DATA, raw: null }
+
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (!raw) return EMPTY_APP_DATA
-    const parsed = JSON.parse(raw) as Partial<AppData>
+    const parsed = JSON.parse(raw) as unknown
     const validation = validateImportedData(parsed)
     if (!validation.ok || !validation.data) {
-      console.warn("[Horaly] Datos locales inválidos; se usará estado vacío.", validation.errors)
-      return EMPTY_APP_DATA
+      console.warn("[Horaly] Datos locales inválidos; se conserva el almacenamiento original.", validation.errors)
+      return { ok: false, data: EMPTY_APP_DATA, raw, errors: validation.errors }
     }
-    return validation.data
+    return { ok: true, data: validation.data, raw }
   } catch (err) {
-    console.warn("[Horaly] Error cargando datos:", err)
-    return EMPTY_APP_DATA
+    const message = err instanceof Error ? err.message : "Error cargando datos locales."
+    console.warn("[Horaly] Error cargando datos; se conserva el almacenamiento original:", err)
+    return { ok: false, data: EMPTY_APP_DATA, raw, errors: [message] }
   }
+}
+
+export function loadData(): AppData {
+  return loadDataResult().data
 }
 
 export function saveData(data: AppData) {

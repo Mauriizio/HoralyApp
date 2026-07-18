@@ -6,10 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "tsc --noEmit",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --experimental-specifier-resolution=node --test test/*.test.ts",
-    "check": "pnpm lint && pnpm typecheck && pnpm test"
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

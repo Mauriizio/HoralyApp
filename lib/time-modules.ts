@@ -1,5 +1,5 @@
-import type { TimeModule } from "./types"
-import { parseTime } from "./time-format"
+import type { TimeModule } from "./types.ts"
+import { parseTime } from "./time-format.ts"
 
 export type ModuleValidationError = "format" | "range" | "overlap" | "duplicate-id"
 

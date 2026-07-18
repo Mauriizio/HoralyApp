@@ -16,7 +16,7 @@ import {
   type TimeModule,
   type UserProfile,
 } from "@/lib/types"
-import { loadData, saveData } from "@/lib/storage"
+import { loadDataResult, normalizeSubjectForStorage, saveData } from "@/lib/storage"
 import { computeTriggerTime, fireNotification } from "@/lib/notifications"
 import { validateModules } from "@/lib/time-modules"
 import { findScheduleBlockConflicts } from "@/lib/schedule-conflicts"
@@ -30,33 +30,53 @@ function uid() {
 export function useScheduleStore() {
   const [data, setData] = useState<AppData>(EMPTY_APP_DATA)
   const [hydrated, setHydrated] = useState(false)
+  const [storageRecovery, setStorageRecovery] = useState<{ raw: string; errors: string[] } | null>(null)
 
   useEffect(() => {
-    setData(loadData())
+    const result = loadDataResult()
+    setData(result.data)
+    if (!result.ok) setStorageRecovery({ raw: result.raw, errors: result.errors })
     setHydrated(true)
   }, [])
 
   useEffect(() => {
-    if (hydrated) saveData(data)
-  }, [data, hydrated])
+    if (hydrated && !storageRecovery) saveData(data)
+  }, [data, hydrated, storageRecovery])
 
-  const replaceAll = useCallback((next: AppData) => setData(next), [])
+  const replaceAll = useCallback((next: AppData) => {
+    setStorageRecovery(null)
+    setData(next)
+  }, [])
+
+  const clearStorageRecovery = useCallback(() => setStorageRecovery(null), [])
 
   // --- Subjects ---
   const addSubject = useCallback((subject: Omit<Subject, "id" | "createdAt">) => {
     let createdSubject: Subject | null = null
     setData((d) => {
-      const newSubject: Subject = { ...subject, id: uid(), createdAt: Date.now() }
+      const newSubject = normalizeSubjectForStorage(subject, d.subjects, {
+        id: uid(),
+        createdAt: Date.now(),
+      })
       createdSubject = newSubject
       return { ...d, subjects: [...d.subjects, newSubject] }
     })
-    return createdSubject as Subject
+    if (!createdSubject) throw new Error("No se pudo crear la materia.")
+    return createdSubject
   }, [])
 
   const updateSubject = useCallback((id: string, patch: Partial<Subject>) => {
     setData((d) => ({
       ...d,
-      subjects: d.subjects.map((s) => (s.id === id ? { ...s, ...patch } : s)),
+      subjects: d.subjects.map((subject) => {
+        if (subject.id !== id) return subject
+        const next = { ...subject, ...patch }
+        return normalizeSubjectForStorage(next, d.subjects, {
+          id: subject.id,
+          createdAt: subject.createdAt,
+          excludeSubjectId: subject.id,
+        })
+      }),
     }))
   }, [])
 
@@ -278,6 +298,8 @@ export function useScheduleStore() {
   return {
     data,
     hydrated,
+    storageRecovery,
+    clearStorageRecovery,
     subjectsById,
     replaceAll,
     addSubject,

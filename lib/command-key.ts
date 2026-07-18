@@ -1,4 +1,4 @@
-import type { Subject } from "./types"
+import type { Subject } from "./types.ts"
 
 const MAX_COMMAND_KEY_LENGTH = 8
 

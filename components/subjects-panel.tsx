@@ -11,7 +11,6 @@ import { useI18n } from "@/components/i18n-provider"
 import { DIFFICULTY_LABELS, type Subject } from "@/lib/types"
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
 import { SubjectForm } from "@/components/subject-form"
-import { commandKeyForSubjectName, ensureUniqueCommandKey, normalizeCommandKey } from "@/lib/command-key"
 
 export function SubjectsPanel({ store }: { store: ScheduleStore }) {
   const { t } = useI18n()
@@ -121,19 +120,8 @@ export function SubjectsPanel({ store }: { store: ScheduleStore }) {
         onOpenChange={setOpen}
         initial={editing}
         onSubmit={(values) => {
-          const commandKey = editing
-            ? ensureUniqueCommandKey(values.commandKey ?? editing.commandKey ?? editing.name, data.subjects, {
-                excludeSubjectId: editing.id,
-                fallbackName: values.name,
-              })
-            : ensureUniqueCommandKey(
-                values.commandKey ? normalizeCommandKey(values.commandKey) : commandKeyForSubjectName(values.name, data.subjects),
-                data.subjects,
-                { fallbackName: values.name },
-              )
-          const nextValues = { ...values, commandKey }
-          if (editing) updateSubject(editing.id, nextValues)
-          else addSubject(nextValues)
+          if (editing) updateSubject(editing.id, values)
+          else addSubject(values)
         }}
       />
     </div>
