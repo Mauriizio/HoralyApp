@@ -8,13 +8,18 @@ import { Input } from "@/components/ui/input"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { useI18n } from "@/components/i18n-provider"
 import { MODULE_PRESETS, type TimeModule } from "@/lib/types"
-import { validateModules } from "@/hooks/use-schedule-store"
+import { validateModules } from "@/lib/time-modules"
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
+
+function countAffectedBlocks(blocks: ScheduleStore["data"]["blocks"], nextModules: TimeModule[]): number {
+  const validIds = new Set(nextModules.map((module) => module.id))
+  return blocks.filter((block) => block.moduleIds.some((moduleId) => !validIds.has(moduleId))).length
+}
 
 export function TimeModulesEditor({ store }: { store: ScheduleStore }) {
   const { t } = useI18n()
   const { data, addModule, updateModule, deleteModule, setModules } = store
-  const { modules } = data
+  const { modules, blocks } = data
 
   const [draftStart, setDraftStart] = useState("13:40")
   const [draftEnd, setDraftEnd] = useState("14:25")
@@ -22,14 +27,24 @@ export function TimeModulesEditor({ store }: { store: ScheduleStore }) {
 
   const validationErr = useMemo(() => validateModules(modules), [modules])
 
+  const confirmAffectedBlocks = (nextModules: TimeModule[]) => {
+    const affected = countAffectedBlocks(blocks, nextModules)
+    if (affected === 0) return true
+    return window.confirm(
+      `Este cambio quitará referencias horarias de ${affected} bloque(s). Se conservarán los bloques que aún tengan módulos válidos. ¿Continuar?`,
+    )
+  }
+
   const applyPreset = (id: "morning" | "afternoon" | "evening") => {
     const preset = MODULE_PRESETS.find((p) => p.id === id)
     if (!preset) return
+    const nextModules = preset.modules.map((m, i) => ({ ...m, label: `${t("schedule.module")} ${i + 1}` }))
     if (modules.length > 0) {
       const ok = window.confirm(t("settings.modules.preset.applyConfirm"))
       if (!ok) return
     }
-    setModules(preset.modules.map((m, i) => ({ ...m, label: `${t("schedule.module")} ${i + 1}` })))
+    if (!confirmAffectedBlocks(nextModules)) return
+    setModules(nextModules)
   }
 
   const sorted = modules.slice().sort((a, b) => a.start.localeCompare(b.start))
@@ -44,6 +59,12 @@ export function TimeModulesEditor({ store }: { store: ScheduleStore }) {
     setDraftLabel("")
   }
 
+  const onDelete = (moduleId: string) => {
+    const nextModules = modules.filter((module) => module.id !== moduleId)
+    if (!confirmAffectedBlocks(nextModules)) return
+    deleteModule(moduleId)
+  }
+
   const onModuleChange = (m: TimeModule, patch: Partial<TimeModule>) => {
     updateModule(m.id, patch)
   }
@@ -55,7 +76,6 @@ export function TimeModulesEditor({ store }: { store: ScheduleStore }) {
         <CardDescription>{t("settings.modules.help")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Presets */}
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => applyPreset("morning")}>
             <Sun className="h-4 w-4 mr-1.5" />
@@ -71,7 +91,6 @@ export function TimeModulesEditor({ store }: { store: ScheduleStore }) {
           </Button>
         </div>
 
-        {/* List */}
         <div className="space-y-2">
           {sorted.length === 0 && (
             <div className="text-sm text-muted-foreground py-4 text-center border border-dashed rounded-md">
@@ -110,7 +129,7 @@ export function TimeModulesEditor({ store }: { store: ScheduleStore }) {
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                onClick={() => deleteModule(m.id)}
+                onClick={() => onDelete(m.id)}
                 aria-label={t("common.delete")}
               >
                 <Trash2 className="h-4 w-4" />
@@ -123,11 +142,12 @@ export function TimeModulesEditor({ store }: { store: ScheduleStore }) {
           <div className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-md">
             {validationErr === "range"
               ? t("settings.modules.error.range")
-              : t("settings.modules.error.overlap")}
+              : validationErr === "overlap"
+                ? t("settings.modules.error.overlap")
+                : "Los módulos deben tener formato e identificadores válidos."}
           </div>
         )}
 
-        {/* Add new */}
         <div className="rounded-md border bg-muted/30 p-3 space-y-3">
           <FieldGroup>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -143,23 +163,11 @@ export function TimeModulesEditor({ store }: { store: ScheduleStore }) {
               </Field>
               <Field>
                 <FieldLabel htmlFor="new-mod-start">{t("study.start")}</FieldLabel>
-                <Input
-                  id="new-mod-start"
-                  type="time"
-                  value={draftStart}
-                  onChange={(e) => setDraftStart(e.target.value)}
-                  className="h-9"
-                />
+                <Input id="new-mod-start" type="time" value={draftStart} onChange={(e) => setDraftStart(e.target.value)} className="h-9" />
               </Field>
               <Field>
                 <FieldLabel htmlFor="new-mod-end">{t("study.end")}</FieldLabel>
-                <Input
-                  id="new-mod-end"
-                  type="time"
-                  value={draftEnd}
-                  onChange={(e) => setDraftEnd(e.target.value)}
-                  className="h-9"
-                />
+                <Input id="new-mod-end" type="time" value={draftEnd} onChange={(e) => setDraftEnd(e.target.value)} className="h-9" />
               </Field>
             </div>
           </FieldGroup>

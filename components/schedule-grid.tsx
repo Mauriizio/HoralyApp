@@ -545,14 +545,21 @@ function EmptyCell({
                 key={s.id}
                 type="button"
                 className="flex items-center gap-2 w-full rounded px-2 py-1.5 text-sm hover:bg-accent text-left"
-                onClick={() =>
-                  upsertBlock({
+                onClick={() => {
+                  const block = {
                     id: Math.random().toString(36).slice(2),
                     subjectId: s.id,
                     day,
                     moduleIds: [moduleId],
-                  })
-                }
+                  }
+                  const result = upsertBlock(block)
+                  if (!result.ok) {
+                    const confirmed = window.confirm(
+                      "Ya existe un bloque en este módulo. ¿Quieres reemplazarlo?",
+                    )
+                    if (confirmed) upsertBlock(block, { replaceConflicts: true })
+                  }
+                }}
               >
                 <span
                   className="h-3 w-3 rounded-full"

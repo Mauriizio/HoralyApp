@@ -36,7 +36,7 @@ const ACCENT_PRESETS = [
 
 export function SettingsView({ store }: { store: ScheduleStore }) {
   const { t } = useI18n()
-  const { data, updateSettings, replaceAll, resetSettings } = store
+  const { data, updateSettings, replaceAll, resetSettings, storageRecovery, clearStorageRecovery } = store
   const { settings } = data
   const fileInput = useRef<HTMLInputElement>(null)
   const [permission, setPermission] = useState<string>(() => getPermission())
@@ -52,11 +52,16 @@ export function SettingsView({ store }: { store: ScheduleStore }) {
     reader.onload = () => {
       try {
         const next = importFromJson(String(reader.result))
+        const confirmed = window.confirm(
+          `Se importarán ${next.subjects.length} materia(s), ${next.blocks.length} bloque(s), ${next.grades.length} nota(s) y ${next.reminders.length} recordatorio(s). Se descargará un respaldo antes de reemplazar tus datos actuales. ¿Continuar?`,
+        )
+        if (!confirmed) return
+        downloadJson(`horario-escolar-respaldo-${new Date().toISOString().slice(0, 10)}.json`, exportAsJson(data))
         replaceAll(next)
         toast.success(t("settings.data.import"))
       } catch (err) {
-        toast.error("Error")
-        console.log("[v0] import error:", err)
+        toast.error("No se pudo importar el archivo. Tus datos actuales se conservaron.")
+        console.warn("[Horaly] Error importando datos:", err)
       }
     }
     reader.readAsText(file)
@@ -70,6 +75,35 @@ export function SettingsView({ store }: { store: ScheduleStore }) {
 
   return (
     <div className="space-y-6">
+      {storageRecovery && (
+        <Card className="border-destructive/40">
+          <CardHeader>
+            <CardTitle className="text-base">Recuperación de datos locales</CardTitle>
+            <CardDescription>
+              No se pudieron cargar los datos guardados. El contenido original se conservó y el guardado automático está detenido hasta que decidas cómo continuar.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <ul className="list-disc pl-5 text-xs text-muted-foreground">
+              {storageRecovery.errors.slice(0, 3).map((error) => (
+                <li key={error}>{error}</li>
+              ))}
+            </ul>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={() => downloadJson(`horario-escolar-recuperacion-${new Date().toISOString().slice(0, 10)}.json`, storageRecovery.raw)}
+              >
+                <Download className="h-4 w-4 mr-2" /> Exportar datos originales
+              </Button>
+              <Button variant="destructive" onClick={clearStorageRecovery}>
+                Descartar datos dañados y empezar vacío
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Language + Theme */}
       <Card>
         <CardHeader>

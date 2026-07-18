@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { type DifficultyLevel, DIFFICULTY_LABELS, type Subject } from "@/lib/types"
+import { normalizeCommandKey } from "@/lib/command-key"
 import { getLucideIcon, SUBJECT_ICON_OPTIONS } from "@/lib/icons"
 
 const SUBJECT_COLORS = [
@@ -96,7 +97,7 @@ export function SubjectForm({ open, onOpenChange, initial, onSubmit }: SubjectFo
             <Input
               id="subject-command"
               value={commandKey}
-              onChange={(e) => setCommandKey(e.target.value.replace(/\s+/g, "").toUpperCase())}
+              onChange={(e) => setCommandKey(normalizeCommandKey(e.target.value))}
               placeholder="Ej: FIS, MAT, PROG"
               maxLength={8}
             />

@@ -120,16 +120,6 @@ export function SubjectsPanel({ store }: { store: ScheduleStore }) {
         onOpenChange={setOpen}
         initial={editing}
         onSubmit={(values) => {
-          if (values.commandKey) {
-            const key = values.commandKey.toUpperCase()
-            const duplicated = data.subjects.some(
-              (s) => s.commandKey?.toUpperCase() === key && s.id !== editing?.id,
-            )
-            if (duplicated) {
-              window.alert(`La clave de comando "${key}" ya existe.`)
-              return
-            }
-          }
           if (editing) updateSubject(editing.id, values)
           else addSubject(values)
         }}

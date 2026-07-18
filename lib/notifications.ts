@@ -37,6 +37,6 @@ export function fireNotification(title: string, body: string, tag?: string) {
   try {
     new Notification(title, { body, tag })
   } catch (err) {
-    console.log("[v0] Error al notificar:", err)
+    console.log("[Horaly] Error al notificar:", err)
   }
 }
