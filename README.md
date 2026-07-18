@@ -27,14 +27,13 @@ No hay variables de entorno obligatorias para la línea base actual. Los datos s
 ## Comandos
 
 ```bash
-pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
 pnpm check
 ```
 
-`pnpm check` ejecuta lint, typecheck y tests.
+`pnpm check` ejecuta typecheck, tests y build.
 
 ## Estructura del repositorio
 
@@ -56,14 +55,14 @@ La línea base actual es local-first. No integra Supabase, IA externa, pagos, re
 - Los recordatorios usan notificaciones locales del navegador y funcionan de manera fiable solo con la aplicación abierta o activa. No existe Web Push remoto ni scheduler de backend, por lo que la aplicación cerrada no garantiza ejecución de recordatorios.
 - La escala de notas es global en la línea base; la arquitectura objetivo tendrá escala por semestre.
 - La PWA usa caché conservadora para shell y navegación básica offline.
+- ESLint real para TypeScript/React está diferido como deuda técnica P1; la línea base se valida actualmente con typecheck, tests y build.
 
 ## Verificaciones
 
-Antes de abrir un PR ejecutar:
+Antes de abrir o fusionar un PR ejecutar:
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
