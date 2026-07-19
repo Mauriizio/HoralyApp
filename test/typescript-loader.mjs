@@ -1,30 +1,49 @@
 import { readFile } from "node:fs/promises"
 import path from "node:path"
-import { pathToFileURL } from "node:url"
+import { fileURLToPath, pathToFileURL } from "node:url"
 import ts from "typescript"
 
 const rootDir = process.cwd()
 
 function resolvePathWithTsExtension(specifier, parentURL) {
+  const parentPath = fileURLToPath(
+    parentURL ?? pathToFileURL(`${rootDir}${path.sep}`).href,
+  )
+
   const basePath = specifier.startsWith("@/")
     ? path.join(rootDir, specifier.slice(2))
-    : path.resolve(path.dirname(new URL(parentURL).pathname), specifier)
+    : path.resolve(path.dirname(parentPath), specifier)
 
   if (path.extname(basePath)) return basePath
+
   return `${basePath}.ts`
 }
 
 export async function resolve(specifier, context, nextResolve) {
-  if (specifier.startsWith("node:") || /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(specifier)) {
+  if (
+    specifier.startsWith("node:") ||
+    /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(specifier)
+  ) {
     return nextResolve(specifier, context)
   }
 
-  if (specifier.startsWith("@/") || specifier.startsWith("./") || specifier.startsWith("../")) {
+  if (
+    specifier.startsWith("@/") ||
+    specifier.startsWith("./") ||
+    specifier.startsWith("../")
+  ) {
     try {
       return await nextResolve(specifier, context)
-    } catch (error) {
-      const resolvedPath = resolvePathWithTsExtension(specifier, context.parentURL ?? pathToFileURL(rootDir).href)
-      return { url: pathToFileURL(resolvedPath).href, shortCircuit: true }
+    } catch {
+      const resolvedPath = resolvePathWithTsExtension(
+        specifier,
+        context.parentURL,
+      )
+
+      return {
+        url: pathToFileURL(resolvedPath).href,
+        shortCircuit: true,
+      }
     }
   }
 
@@ -33,7 +52,9 @@ export async function resolve(specifier, context, nextResolve) {
 
 export async function load(url, context, nextLoad) {
   if (url.endsWith(".ts") || url.endsWith(".tsx")) {
-    const source = await readFile(new URL(url), "utf8")
+    const filePath = fileURLToPath(url)
+    const source = await readFile(filePath, "utf8")
+
     const transpiled = ts.transpileModule(source, {
       compilerOptions: {
         module: ts.ModuleKind.ESNext,
@@ -43,10 +64,14 @@ export async function load(url, context, nextLoad) {
         esModuleInterop: true,
         isolatedModules: true,
       },
-      fileName: new URL(url).pathname,
+      fileName: filePath,
     })
 
-    return { format: "module", source: transpiled.outputText, shortCircuit: true }
+    return {
+      format: "module",
+      source: transpiled.outputText,
+      shortCircuit: true,
+    }
   }
 
   return nextLoad(url, context)
