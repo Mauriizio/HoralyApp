@@ -32,8 +32,8 @@ export function AuthForm({ mode }: { mode: Mode }) {
     const result = mode === "login"
       ? await supabase.auth.signInWithPassword({ email, password })
       : mode === "register"
-        ? await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${location.origin}/` } })
-        : await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/auth/reset-password` })
+        ? await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${location.origin}/auth/callback?next=/` } })
+        : await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/auth/callback?next=/auth/update-password` })
     setLoading(false)
     if (result.error) return setMessage(friendlyAuthError(result.error.message))
     if (mode === "reset") return setMessage("Te enviamos instrucciones para recuperar tu contraseña.")
