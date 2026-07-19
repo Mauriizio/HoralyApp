@@ -12,7 +12,7 @@ import { ProfileForm } from "@/components/profile-form"
 import { InstallAppButton } from "@/components/install-app-button"
 import { usePwaInstall } from "@/hooks/use-pwa-install"
 import Link from "next/link"
-import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client"
+import { useAuth } from "@/lib/auth-context"
 
 function initials(name: string) {
   if (!name.trim()) return ""
@@ -25,7 +25,7 @@ export function ProfileButton({ store }: { store: ScheduleStore }) {
   const [open, setOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const { data, updateSettings } = store
-  const cloudConfigured = isSupabaseConfigured()
+  const { authenticated, signOut } = useAuth()
   const { profile, settings } = data
 
   const isDark = useMemo(() => {
@@ -115,15 +115,14 @@ export function ProfileButton({ store }: { store: ScheduleStore }) {
           </Button>
 
           <Separator />
-          {cloudConfigured ? (
+          {authenticated ? (
             <Button
               variant="outline"
               size="sm"
               className="w-full justify-start"
               onClick={async () => {
-                await createSupabaseBrowserClient()?.auth.signOut()
+                await signOut()
                 setOpen(false)
-                location.reload()
               }}
             >
               <LogOut className="h-4 w-4 mr-1.5" />

@@ -35,6 +35,25 @@ alter table public.grades enable row level security;
 alter table public.user_settings enable row level security;
 alter table public.migration_status enable row level security;
 
+create or replace function public.handle_new_user_profile() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.profiles (id, user_id, email, display_name)
+  values (new.id, new.id, new.email, coalesce(new.raw_user_meta_data->>'display_name', ''))
+  on conflict (id) do update set email = excluded.email, updated_at = now();
+  return new;
+end; $$;
+
+drop trigger if exists on_auth_user_created_profile on auth.users;
+create trigger on_auth_user_created_profile after insert on auth.users for each row execute function public.handle_new_user_profile();
+
+do $$ declare t text; begin
+  foreach t in array array['profiles','semesters','subjects','schedule_blocks','study_blocks','reminders','grades','user_settings','migration_status'] loop
+    execute format('drop trigger if exists set_%I_updated_at on public.%I', t, t);
+    execute format('create trigger set_%I_updated_at before update on public.%I for each row execute function public.set_updated_at()', t, t);
+  end loop;
+end $$;
+
+
 -- Policy documentation: every CRUD policy below restricts rows to the authenticated owner with auth.uid() = user_id.
 do $$ declare t text; begin
   foreach t in array array['semesters','subjects','schedule_blocks','study_blocks','reminders','grades','user_settings','migration_status'] loop
@@ -49,16 +68,24 @@ do $$ declare t text; begin
   end loop;
 end $$;
 
+drop policy if exists profiles_select_own on public.profiles;
 create policy profiles_select_own on public.profiles for select using (auth.uid() = user_id and id = user_id);
+drop policy if exists profiles_insert_own on public.profiles;
 create policy profiles_insert_own on public.profiles for insert with check (auth.uid() = user_id and id = user_id);
+drop policy if exists profiles_update_own on public.profiles;
 create policy profiles_update_own on public.profiles for update using (auth.uid() = user_id and id = user_id) with check (auth.uid() = user_id and id = user_id);
+drop policy if exists profiles_delete_own on public.profiles;
 create policy profiles_delete_own on public.profiles for delete using (auth.uid() = user_id and id = user_id);
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('avatars', 'avatars', true, 2097152, array['image/png','image/jpeg','image/webp'])
 on conflict (id) do update set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
 
+drop policy if exists avatars_select_public on storage.objects;
 create policy avatars_select_public on storage.objects for select using (bucket_id = 'avatars');
+drop policy if exists avatars_insert_own on storage.objects;
 create policy avatars_insert_own on storage.objects for insert with check (bucket_id = 'avatars' and auth.uid()::text = (storage.foldername(name))[1]);
+drop policy if exists avatars_update_own on storage.objects;
 create policy avatars_update_own on storage.objects for update using (bucket_id = 'avatars' and auth.uid()::text = (storage.foldername(name))[1]) with check (bucket_id = 'avatars' and auth.uid()::text = (storage.foldername(name))[1]);
+drop policy if exists avatars_delete_own on storage.objects;
 create policy avatars_delete_own on storage.objects for delete using (bucket_id = 'avatars' and auth.uid()::text = (storage.foldername(name))[1]);
