@@ -19,11 +19,11 @@ import {
 import { loadDataResult, normalizeSubjectForStorage, saveData } from "@/lib/storage"
 import { computeTriggerTime, fireNotification } from "@/lib/notifications"
 import { validateModules } from "@/lib/time-modules"
-import { findScheduleBlockConflicts } from "@/lib/schedule-conflicts"
 import { useAuth } from "@/lib/auth-context"
 import { createSupabaseBrowserClient } from "@/lib/supabase/client"
 import { SupabaseAcademicRepository, selectAcademicRepository, type AcademicRepository, type SyncStatus } from "@/lib/repositories/academic-repository"
 import { loadCloudCache, saveCloudCache, saveMigrationBackup, loadMigrationBackup } from "@/lib/local-cloud-storage"
+import { transitionDeleteModule, transitionMoveBlock, transitionSetModules, transitionUpdateSubject, transitionUpsertBlock } from "@/lib/schedule-transitions"
 
 export { validateModules }
 
@@ -139,24 +139,11 @@ export function useScheduleStore() {
   }, [data.subjects, persistCloud])
 
   const updateSubject = useCallback((id: string, patch: Partial<Subject>) => {
-    let nextSubject: Subject | undefined
-    setData((d) => ({
-      ...d,
-      subjects: d.subjects.map((subject) => {
-        if (subject.id !== id) return subject
-        const next = { ...subject, ...patch }
-        const normalized = normalizeSubjectForStorage(next, d.subjects, {
-          id: subject.id,
-          createdAt: subject.createdAt,
-          excludeSubjectId: subject.id,
-        })
-        nextSubject = normalized
-        return normalized
-      }),
-    }))
-    const savedSubject = nextSubject
-    if (savedSubject) void persistCloud((repository) => repository.updateSubject(savedSubject))
-  }, [persistCloud])
+    const transition = transitionUpdateSubject(data, id, patch)
+    if (!transition.ok || !transition.changedEntity) return
+    setData(transition.nextData)
+    void persistCloud((repository) => repository.updateSubject(transition.changedEntity!))
+  }, [data, persistCloud])
 
   const deleteSubject = useCallback((id: string) => {
     setData((d) => ({
@@ -174,47 +161,24 @@ export function useScheduleStore() {
 
   // --- Schedule blocks ---
   const upsertBlock = useCallback((block: ScheduleBlock, options: { replaceConflicts?: boolean } = {}) => {
-    let conflictIds: string[] = []
-    setData((d) => {
-      const conflicts = findScheduleBlockConflicts(block, d.blocks)
-      conflictIds = conflicts.map((conflict) => conflict.id)
-      if (conflicts.length > 0 && !options.replaceConflicts) return d
-      const nextBlocks = d.blocks.filter((b) => {
-        if (b.id === block.id) return false
-        if (!options.replaceConflicts) return true
-        return !conflictIds.includes(b.id)
-      })
-      return { ...d, blocks: [...nextBlocks, block] }
+    const transition = transitionUpsertBlock(data, block, options)
+    if (!transition.ok) return { ok: false as const, conflictIds: transition.conflictIds }
+    setData(transition.nextData)
+    void persistCloud(async (repository) => {
+      await Promise.all(transition.deletedIds.map((id) => repository.deleteScheduleBlock(id)))
+      await repository.saveScheduleBlock(block)
     })
-    const result = conflictIds.length > 0 && !options.replaceConflicts
-      ? { ok: false as const, conflictIds }
-      : { ok: true as const, conflictIds }
-    if (result.ok) void persistCloud((repository) => repository.saveScheduleBlock(block))
-    return result
-  }, [persistCloud])
+    return { ok: true as const, conflictIds: transition.conflictIds }
+  }, [data, persistCloud])
 
   const moveBlock = useCallback(
     (blockId: string, targetDay: DayKey, startModuleId: string, modules: TimeModule[]) => {
-      let movedBlock: ScheduleBlock | undefined
-      setData((d) => {
-        const existing = d.blocks.find((b) => b.id === blockId)
-        if (!existing) return d
-        const span = existing.moduleIds.length
-        const startIdx = modules.findIndex((m) => m.id === startModuleId)
-        if (startIdx < 0) return d
-        const endIdx = Math.min(modules.length - 1, startIdx + span - 1)
-        const newModuleIds = modules.slice(startIdx, endIdx + 1).map((m) => m.id)
-        const moved: ScheduleBlock = { ...existing, day: targetDay, moduleIds: newModuleIds }
-        movedBlock = moved
-        const conflicts = findScheduleBlockConflicts(moved, d.blocks)
-        if (conflicts.length > 0) return d
-        const others = d.blocks.filter((b) => b.id !== blockId)
-        return { ...d, blocks: [...others, moved] }
-      })
-      const savedBlock = movedBlock
-      if (savedBlock) void persistCloud((repository) => repository.saveScheduleBlock(savedBlock))
+      const transition = transitionMoveBlock(data, blockId, targetDay, startModuleId, modules)
+      if (!transition.ok || !transition.changedEntity) return
+      setData(transition.nextData)
+      void persistCloud((repository) => repository.saveScheduleBlock(transition.changedEntity!))
     },
-    [persistCloud],
+    [data, persistCloud],
   )
 
   const deleteBlock = useCallback((id: string) => {
@@ -224,19 +188,10 @@ export function useScheduleStore() {
 
   // --- Modules ---
   const setModules = useCallback((modules: TimeModule[]) => {
-    setData((d) => {
-      // Remove blocks that reference removed modules.
-      const validIds = new Set(modules.map((m) => m.id))
-      return {
-        ...d,
-        modules,
-        blocks: d.blocks
-          .map((b) => ({ ...b, moduleIds: b.moduleIds.filter((id) => validIds.has(id)) }))
-          .filter((b) => b.moduleIds.length > 0),
-      }
-    })
-    void persistCloud((repository) => repository.updateSettings(data.settings, modules))
-  }, [data.settings, persistCloud])
+    const transition = transitionSetModules(data, modules)
+    setData(transition.nextData)
+    void persistCloud((repository) => repository.replaceAll(transition.nextData))
+  }, [data, persistCloud])
 
   const addModule = useCallback((module: Omit<TimeModule, "id">) => {
     const next: TimeModule = { ...module, id: uid() }
@@ -255,14 +210,10 @@ export function useScheduleStore() {
   }, [data.modules, data.settings, persistCloud])
 
   const deleteModule = useCallback((id: string) => {
-    const modules = data.modules.filter((m) => m.id !== id)
-    setData((d) => ({
-      ...d,
-      modules,
-      blocks: d.blocks.map((b) => ({ ...b, moduleIds: b.moduleIds.filter((mid) => mid !== id) })).filter((b) => b.moduleIds.length > 0),
-    }))
-    void persistCloud((repository) => repository.updateSettings(data.settings, modules))
-  }, [data.modules, data.settings, persistCloud])
+    const transition = transitionDeleteModule(data, id)
+    setData(transition.nextData)
+    void persistCloud((repository) => repository.replaceAll(transition.nextData))
+  }, [data, persistCloud])
 
   // --- Study blocks ---
   const addStudyBlock = useCallback((sb: Omit<StudyBlock, "id">) => {
@@ -341,7 +292,8 @@ export function useScheduleStore() {
 
   const resetProfile = useCallback(() => {
     setData((d) => ({ ...d, profile: DEFAULT_PROFILE }))
-  }, [])
+    void persistCloud((repository) => repository.updateProfile(DEFAULT_PROFILE, user?.email))
+  }, [persistCloud, user?.email])
 
   // --- Settings ---
   const updateSettings = useCallback((patch: Partial<AppSettings>) => {
@@ -352,7 +304,8 @@ export function useScheduleStore() {
 
   const resetSettings = useCallback(() => {
     setData((d) => ({ ...d, settings: DEFAULT_SETTINGS }))
-  }, [])
+    void persistCloud((repository) => repository.updateSettings(DEFAULT_SETTINGS, data.modules))
+  }, [data.modules, persistCloud])
 
   // --- Notification loop ---
   const lastCheckRef = useRef<number>(0)

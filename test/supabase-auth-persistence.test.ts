@@ -86,6 +86,7 @@ test("no hay service role pública", async () => {
 })
 import { MIGRATION_BACKUP_KEY, cloudCacheKey, loadMigrationBackup, saveCloudCache, saveMigrationBackup } from "../lib/local-cloud-storage.ts"
 import { migrateLocalStorageToSupabase } from "../lib/local-migration.ts"
+import { transitionDeleteModule, transitionMoveBlock, transitionSetModules, transitionUpdateSubject, transitionUpsertBlock } from "../lib/schedule-transitions.ts"
 
 function withLocalStorage(fn: (storage: Map<string, string>) => void | Promise<void>) {
   const originalWindow = globalThis.window
@@ -218,4 +219,96 @@ test("ningún error cloud cambia syncStatus a synced", async () => {
   const source = await readFile("hooks/use-schedule-store.ts", "utf8")
   const catchBlock = source.slice(source.indexOf("} catch (error) {", source.indexOf("const persistCloud")))
   assert.equal(catchBlock.includes('setSyncStatus("synced")'), false)
+})
+
+
+test("transitionUpdateSubject devuelve la materia actualizada antes de setData", () => {
+  const current = { ...EMPTY_APP_DATA, subjects: [{ id: "s1", name: "Historia", color: "#fff", difficulty: 3 as const, createdAt: 1, commandKey: "HIS" }] }
+  const transition = transitionUpdateSubject(current, "s1", { name: "Historia avanzada" })
+  assert.equal(transition.ok, true)
+  assert.equal(transition.changedEntity?.name, "Historia avanzada")
+  assert.equal(transition.nextData.subjects[0].name, "Historia avanzada")
+})
+
+test("updateSubject genera exactamente una escritura cloud por entidad", async () => {
+  const calls: Call[] = []
+  const repo = new SupabaseAcademicRepository(createRepositoryClient({}, calls), "u1")
+  await repo.updateSubject({ id: "s1", name: "Historia", color: "#fff", difficulty: 3, createdAt: 1 })
+  assert.equal(calls.filter((call) => call.action === "upsert" && call.table === "subjects").length, 1)
+})
+
+test("transitionUpsertBlock sin reemplazo rechaza conflictos y no debe escribir", () => {
+  const current = { ...EMPTY_APP_DATA, blocks: [{ id: "b1", subjectId: "s1", day: "lunes" as const, moduleIds: ["m1"] }] }
+  const transition = transitionUpsertBlock(current, { id: "b2", subjectId: "s1", day: "lunes", moduleIds: ["m1"] })
+  assert.equal(transition.ok, false)
+  assert.deepEqual(transition.nextData.blocks.map((block) => block.id), ["b1"])
+  assert.deepEqual(transition.conflictIds, ["b1"])
+})
+
+test("transitionUpsertBlock con reemplazo devuelve conflictIds y elimina esos IDs remotamente", async () => {
+  const current = { ...EMPTY_APP_DATA, blocks: [{ id: "b1", subjectId: "s1", day: "lunes" as const, moduleIds: ["m1"] }] }
+  const transition = transitionUpsertBlock(current, { id: "b2", subjectId: "s1", day: "lunes", moduleIds: ["m1"] }, { replaceConflicts: true })
+  assert.equal(transition.ok, true)
+  assert.deepEqual(transition.deletedIds, ["b1"])
+  const calls: Call[] = []
+  const repo = new SupabaseAcademicRepository(createRepositoryClient({}, calls), "u1")
+  await Promise.all(transition.deletedIds.map((id) => repo.deleteScheduleBlock(id)))
+  assert.equal(calls.some((call) => call.table === "schedule_blocks" && call.action === "delete"), true)
+})
+
+test("transitionMoveBlock válido genera el bloque correcto", () => {
+  const modules = [{ id: "m1", start: "08:00", end: "08:45", label: "1" }, { id: "m2", start: "08:45", end: "09:30", label: "2" }]
+  const current = { ...EMPTY_APP_DATA, blocks: [{ id: "b1", subjectId: "s1", day: "lunes" as const, moduleIds: ["m1"] }] }
+  const transition = transitionMoveBlock(current, "b1", "martes", "m2", modules)
+  assert.equal(transition.ok, true)
+  assert.deepEqual(transition.changedEntity, { id: "b1", subjectId: "s1", day: "martes", moduleIds: ["m2"] })
+})
+
+test("transitionMoveBlock con conflicto no escribe", () => {
+  const modules = [{ id: "m1", start: "08:00", end: "08:45", label: "1" }]
+  const current = { ...EMPTY_APP_DATA, blocks: [
+    { id: "b1", subjectId: "s1", day: "lunes" as const, moduleIds: ["m1"] },
+    { id: "b2", subjectId: "s2", day: "martes" as const, moduleIds: ["m1"] },
+  ] }
+  const transition = transitionMoveBlock(current, "b1", "martes", "m1", modules)
+  assert.equal(transition.ok, false)
+  assert.deepEqual(transition.nextData.blocks, current.blocks)
+})
+
+test("transitionDeleteModule actualiza bloques afectados", () => {
+  const current = { ...EMPTY_APP_DATA, modules: [{ id: "m1", start: "08:00", end: "08:45", label: "1" }, { id: "m2", start: "08:45", end: "09:30", label: "2" }], blocks: [{ id: "b1", subjectId: "s1", day: "lunes" as const, moduleIds: ["m1", "m2"] }] }
+  const transition = transitionDeleteModule(current, "m1")
+  assert.deepEqual(transition.nextData.blocks[0].moduleIds, ["m2"])
+})
+
+test("transitionDeleteModule elimina bloques que quedan vacíos", () => {
+  const current = { ...EMPTY_APP_DATA, modules: [{ id: "m1", start: "08:00", end: "08:45", label: "1" }], blocks: [{ id: "b1", subjectId: "s1", day: "lunes" as const, moduleIds: ["m1"] }] }
+  const transition = transitionDeleteModule(current, "m1")
+  assert.deepEqual(transition.nextData.blocks, [])
+  assert.deepEqual(transition.deletedIds, ["b1"])
+})
+
+test("transitionSetModules no deja referencias a módulos inexistentes", () => {
+  const current = { ...EMPTY_APP_DATA, blocks: [{ id: "b1", subjectId: "s1", day: "lunes" as const, moduleIds: ["m1", "missing"] }] }
+  const transition = transitionSetModules(current, [{ id: "m1", start: "08:00", end: "08:45", label: "1" }])
+  assert.deepEqual(transition.nextData.blocks[0].moduleIds, ["m1"])
+})
+
+test("resetProfile y resetSettings persisten en cuenta autenticada", async () => {
+  const calls: Call[] = []
+  const repo = new SupabaseAcademicRepository(createRepositoryClient({}, calls), "u1")
+  await repo.updateProfile({ displayName: "" }, "u1@example.com")
+  await repo.updateSettings(EMPTY_APP_DATA.settings, EMPTY_APP_DATA.modules)
+  assert.equal(calls.some((call) => call.table === "profiles" && call.action === "upsert"), true)
+  assert.equal(calls.some((call) => call.table === "user_settings" && call.action === "upsert"), true)
+})
+
+test("ninguna operación depende de variables asignadas dentro de setData", async () => {
+  const source = await readFile("hooks/use-schedule-store.ts", "utf8")
+  assert.equal(source.includes("let nextSubject"), false)
+  assert.equal(source.includes("let conflictIds"), false)
+  assert.equal(source.includes("let movedBlock"), false)
+  assert.equal(source.includes("transitionUpdateSubject"), true)
+  assert.equal(source.includes("transitionUpsertBlock"), true)
+  assert.equal(source.includes("transitionMoveBlock"), true)
 })
