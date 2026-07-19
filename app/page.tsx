@@ -77,7 +77,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
   const { t, day: tDay } = useI18n()
   const [tab, setTab] = useState("horario")
   const [quickOpen, setQuickOpen] = useState(false)
-  const { authenticated } = useAuth()
+  const { authenticated, loading: authLoading } = useAuth()
 
   const [subjectOpen, setSubjectOpen] = useState(false)
   const [subjectEditing, setSubjectEditing] = useState<Subject | undefined>()
@@ -297,11 +297,18 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
             {store.syncStatus === "error" && (
               <Button variant="outline" size="sm" className="hidden sm:inline-flex shrink-0" onClick={store.retrySync}>Reintentar</Button>
             )}
-            {!authenticated && (
-              <Button variant="outline" size="sm" className="hidden sm:inline-flex shrink-0" asChild>
-                <Link href="/auth/login"><LogIn className="h-3.5 w-3.5 mr-1.5" />Iniciar sesión</Link>
-              </Button>
-            )}
+            {authLoading ? (
+              <div className="hidden sm:block h-9 w-28 rounded-md bg-muted animate-pulse" aria-label="Cargando sesión" />
+            ) : !authenticated ? (
+              <div className="hidden sm:flex items-center gap-2 shrink-0">
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/auth/login"><LogIn className="h-3.5 w-3.5 mr-1.5" />Iniciar sesión</Link>
+                </Button>
+                <Button size="sm" asChild>
+                  <Link href="/auth/register">Crear cuenta</Link>
+                </Button>
+              </div>
+            ) : null}
 
             <Button
               variant="outline"

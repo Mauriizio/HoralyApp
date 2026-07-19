@@ -26,7 +26,7 @@ export function mapAuthError(error?: { message?: string; code?: string; status?:
   const raw = `${error?.code ?? ""} ${error?.message ?? ""}`.toLowerCase()
   if (raw.includes("email_not_confirmed") || raw.includes("email not confirmed")) return { type: "warning", title: "Tu correo todavía no está confirmado.", description: "Confirma tu correo o solicita un nuevo enlace para activar el inicio de sesión." }
   if (raw.includes("invalid login") || raw.includes("invalid_credentials") || raw.includes("invalid credentials")) return { type: "error", title: "Correo o contraseña incorrectos.", description: "Revisa tus datos o recupera tu contraseña. Por seguridad no confirmamos si el correo está registrado." }
-  if (raw.includes("rate") || error?.status === 429) return { type: "warning", title: "Demasiados intentos.", description: "Espera unos minutos antes de solicitar otro correo." }
+  if (raw.includes("rate") || raw.includes("over_email_send_rate_limit") || error?.status === 429) return { type: "warning", title: "Límite temporal de envío alcanzado.", description: "Supabase limita temporalmente la cantidad de correos. Espera antes de reintentar; no enviamos otro correo en este intento." }
   if (raw.includes("network") || raw.includes("fetch")) return { type: "error", title: "No pudimos conectar con el servidor.", description: "Revisa tu conexión e intenta nuevamente." }
   return { type: "error", title: "No se pudo completar la operación.", description: "Intenta nuevamente en unos minutos." }
 }

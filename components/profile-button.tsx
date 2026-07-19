@@ -25,7 +25,7 @@ export function ProfileButton({ store }: { store: ScheduleStore }) {
   const [open, setOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const { data, updateSettings } = store
-  const { authenticated, signOut } = useAuth()
+  const { authenticated, loading, signOut } = useAuth()
   const { profile, settings } = data
 
   const isDark = useMemo(() => {
@@ -39,6 +39,23 @@ export function ProfileButton({ store }: { store: ScheduleStore }) {
   const displayInitials = initials(profile.displayName)
   const { canPrompt, showInstructions, installed } = usePwaInstall()
   const showInstall = !installed && (canPrompt || showInstructions)
+
+  if (loading) {
+    return <div className="h-9 w-24 rounded-md bg-muted animate-pulse" aria-label="Cargando sesión" />
+  }
+
+  if (!authenticated) {
+    return (
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/auth/login"><LogIn className="h-4 w-4 mr-1.5" />Iniciar sesión</Link>
+        </Button>
+        <Button size="sm" asChild>
+          <Link href="/auth/register">Crear cuenta</Link>
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -115,24 +132,18 @@ export function ProfileButton({ store }: { store: ScheduleStore }) {
           </Button>
 
           <Separator />
-          {authenticated ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-start"
-              onClick={async () => {
-                await signOut()
-                setOpen(false)
-              }}
-            >
-              <LogOut className="h-4 w-4 mr-1.5" />
-              Cerrar sesión
-            </Button>
-          ) : (
-            <Button variant="outline" size="sm" className="w-full justify-start" asChild>
-              <Link href="/auth/login"><LogIn className="h-4 w-4 mr-1.5" />Iniciar sesión</Link>
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-start"
+            onClick={async () => {
+              await signOut()
+              setOpen(false)
+            }}
+          >
+            <LogOut className="h-4 w-4 mr-1.5" />
+            Cerrar sesión
+          </Button>
 
           <Separator />
 

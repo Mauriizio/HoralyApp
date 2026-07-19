@@ -1,17 +1,30 @@
-export function getPublicSiteUrl() {
+export function getClientAuthOrigin() {
+  if (typeof window !== "undefined" && window.location.origin) return window.location.origin
+  return getServerSiteUrl()
+}
+
+export function getServerSiteUrl() {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim()
   if (explicit) return normalizeOrigin(explicit)
-  if (typeof window !== "undefined" && window.location.origin) return window.location.origin
   const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL
   if (vercel) return normalizeOrigin(vercel.startsWith("http") ? vercel : `https://${vercel}`)
   return "http://localhost:3000"
+}
+
+export function getMetadataBase() {
+  return new URL(getServerSiteUrl())
 }
 
 function normalizeOrigin(value: string) {
   try { return new URL(value).origin } catch { return "http://localhost:3000" }
 }
 
-export function buildAuthRedirectUrl(path: string, origin = getPublicSiteUrl()) {
+export function buildClientAuthRedirectUrl(path: string, origin = getClientAuthOrigin()) {
+  const safePath = safeInternalRedirect(path, "/")
+  return new URL(safePath, origin).toString()
+}
+
+export function buildAuthRedirectUrl(path: string, origin = getServerSiteUrl()) {
   const safePath = safeInternalRedirect(path, "/")
   return new URL(safePath, origin).toString()
 }
