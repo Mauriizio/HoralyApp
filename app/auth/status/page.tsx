@@ -1,0 +1,20 @@
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import type { CallbackStatus } from "@/lib/auth-flow"
+
+const content: Record<CallbackStatus, { title: string; description: string }> = {
+  "email-confirmed": { title: "Correo confirmado", description: "Tu correo quedó confirmado. Ya puedes iniciar sesión y sincronizar tus datos." },
+  "password-recovery-ready": { title: "Recuperación lista", description: "Continúa creando una nueva contraseña segura." },
+  "otp-expired": { title: "El enlace expiró", description: "Solicita un nuevo enlace. Por seguridad, los enlaces de Supabase tienen validez limitada." },
+  "access-denied": { title: "Acceso denegado", description: "No pudimos completar la confirmación porque el proveedor rechazó la solicitud." },
+  "invalid-link": { title: "Enlace inválido o ya utilizado", description: "El enlace no es válido, ya fue usado o no corresponde a esta sesión." },
+  "callback-failed": { title: "No pudimos completar la operación", description: "Intenta nuevamente o solicita un nuevo enlace desde la pantalla correspondiente." },
+}
+
+export default async function AuthStatusPage({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
+  const { code } = await searchParams
+    const safeCode = (code && code in content ? code : "callback-failed") as CallbackStatus
+    const item = content[safeCode]
+  return <main className="min-h-screen grid place-items-center bg-muted/30 p-4"><Card className="w-full max-w-md"><CardHeader><CardTitle>{item.title}</CardTitle><CardDescription>{item.description}</CardDescription></CardHeader><CardContent className="grid gap-2"><Button asChild><Link href={safeCode === "password-recovery-ready" ? "/auth/update-password" : "/auth/login"}>{safeCode === "password-recovery-ready" ? "Crear nueva contraseña" : "Ir a iniciar sesión"}</Link></Button><Button variant="outline" asChild><Link href="/auth/reset-password">Solicitar nuevo enlace</Link></Button><Button variant="ghost" asChild><Link href="/auth/register">Crear cuenta</Link></Button></CardContent></Card></main>
+}
