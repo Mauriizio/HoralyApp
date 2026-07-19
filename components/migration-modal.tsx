@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { createSupabaseBrowserClient } from "@/lib/supabase/client"
 import { useAuth } from "@/lib/auth-context"
 import { loadDataResult } from "@/lib/storage"
+import { saveMigrationBackup, loadMigrationBackup } from "@/lib/local-cloud-storage"
 import { migrateLocalStorageToSupabase, summarizeLocalData } from "@/lib/local-migration"
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
 
@@ -20,8 +21,10 @@ export function MigrationModal({ store }: { store: ScheduleStore }) {
     let cancelled = false
     async function check() {
       if (!authenticated || !user) return
-      const local = loadDataResult()
+      const backup = loadMigrationBackup(user.id)
+      const local = backup ? { ok: true as const, data: backup.data } : loadDataResult()
       if (!local.ok) return
+      if (!backup) saveMigrationBackup(user.id, local.data)
       const nextSummary = summarizeLocalData(local.data)
       const hasData = Object.values(nextSummary).some((count) => count > 0)
       if (!hasData) return
@@ -44,9 +47,11 @@ export function MigrationModal({ store }: { store: ScheduleStore }) {
     setMigrating(true)
     setMessage("Migrando datos locales...")
     try {
-      const result = await migrateLocalStorageToSupabase(supabase, user.id)
+      const snapshot = store.migrationSnapshot ?? loadMigrationBackup(user.id)?.data
+      if (!snapshot) throw new Error("No hay snapshot local disponible para migrar.")
+      const result = await migrateLocalStorageToSupabase(supabase, user.id, snapshot)
       setMessage(result.skipped ? "La migración ya estaba completada." : "Migración completada. Tus datos locales se conservaron como respaldo.")
-      await store.retrySync()
+      store.replaceAll(result.data)
       setOpen(false)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Falló la migración. Puedes reintentar.")

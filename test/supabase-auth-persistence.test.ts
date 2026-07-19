@@ -84,3 +84,138 @@ test("no hay service role pública", async () => {
   const content = (await Promise.all(files.map((f) => readFile(f, "utf8")))).join("\n")
   assert.equal(content.includes("NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY"), false)
 })
+import { MIGRATION_BACKUP_KEY, cloudCacheKey, loadMigrationBackup, saveCloudCache, saveMigrationBackup } from "../lib/local-cloud-storage.ts"
+import { migrateLocalStorageToSupabase } from "../lib/local-migration.ts"
+
+function withLocalStorage(fn: (storage: Map<string, string>) => void | Promise<void>) {
+  const originalWindow = globalThis.window
+  const storage = new Map<string, string>()
+  Object.defineProperty(globalThis, "window", {
+    value: { localStorage: { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => storage.set(key, value), removeItem: (key: string) => storage.delete(key) } },
+    configurable: true,
+  })
+  return Promise.resolve(fn(storage)).finally(() => Object.defineProperty(globalThis, "window", { value: originalWindow, configurable: true }))
+}
+
+test("cache cloud y datos invitados usan claves separadas", async () => {
+  await withLocalStorage((storage) => {
+    storage.set("horario-escolar:v1", JSON.stringify({ ...EMPTY_APP_DATA, subjects: [{ id: "guest", name: "Local", color: "#fff", difficulty: 3, createdAt: 1 }] }))
+    saveCloudCache("u1", { ...EMPTY_APP_DATA, subjects: [{ id: "cloud", name: "Cloud", color: "#000", difficulty: 3, createdAt: 1 }] })
+    assert.equal(storage.has("horario-escolar:v1"), true)
+    assert.equal(storage.has(cloudCacheKey("u1")), true)
+    assert.notEqual(cloudCacheKey("u1"), "horario-escolar:v1")
+  })
+})
+
+test("snapshot de migración permanece intacto aunque cambie localStorage", async () => {
+  await withLocalStorage((storage) => {
+    const snapshot = { ...EMPTY_APP_DATA, subjects: [{ id: "s-original", name: "Original", color: "#fff", difficulty: 3 as const, createdAt: 1 }] }
+    saveMigrationBackup("u1", snapshot)
+    storage.set("horario-escolar:v1", JSON.stringify({ ...EMPTY_APP_DATA, subjects: [] }))
+    assert.equal(loadMigrationBackup("u1")?.data.subjects[0]?.id, "s-original")
+    assert.equal(storage.has(MIGRATION_BACKUP_KEY), true)
+  })
+})
+
+test("continuar sin migrar y cancelar conservan respaldo y datos invitados", async () => {
+  await withLocalStorage((storage) => {
+    const guest = { ...EMPTY_APP_DATA, subjects: [{ id: "guest", name: "Invitado", color: "#fff", difficulty: 3 as const, createdAt: 1 }] }
+    storage.set("horario-escolar:v1", JSON.stringify(guest))
+    saveMigrationBackup("u1", guest)
+    assert.equal(storage.get("horario-escolar:v1")?.includes("guest"), true)
+    assert.equal(storage.get(MIGRATION_BACKUP_KEY)?.includes("guest"), true)
+  })
+})
+
+type Call = { table: string; action: string; args: unknown[] }
+function createRepositoryClient(seed: Record<string, Record<string, unknown>[]>, calls: Call[] = []) {
+  const byTable = seed
+  const client = {
+    from(table: string) {
+      const builder = {
+        table,
+        action: "select",
+        filters: [] as [string, unknown][],
+        select(...args: unknown[]) { calls.push({ table, action: "select", args }); this.action = "select"; return this },
+        upsert(values: unknown, ...args: unknown[]) { calls.push({ table, action: "upsert", args: [values, ...args] }); const list = Array.isArray(values) ? values : [values]; byTable[table] = [...(byTable[table] ?? []).filter((row) => !list.some((item) => (item as { id?: unknown }).id === row.id)), ...list as Record<string, unknown>[]]; return Promise.resolve({ error: null }) },
+        delete() { calls.push({ table, action: "delete", args: [] }); this.action = "delete"; return this },
+        update(values: unknown) { calls.push({ table, action: "update", args: [values] }); this.action = "update"; return this },
+        eq(column: string, value: unknown) { calls.push({ table, action: "eq", args: [column, value] }); this.filters.push([column, value]); return this },
+        not(column: string, operator: string, value: unknown) { calls.push({ table, action: "not", args: [column, operator, value] }); return Promise.resolve({ error: null }) },
+        maybeSingle() { return Promise.resolve({ data: null, error: null }) },
+        then(resolve: (value: { data?: Record<string, unknown>[]; error: null }) => void) { resolve({ data: byTable[table] ?? [], error: null }) },
+      }
+      return builder
+    },
+  }
+  return client as never
+}
+
+test("deleteStudyBlock, deleteReminder y deleteGrade eliminan remotamente", async () => {
+  const calls: Call[] = []
+  const repo = new SupabaseAcademicRepository(createRepositoryClient({}, calls), "u1")
+  await repo.deleteStudyBlock("sb1")
+  await repo.deleteReminder("r1")
+  await repo.deleteGrade("g1")
+  assert.deepEqual(calls.filter((call) => call.action === "delete").map((call) => call.table), ["study_blocks", "reminders", "grades"])
+})
+
+test("deleteSubject limpia dependencias remotas y desvincula study_blocks", async () => {
+  const calls: Call[] = []
+  const repo = new SupabaseAcademicRepository(createRepositoryClient({}, calls), "u1")
+  await repo.deleteSubject("s1")
+  assert.deepEqual(calls.filter((call) => call.action === "delete").map((call) => call.table), ["schedule_blocks", "grades", "reminders", "subjects"])
+  assert.equal(calls.some((call) => call.table === "study_blocks" && call.action === "update"), true)
+})
+
+test("replaceAll elimina filas remotas obsoletas antes de upsert", async () => {
+  const calls: Call[] = []
+  const repo = new SupabaseAcademicRepository(createRepositoryClient({}, calls), "u1")
+  await repo.replaceAll({ ...EMPTY_APP_DATA, subjects: [{ id: "keep", name: "Keep", color: "#fff", difficulty: 3, createdAt: 1 }] })
+  assert.equal(calls.some((call) => call.action === "not" && call.args.includes("in")), true)
+  assert.equal(calls.some((call) => call.action === "upsert" && call.table === "subjects"), true)
+})
+
+test("migrar usa snapshot capturado y no localStorage modificado", async () => {
+  await withLocalStorage(async (storage) => {
+    const snapshot = { ...EMPTY_APP_DATA, subjects: [{ id: "snapshot", name: "Snapshot", color: "#fff", difficulty: 3 as const, createdAt: 1 }] }
+    storage.set("horario-escolar:v1", JSON.stringify({ ...EMPTY_APP_DATA, subjects: [{ id: "mutated", name: "Mutated", color: "#000", difficulty: 3, createdAt: 1 }] }))
+    const calls: Call[] = []
+    await migrateLocalStorageToSupabase(createRepositoryClient({}, calls), "u1", snapshot)
+    const upserts = calls.filter((call) => call.action === "upsert")
+    assert.equal(JSON.stringify(upserts).includes("snapshot"), true)
+    assert.equal(JSON.stringify(upserts).includes("mutated"), false)
+  })
+})
+
+test("migración fallida conserva snapshot", async () => {
+  await withLocalStorage(async () => {
+    const snapshot = { ...EMPTY_APP_DATA, subjects: [{ id: "safe", name: "Safe", color: "#fff", difficulty: 3 as const, createdAt: 1 }] }
+    saveMigrationBackup("u1", snapshot)
+    const client = { from: () => ({ select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: null }) }) }) }), upsert: () => Promise.resolve({ error: new Error("fail") }) }) } as never
+    await assert.rejects(() => migrateLocalStorageToSupabase(client, "u1", snapshot))
+    assert.equal(loadMigrationBackup("u1")?.data.subjects[0]?.id, "safe")
+  })
+})
+
+test("login con cuenta cloud vacía no borra datos invitados", async () => {
+  await withLocalStorage((storage) => {
+    storage.set("horario-escolar:v1", JSON.stringify({ ...EMPTY_APP_DATA, subjects: [{ id: "guest", name: "Invitado", color: "#fff", difficulty: 3, createdAt: 1 }] }))
+    saveCloudCache("u-empty", EMPTY_APP_DATA)
+    assert.equal(storage.get("horario-escolar:v1")?.includes("guest"), true)
+    assert.equal(storage.get(cloudCacheKey("u-empty"))?.includes("subjects"), true)
+  })
+})
+
+test("retrySync mediante replaceAll no resucita datos eliminados", async () => {
+  const calls: Call[] = []
+  const repo = new SupabaseAcademicRepository(createRepositoryClient({ grades: [{ id: "deleted", user_id: "u1" }] }, calls), "u1")
+  await repo.replaceAll({ ...EMPTY_APP_DATA, grades: [] })
+  assert.equal(calls.some((call) => call.table === "grades" && call.action === "delete"), true)
+})
+
+test("ningún error cloud cambia syncStatus a synced", async () => {
+  const source = await readFile("hooks/use-schedule-store.ts", "utf8")
+  const catchBlock = source.slice(source.indexOf("} catch (error) {", source.indexOf("const persistCloud")))
+  assert.equal(catchBlock.includes('setSyncStatus("synced")'), false)
+})

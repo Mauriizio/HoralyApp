@@ -29,7 +29,7 @@ export class LocalAcademicRepository implements AcademicRepository {
   readonly kind = "local" as const
   async loadData() { return loadData() }
   async replaceAll(data: AppData) { saveData(data) }
-  async saveSubject() { /* localStorage lo maneja el store */ }
+  async saveSubject() {}
   async updateSubject() {}
   async deleteSubject() {}
   async saveScheduleBlock() {}
@@ -44,9 +44,12 @@ export class LocalAcademicRepository implements AcademicRepository {
   async updateProfile() {}
 }
 
+const DATA_TABLES = ["subjects", "schedule_blocks", "study_blocks", "reminders", "grades", "user_settings", "profiles"] as const
+const REPLACE_DELETE_TABLES = ["schedule_blocks", "study_blocks", "reminders", "grades", "subjects"] as const
+
 export class SupabaseAcademicRepository implements AcademicRepository {
   readonly kind = "supabase" as const
-  constructor(private client: SupabaseClient, private userId: string) {}
+  constructor(private client: SupabaseClient, public readonly userIdForCache: string) {}
 
   private async upsert(table: keyof SupabaseDataset, values: object[], onConflict = "id,user_id") {
     if (!values.length) return
@@ -55,20 +58,32 @@ export class SupabaseAcademicRepository implements AcademicRepository {
     if (error) throw new Error("No se pudieron sincronizar tus datos.")
   }
 
-  private async delete(table: string, id: string) {
-    const { error } = await this.client.from(table).delete().eq("id", id).eq("user_id", this.userId)
+  private async deleteById(table: string, id: string) {
+    const { error } = await this.client.from(table).delete().eq("id", id).eq("user_id", this.userIdForCache)
     if (error) throw new Error("No se pudo eliminar el dato sincronizado.")
   }
 
+  private async deleteWhere(table: string, column: string, value: string) {
+    const { error } = await this.client.from(table).delete().eq(column, value).eq("user_id", this.userIdForCache)
+    if (error) throw new Error("No se pudieron limpiar dependencias sincronizadas.")
+  }
+
+  private async deleteObsolete(table: (typeof REPLACE_DELETE_TABLES)[number], keepIds: string[]) {
+    let query = this.client.from(table).delete().eq("user_id", this.userIdForCache)
+    if (keepIds.length > 0) query = query.not("id", "in", `(${keepIds.map((id) => `"${id.replaceAll('"', '\\"')}"`).join(",")})`)
+    const { error } = await query
+    if (error) throw new Error("No se pudieron eliminar filas obsoletas en Supabase.")
+  }
+
   async ensureProfile(email?: string) {
-    const { error } = await this.client.from("profiles").upsert({ id: this.userId, user_id: this.userId, email: email ?? null }, { onConflict: "id" })
+    const { error } = await this.client.from("profiles").upsert({ id: this.userIdForCache, user_id: this.userIdForCache, email: email ?? null }, { onConflict: "id" })
     if (error) throw new Error("No se pudo preparar tu perfil sincronizado.")
   }
 
   async loadData(): Promise<AppData> {
     const dataset: Partial<SupabaseDataset> = {}
-    for (const table of ["subjects", "schedule_blocks", "study_blocks", "reminders", "grades", "user_settings", "profiles"] as const) {
-      const { data, error } = await this.client.from(table).select("*").eq("user_id", this.userId)
+    for (const table of DATA_TABLES) {
+      const { data, error } = await this.client.from(table).select("*").eq("user_id", this.userIdForCache)
       if (error) throw new Error("No se pudieron cargar tus datos sincronizados.")
       dataset[table] = data ?? []
     }
@@ -76,22 +91,40 @@ export class SupabaseAcademicRepository implements AcademicRepository {
   }
 
   async replaceAll(data: AppData): Promise<void> {
-    const rows = appDataToSupabaseRows(data, this.userId)
-    for (const [table, values] of Object.entries(rows) as [keyof SupabaseDataset, object[]][]) await this.upsert(table, values)
+    const rows = appDataToSupabaseRows(data, this.userIdForCache)
+    const keepByTable = {
+      subjects: data.subjects.map((item) => item.id),
+      schedule_blocks: data.blocks.map((item) => item.id),
+      study_blocks: data.studyBlocks.map((item) => item.id),
+      reminders: data.reminders.map((item) => item.id),
+      grades: data.grades.map((item) => item.id),
+    }
+    for (const table of REPLACE_DELETE_TABLES) await this.deleteObsolete(table, keepByTable[table])
+    for (const table of ["profiles", "user_settings", "subjects", "schedule_blocks", "study_blocks", "reminders", "grades"] as (keyof SupabaseDataset)[]) {
+      await this.upsert(table, rows[table])
+    }
   }
-  async saveSubject(subject: Subject) { await this.upsert("subjects", appDataToSupabaseRows({ ...EMPTY_APP_DATA, subjects: [subject] }, this.userId).subjects) }
+
+  async saveSubject(subject: Subject) { await this.upsert("subjects", appDataToSupabaseRows({ ...EMPTY_APP_DATA, subjects: [subject] }, this.userIdForCache).subjects) }
   async updateSubject(subject: Subject) { await this.saveSubject(subject) }
-  async deleteSubject(id: string) { await this.delete("subjects", id) }
-  async saveScheduleBlock(block: ScheduleBlock) { await this.upsert("schedule_blocks", appDataToSupabaseRows({ ...EMPTY_APP_DATA, blocks: [block] }, this.userId).schedule_blocks) }
-  async deleteScheduleBlock(id: string) { await this.delete("schedule_blocks", id) }
-  async saveStudyBlock(block: StudyBlock) { await this.upsert("study_blocks", appDataToSupabaseRows({ ...EMPTY_APP_DATA, studyBlocks: [block] }, this.userId).study_blocks) }
-  async deleteStudyBlock(id: string) { await this.delete("study_blocks", id) }
-  async saveReminder(reminder: Reminder) { await this.upsert("reminders", appDataToSupabaseRows({ ...EMPTY_APP_DATA, reminders: [reminder] }, this.userId).reminders) }
-  async deleteReminder(id: string) { await this.delete("reminders", id) }
-  async saveGrade(grade: Grade) { await this.upsert("grades", appDataToSupabaseRows({ ...EMPTY_APP_DATA, grades: [grade] }, this.userId).grades) }
-  async deleteGrade(id: string) { await this.delete("grades", id) }
-  async updateSettings(settings: AppSettings, modules: AppData["modules"]) { await this.upsert("user_settings", appDataToSupabaseRows({ ...EMPTY_APP_DATA, settings, modules }, this.userId).user_settings) }
-  async updateProfile(profile: UserProfile, email?: string) { await this.upsert("profiles", appDataToSupabaseRows({ ...EMPTY_APP_DATA, profile }, this.userId, email).profiles) }
+  async deleteSubject(id: string) {
+    await this.deleteWhere("schedule_blocks", "subject_id", id)
+    await this.deleteWhere("grades", "subject_id", id)
+    await this.deleteWhere("reminders", "subject_id", id)
+    const { error: studyError } = await this.client.from("study_blocks").update({ subject_id: null }).eq("subject_id", id).eq("user_id", this.userIdForCache)
+    if (studyError) throw new Error("No se pudieron desvincular bloques de estudio sincronizados.")
+    await this.deleteById("subjects", id)
+  }
+  async saveScheduleBlock(block: ScheduleBlock) { await this.upsert("schedule_blocks", appDataToSupabaseRows({ ...EMPTY_APP_DATA, blocks: [block] }, this.userIdForCache).schedule_blocks) }
+  async deleteScheduleBlock(id: string) { await this.deleteById("schedule_blocks", id) }
+  async saveStudyBlock(block: StudyBlock) { await this.upsert("study_blocks", appDataToSupabaseRows({ ...EMPTY_APP_DATA, studyBlocks: [block] }, this.userIdForCache).study_blocks) }
+  async deleteStudyBlock(id: string) { await this.deleteById("study_blocks", id) }
+  async saveReminder(reminder: Reminder) { await this.upsert("reminders", appDataToSupabaseRows({ ...EMPTY_APP_DATA, reminders: [reminder] }, this.userIdForCache).reminders) }
+  async deleteReminder(id: string) { await this.deleteById("reminders", id) }
+  async saveGrade(grade: Grade) { await this.upsert("grades", appDataToSupabaseRows({ ...EMPTY_APP_DATA, grades: [grade] }, this.userIdForCache).grades) }
+  async deleteGrade(id: string) { await this.deleteById("grades", id) }
+  async updateSettings(settings: AppSettings, modules: AppData["modules"]) { await this.upsert("user_settings", appDataToSupabaseRows({ ...EMPTY_APP_DATA, settings, modules }, this.userIdForCache).user_settings) }
+  async updateProfile(profile: UserProfile, email?: string) { await this.upsert("profiles", appDataToSupabaseRows({ ...EMPTY_APP_DATA, profile }, this.userIdForCache, email).profiles) }
 }
 
 export function selectAcademicRepository(session: { user?: { id: string } } | null, client?: SupabaseClient | null): AcademicRepository {
