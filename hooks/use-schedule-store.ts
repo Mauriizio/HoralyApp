@@ -19,7 +19,11 @@ import {
 import { loadDataResult, normalizeSubjectForStorage, saveData } from "@/lib/storage"
 import { computeTriggerTime, fireNotification } from "@/lib/notifications"
 import { validateModules } from "@/lib/time-modules"
-import { findScheduleBlockConflicts } from "@/lib/schedule-conflicts"
+import { useAuth } from "@/lib/auth-context"
+import { createSupabaseBrowserClient } from "@/lib/supabase/client"
+import { SupabaseAcademicRepository, selectAcademicRepository, type AcademicRepository, type SyncStatus } from "@/lib/repositories/academic-repository"
+import { loadCloudCache, saveCloudCache, saveMigrationBackup, loadMigrationBackup } from "@/lib/local-cloud-storage"
+import { transitionDeleteModule, transitionMoveBlock, transitionSetModules, transitionUpdateSubject, transitionUpsertBlock } from "@/lib/schedule-transitions"
 
 export { validateModules }
 
@@ -31,22 +35,90 @@ export function useScheduleStore() {
   const [data, setData] = useState<AppData>(EMPTY_APP_DATA)
   const [hydrated, setHydrated] = useState(false)
   const [storageRecovery, setStorageRecovery] = useState<{ raw: string; errors: string[] } | null>(null)
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading")
+  const [syncError, setSyncError] = useState<string | null>(null)
+  const [migrationSnapshot, setMigrationSnapshot] = useState<AppData | null>(null)
+  const { session, loading: authLoading, authenticated, user } = useAuth()
+  const repositoryRef = useRef<AcademicRepository>(selectAcademicRepository(null))
+  const loadedForRef = useRef<string>("initial")
 
-  useEffect(() => {
-    const result = loadDataResult()
-    setData(result.data)
-    if (!result.ok) setStorageRecovery({ raw: result.raw, errors: result.errors })
-    setHydrated(true)
+  const setSyncFailure = useCallback((error: unknown) => {
+    setSyncStatus(typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "error")
+    setSyncError(error instanceof Error ? error.message : "No se pudo sincronizar con Supabase.")
   }, [])
 
   useEffect(() => {
-    if (hydrated && !storageRecovery) saveData(data)
-  }, [data, hydrated, storageRecovery])
+    let cancelled = false
+    async function hydrate() {
+      if (authLoading) {
+        setSyncStatus("loading")
+        return
+      }
+      const supabase = createSupabaseBrowserClient()
+      const repository = selectAcademicRepository(session, supabase)
+      repositoryRef.current = repository
+      const key = repository.kind === "supabase" ? `cloud:${session?.user.id}` : "local"
+      if (loadedForRef.current === key && hydrated) return
+      setSyncStatus(repository.kind === "supabase" ? "loading" : "local")
+      try {
+        if (repository instanceof SupabaseAcademicRepository) {
+          const localBeforeCloud = loadDataResult()
+          const backup = loadMigrationBackup(repository.userIdForCache) ?? (localBeforeCloud.ok ? saveMigrationBackup(repository.userIdForCache, localBeforeCloud.data) : null)
+          setMigrationSnapshot(backup?.data ?? null)
+          await repository.ensureProfile(user?.email)
+        }
+        const result = repository.kind === "local"
+          ? loadDataResult()
+          : { ok: true as const, data: await repository.loadData().catch(() => loadCloudCache(session!.user.id) ?? Promise.reject(new Error("No se pudieron cargar tus datos sincronizados."))), raw: null }
+        if (cancelled) return
+        setData(result.data)
+        if (!result.ok) setStorageRecovery({ raw: result.raw, errors: result.errors })
+        else setStorageRecovery(null)
+        if (repository.kind === "supabase" && session?.user.id) saveCloudCache(session.user.id, result.data)
+        loadedForRef.current = key
+        setHydrated(true)
+        setSyncStatus(repository.kind === "supabase" ? "synced" : "local")
+        setSyncError(null)
+      } catch (error) {
+        if (cancelled) return
+        const local = loadDataResult()
+        if (local.ok) setData(local.data)
+        setHydrated(true)
+        setSyncFailure(error)
+      }
+    }
+    void hydrate()
+    return () => { cancelled = true }
+  }, [authLoading, hydrated, session, setSyncFailure, user?.email])
+
+  useEffect(() => {
+    if (!hydrated || storageRecovery) return
+    if (authenticated && user?.id) saveCloudCache(user.id, data)
+    else saveData(data)
+  }, [authenticated, data, hydrated, storageRecovery, user?.id])
+
+  const persistCloud = useCallback(async (operation: (repository: AcademicRepository) => Promise<void>) => {
+    const repository = repositoryRef.current
+    if (repository.kind !== "supabase" || !authenticated) return
+    setSyncStatus("syncing")
+    setSyncError(null)
+    try {
+      await operation(repository)
+      setSyncStatus("synced")
+    } catch (error) {
+      setSyncFailure(error)
+    }
+  }, [authenticated, setSyncFailure])
+
+  const retrySync = useCallback(() => {
+    void persistCloud((repository) => repository.replaceAll(data))
+  }, [data, persistCloud])
 
   const replaceAll = useCallback((next: AppData) => {
     setStorageRecovery(null)
     setData(next)
-  }, [])
+    void persistCloud((repository) => repository.replaceAll(next))
+  }, [persistCloud])
 
   const clearStorageRecovery = useCallback(() => setStorageRecovery(null), [])
 
@@ -62,23 +134,16 @@ export function useScheduleStore() {
       return { ...d, subjects: [...d.subjects, newSubject] }
     })
 
+    void persistCloud((repository) => repository.saveSubject(createdSubject))
     return createdSubject
-  }, [data.subjects])
+  }, [data.subjects, persistCloud])
 
   const updateSubject = useCallback((id: string, patch: Partial<Subject>) => {
-    setData((d) => ({
-      ...d,
-      subjects: d.subjects.map((subject) => {
-        if (subject.id !== id) return subject
-        const next = { ...subject, ...patch }
-        return normalizeSubjectForStorage(next, d.subjects, {
-          id: subject.id,
-          createdAt: subject.createdAt,
-          excludeSubjectId: subject.id,
-        })
-      }),
-    }))
-  }, [])
+    const transition = transitionUpdateSubject(data, id, patch)
+    if (!transition.ok || !transition.changedEntity) return
+    setData(transition.nextData)
+    void persistCloud((repository) => repository.updateSubject(transition.changedEntity!))
+  }, [data, persistCloud])
 
   const deleteSubject = useCallback((id: string) => {
     setData((d) => ({
@@ -91,65 +156,42 @@ export function useScheduleStore() {
         sb.subjectId === id ? { ...sb, subjectId: undefined } : sb,
       ),
     }))
-  }, [])
+    void persistCloud((repository) => repository.deleteSubject(id))
+  }, [persistCloud])
 
   // --- Schedule blocks ---
   const upsertBlock = useCallback((block: ScheduleBlock, options: { replaceConflicts?: boolean } = {}) => {
-    let conflictIds: string[] = []
-    setData((d) => {
-      const conflicts = findScheduleBlockConflicts(block, d.blocks)
-      conflictIds = conflicts.map((conflict) => conflict.id)
-      if (conflicts.length > 0 && !options.replaceConflicts) return d
-      const nextBlocks = d.blocks.filter((b) => {
-        if (b.id === block.id) return false
-        if (!options.replaceConflicts) return true
-        return !conflictIds.includes(b.id)
-      })
-      return { ...d, blocks: [...nextBlocks, block] }
+    const transition = transitionUpsertBlock(data, block, options)
+    if (!transition.ok) return { ok: false as const, conflictIds: transition.conflictIds }
+    setData(transition.nextData)
+    void persistCloud(async (repository) => {
+      await Promise.all(transition.deletedIds.map((id) => repository.deleteScheduleBlock(id)))
+      await repository.saveScheduleBlock(block)
     })
-    return conflictIds.length > 0 && !options.replaceConflicts
-      ? { ok: false as const, conflictIds }
-      : { ok: true as const, conflictIds }
-  }, [])
+    return { ok: true as const, conflictIds: transition.conflictIds }
+  }, [data, persistCloud])
 
   const moveBlock = useCallback(
     (blockId: string, targetDay: DayKey, startModuleId: string, modules: TimeModule[]) => {
-      setData((d) => {
-        const existing = d.blocks.find((b) => b.id === blockId)
-        if (!existing) return d
-        const span = existing.moduleIds.length
-        const startIdx = modules.findIndex((m) => m.id === startModuleId)
-        if (startIdx < 0) return d
-        const endIdx = Math.min(modules.length - 1, startIdx + span - 1)
-        const newModuleIds = modules.slice(startIdx, endIdx + 1).map((m) => m.id)
-        const moved: ScheduleBlock = { ...existing, day: targetDay, moduleIds: newModuleIds }
-        const conflicts = findScheduleBlockConflicts(moved, d.blocks)
-        if (conflicts.length > 0) return d
-        const others = d.blocks.filter((b) => b.id !== blockId)
-        return { ...d, blocks: [...others, moved] }
-      })
+      const transition = transitionMoveBlock(data, blockId, targetDay, startModuleId, modules)
+      if (!transition.ok || !transition.changedEntity) return
+      setData(transition.nextData)
+      void persistCloud((repository) => repository.saveScheduleBlock(transition.changedEntity!))
     },
-    [],
+    [data, persistCloud],
   )
 
   const deleteBlock = useCallback((id: string) => {
     setData((d) => ({ ...d, blocks: d.blocks.filter((b) => b.id !== id) }))
-  }, [])
+    void persistCloud((repository) => repository.deleteScheduleBlock(id))
+  }, [persistCloud])
 
   // --- Modules ---
   const setModules = useCallback((modules: TimeModule[]) => {
-    setData((d) => {
-      // Remove blocks that reference removed modules.
-      const validIds = new Set(modules.map((m) => m.id))
-      return {
-        ...d,
-        modules,
-        blocks: d.blocks
-          .map((b) => ({ ...b, moduleIds: b.moduleIds.filter((id) => validIds.has(id)) }))
-          .filter((b) => b.moduleIds.length > 0),
-      }
-    })
-  }, [])
+    const transition = transitionSetModules(data, modules)
+    setData(transition.nextData)
+    void persistCloud((repository) => repository.replaceAll(transition.nextData))
+  }, [data, persistCloud])
 
   const addModule = useCallback((module: Omit<TimeModule, "id">) => {
     const next: TimeModule = { ...module, id: uid() }
@@ -157,45 +199,41 @@ export function useScheduleStore() {
       ...d,
       modules: [...d.modules, next].sort((a, b) => a.start.localeCompare(b.start)),
     }))
+    void persistCloud((repository) => repository.updateSettings(data.settings, [...data.modules, next].sort((a, b) => a.start.localeCompare(b.start))))
     return next
-  }, [])
+  }, [data.modules, data.settings, persistCloud])
 
   const updateModule = useCallback((id: string, patch: Partial<TimeModule>) => {
-    setData((d) => ({
-      ...d,
-      modules: d.modules
-        .map((m) => (m.id === id ? { ...m, ...patch } : m))
-        .sort((a, b) => a.start.localeCompare(b.start)),
-    }))
-  }, [])
+    const modules = data.modules.map((m) => (m.id === id ? { ...m, ...patch } : m)).sort((a, b) => a.start.localeCompare(b.start))
+    setData((d) => ({ ...d, modules }))
+    void persistCloud((repository) => repository.updateSettings(data.settings, modules))
+  }, [data.modules, data.settings, persistCloud])
 
   const deleteModule = useCallback((id: string) => {
-    setData((d) => ({
-      ...d,
-      modules: d.modules.filter((m) => m.id !== id),
-      blocks: d.blocks
-        .map((b) => ({ ...b, moduleIds: b.moduleIds.filter((mid) => mid !== id) }))
-        .filter((b) => b.moduleIds.length > 0),
-    }))
-  }, [])
+    const transition = transitionDeleteModule(data, id)
+    setData(transition.nextData)
+    void persistCloud((repository) => repository.replaceAll(transition.nextData))
+  }, [data, persistCloud])
 
   // --- Study blocks ---
   const addStudyBlock = useCallback((sb: Omit<StudyBlock, "id">) => {
     const next: StudyBlock = { ...sb, id: uid() }
     setData((d) => ({ ...d, studyBlocks: [...d.studyBlocks, next] }))
+    void persistCloud((repository) => repository.saveStudyBlock(next))
     return next
-  }, [])
+  }, [persistCloud])
 
   const updateStudyBlock = useCallback((id: string, patch: Partial<StudyBlock>) => {
-    setData((d) => ({
-      ...d,
-      studyBlocks: d.studyBlocks.map((sb) => (sb.id === id ? { ...sb, ...patch } : sb)),
-    }))
-  }, [])
+    const current = data.studyBlocks.find((sb) => sb.id === id)
+    const next = current ? { ...current, ...patch } : undefined
+    setData((d) => ({ ...d, studyBlocks: d.studyBlocks.map((sb) => (sb.id === id ? { ...sb, ...patch } : sb)) }))
+    if (next) void persistCloud((repository) => repository.saveStudyBlock(next))
+  }, [data.studyBlocks, persistCloud])
 
   const deleteStudyBlock = useCallback((id: string) => {
     setData((d) => ({ ...d, studyBlocks: d.studyBlocks.filter((sb) => sb.id !== id) }))
-  }, [])
+    void persistCloud((repository) => repository.deleteStudyBlock(id))
+  }, [persistCloud])
 
   // --- Reminders ---
   const addReminder = useCallback(
@@ -207,57 +245,67 @@ export function useScheduleStore() {
         notifiedTriggerIndexes: [],
       }
       setData((d) => ({ ...d, reminders: [...d.reminders, next] }))
+      void persistCloud((repository) => repository.saveReminder(next))
       return next
     },
-    [],
+    [persistCloud],
   )
 
   const updateReminder = useCallback((id: string, patch: Partial<Reminder>) => {
-    setData((d) => ({
-      ...d,
-      reminders: d.reminders.map((r) => (r.id === id ? { ...r, ...patch } : r)),
-    }))
-  }, [])
+    const current = data.reminders.find((r) => r.id === id)
+    const next = current ? { ...current, ...patch } : undefined
+    setData((d) => ({ ...d, reminders: d.reminders.map((r) => (r.id === id ? { ...r, ...patch } : r)) }))
+    if (next) void persistCloud((repository) => repository.saveReminder(next))
+  }, [data.reminders, persistCloud])
 
   const deleteReminder = useCallback((id: string) => {
     setData((d) => ({ ...d, reminders: d.reminders.filter((r) => r.id !== id) }))
-  }, [])
+    void persistCloud((repository) => repository.deleteReminder(id))
+  }, [persistCloud])
 
   // --- Grades ---
   const addGrade = useCallback((grade: Omit<Grade, "id" | "createdAt">) => {
     const next: Grade = { ...grade, id: uid(), createdAt: Date.now() }
     setData((d) => ({ ...d, grades: [...d.grades, next] }))
+    void persistCloud((repository) => repository.saveGrade(next))
     return next
-  }, [])
+  }, [persistCloud])
 
   const updateGrade = useCallback((id: string, patch: Partial<Grade>) => {
-    setData((d) => ({
-      ...d,
-      grades: d.grades.map((g) => (g.id === id ? { ...g, ...patch } : g)),
-    }))
-  }, [])
+    const current = data.grades.find((g) => g.id === id)
+    const next = current ? { ...current, ...patch } : undefined
+    setData((d) => ({ ...d, grades: d.grades.map((g) => (g.id === id ? { ...g, ...patch } : g)) }))
+    if (next) void persistCloud((repository) => repository.saveGrade(next))
+  }, [data.grades, persistCloud])
 
   const deleteGrade = useCallback((id: string) => {
     setData((d) => ({ ...d, grades: d.grades.filter((g) => g.id !== id) }))
-  }, [])
+    void persistCloud((repository) => repository.deleteGrade(id))
+  }, [persistCloud])
 
   // --- Profile ---
   const updateProfile = useCallback((patch: Partial<UserProfile>) => {
+    const nextProfile = { ...data.profile, ...patch }
     setData((d) => ({ ...d, profile: { ...d.profile, ...patch } }))
-  }, [])
+    void persistCloud((repository) => repository.updateProfile(nextProfile, user?.email))
+  }, [data.profile, persistCloud, user?.email])
 
   const resetProfile = useCallback(() => {
     setData((d) => ({ ...d, profile: DEFAULT_PROFILE }))
-  }, [])
+    void persistCloud((repository) => repository.updateProfile(DEFAULT_PROFILE, user?.email))
+  }, [persistCloud, user?.email])
 
   // --- Settings ---
   const updateSettings = useCallback((patch: Partial<AppSettings>) => {
+    const nextSettings = { ...data.settings, ...patch }
     setData((d) => ({ ...d, settings: { ...d.settings, ...patch } }))
-  }, [])
+    void persistCloud((repository) => repository.updateSettings(nextSettings, data.modules))
+  }, [data.modules, data.settings, persistCloud])
 
   const resetSettings = useCallback(() => {
     setData((d) => ({ ...d, settings: DEFAULT_SETTINGS }))
-  }, [])
+    void persistCloud((repository) => repository.updateSettings(DEFAULT_SETTINGS, data.modules))
+  }, [data.modules, persistCloud])
 
   // --- Notification loop ---
   const lastCheckRef = useRef<number>(0)
@@ -298,6 +346,11 @@ export function useScheduleStore() {
   return {
     data,
     hydrated,
+    syncStatus,
+    syncMessage: syncStatus === "local" ? "Guardado local" : syncStatus === "loading" ? "Cargando" : syncStatus === "syncing" ? "Sincronizando" : syncStatus === "synced" ? "Sincronizado" : syncStatus === "offline" ? "Sin conexión" : "Error de sincronización",
+    syncError,
+    retrySync,
+    migrationSnapshot,
     storageRecovery,
     clearStorageRecovery,
     subjectsById,

@@ -104,6 +104,17 @@ export function SettingsView({ store }: { store: ScheduleStore }) {
         </Card>
       )}
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Sincronización en la nube</CardTitle>
+          <CardDescription>Si inicias sesión, puedes migrar tus datos locales a tu cuenta sin borrar el respaldo del navegador.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => toast.info("Inicia sesión y confirma la migración desde el aviso de tu cuenta. Tus datos locales no se eliminarán automáticamente.")}>Migrar datos locales a mi cuenta</Button>
+          <Badge variant="secondary">Guardado local disponible</Badge>
+        </CardContent>
+      </Card>
+
       {/* Language + Theme */}
       <Card>
         <CardHeader>

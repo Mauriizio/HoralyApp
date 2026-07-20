@@ -18,3 +18,14 @@
 - La integración completa de ESLint queda registrada como deuda técnica P1.
 - No se mantiene un script `lint` incompleto ni un sustituto basado en `tsc`.
 - La implementación posterior debe cubrir Next.js, TypeScript, TSX y React Hooks con configuración flat real y dependencias sincronizadas en `pnpm-lock.yaml`.
+
+## 2026-07-18 - Supabase Auth y persistencia privada
+
+- Se incorpora Supabase Auth con correo/contraseña y clientes SSR/browser compatibles con App Router.
+- Se mantiene modo invitado/local cuando faltan variables públicas.
+- Se separa acceso a datos mediante repositorios local y Supabase.
+- El bucket `avatars` queda público para lectura simple de avatar; escrituras quedan restringidas por políticas de Storage basadas en `user_id`.
+
+## 2026-07-19 — Cierre de UX Auth para producción
+
+Se mantiene Supabase Auth con confirmación de correo habilitada. Se añade una capa de helpers puros para clasificar resultados y errores, enmascarar correos, construir URLs públicas y evitar open redirects. La UI diferencia registro pendiente, sesión inmediata, correo no confirmado, credenciales inválidas, rate limit, error de red y enlaces expirados o reutilizados. Quedan como pasos manuales del propietario validar dominios finales en Vercel/Supabase y revisar RLS en el proyecto real tras cada cambio de esquema.

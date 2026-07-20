@@ -14,6 +14,9 @@ import {
   Sparkles,
   GraduationCap,
   Settings,
+  Cloud,
+  HardDrive,
+  LogIn,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -40,12 +43,15 @@ import { StudyBlockForm } from "@/components/study-block-form"
 import { GradeForm } from "@/components/grade-form"
 import { QuickAdd, type QuickAction } from "@/components/quick-add"
 import { ProfileButton } from "@/components/profile-button"
+import { MigrationModal } from "@/components/migration-modal"
 import { InstallAppButton } from "@/components/install-app-button"
 import { HorarilySpeakingCard } from "@/components/HorarilySpeakingCard"
 import { usePwaInstall } from "@/hooks/use-pwa-install"
 import { I18nProvider, useI18n } from "@/components/i18n-provider"
 import type { DayKey, Subject } from "@/lib/types"
 import { formatTime, parseTime } from "@/lib/time-format"
+import { AuthProvider, useAuth } from "@/lib/auth-context"
+import Link from "next/link"
 
 const DAY_INDEX_TO_KEY: Record<number, DayKey | null> = {
   0: "domingo",
@@ -71,6 +77,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
   const { t, day: tDay } = useI18n()
   const [tab, setTab] = useState("horario")
   const [quickOpen, setQuickOpen] = useState(false)
+  const { authenticated, loading: authLoading } = useAuth()
 
   const [subjectOpen, setSubjectOpen] = useState(false)
   const [subjectEditing, setSubjectEditing] = useState<Subject | undefined>()
@@ -283,6 +290,26 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
 
             <div className="hidden sm:block flex-1" />
 
+            <Badge variant="outline" className="hidden lg:inline-flex shrink-0" title={store.syncMessage}>
+              {store.syncStatus === "synced" || store.syncStatus === "syncing" ? <Cloud className="h-3 w-3 mr-1" /> : <HardDrive className="h-3 w-3 mr-1" />}
+              {store.syncMessage}
+            </Badge>
+            {store.syncStatus === "error" && (
+              <Button variant="outline" size="sm" className="hidden sm:inline-flex shrink-0" onClick={store.retrySync}>Reintentar</Button>
+            )}
+            {authLoading ? (
+              <div className="hidden sm:block h-9 w-28 rounded-md bg-muted animate-pulse" aria-label="Cargando sesión" />
+            ) : !authenticated ? (
+              <div className="hidden sm:flex items-center gap-2 shrink-0">
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/auth/login"><LogIn className="h-3.5 w-3.5 mr-1.5" />Iniciar sesión</Link>
+                </Button>
+                <Button size="sm" asChild>
+                  <Link href="/auth/register">Crear cuenta</Link>
+                </Button>
+              </div>
+            ) : null}
+
             <Button
               variant="outline"
               size="sm"
@@ -340,7 +367,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
               <Settings className="h-4 w-4" />
             </Button>
 
-            <ProfileButton store={store} />
+            {authenticated && <ProfileButton store={store} />}
           </div>
         </header>
 
@@ -626,6 +653,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         scale={data.settings.gradeScale}
         onSubmit={(values) => addGrade(values)}
       />
+      <MigrationModal store={store} />
       <QuickAdd
         open={quickOpen}
         onOpenChange={setQuickOpen}
@@ -662,11 +690,19 @@ function InstallBanner() {
 }
 
 // Wrapper that reads the language from storage and provides i18n context.
-export default function HomePage() {
+function HomePageWithAuth() {
   const store = useScheduleStore()
   return (
     <I18nProvider lang={store.data.settings.language}>
       <HomePageInner store={store} />
     </I18nProvider>
+  )
+}
+
+export default function HomePage() {
+  return (
+    <AuthProvider>
+      <HomePageWithAuth />
+    </AuthProvider>
   )
 }

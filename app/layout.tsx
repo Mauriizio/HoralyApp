@@ -2,9 +2,11 @@ import type { Metadata, Viewport } from "next"
 import { Analytics } from "@vercel/analytics/next"
 import { Toaster } from "@/components/ui/sonner"
 import { PwaRegister } from "@/components/pwa-register"
+import { getMetadataBase } from "@/lib/auth-url"
 import "./globals.css"
 
 export const metadata: Metadata = {
+  metadataBase: getMetadataBase(),
   title: "Horario Escolar — Organiza tu semana",
   description:
     "Planifica tu horario de clases, bloques de estudio y recordatorios con una interfaz moderna y personalizable.",
