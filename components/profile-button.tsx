@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Moon, Sun, Monitor, UserPen, User, Languages, LogIn, LogOut } from "lucide-react"
+import { Moon, Sun, Monitor, UserPen, User, Languages, LogOut } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -11,7 +11,6 @@ import { useI18n } from "@/components/i18n-provider"
 import { ProfileForm } from "@/components/profile-form"
 import { InstallAppButton } from "@/components/install-app-button"
 import { usePwaInstall } from "@/hooks/use-pwa-install"
-import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 
 function initials(name: string) {
@@ -40,22 +39,7 @@ export function ProfileButton({ store }: { store: ScheduleStore }) {
   const { canPrompt, showInstructions, installed } = usePwaInstall()
   const showInstall = !installed && (canPrompt || showInstructions)
 
-  if (loading) {
-    return <div className="h-9 w-24 rounded-md bg-muted animate-pulse" aria-label="Cargando sesión" />
-  }
-
-  if (!authenticated) {
-    return (
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/auth/login"><LogIn className="h-4 w-4 mr-1.5" />Iniciar sesión</Link>
-        </Button>
-        <Button size="sm" asChild>
-          <Link href="/auth/register">Crear cuenta</Link>
-        </Button>
-      </div>
-    )
-  }
+  if (loading || !authenticated) return null
 
   return (
     <>

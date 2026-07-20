@@ -367,7 +367,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
               <Settings className="h-4 w-4" />
             </Button>
 
-            <ProfileButton store={store} />
+            {authenticated && <ProfileButton store={store} />}
           </div>
         </header>
 
