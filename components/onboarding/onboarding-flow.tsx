@@ -28,9 +28,13 @@ export function OnboardingFlow({ store, onDone }: { store: ScheduleStore; onDone
   const saveProgress = (nextStep = step) => store.updateSettings({ onboarding: { currentStep: nextStep, completed: false, updatedAt: new Date().toISOString() } })
   const saveProfileDraft = () => store.updateProfile({ displayName: name.trim(), institution: institution.trim() || undefined, career: career.trim() || undefined, timezone: timezone.trim() || undefined })
   const ensureSemester = () => {
+    const name = semesterName.trim() || "Semestre actual"
     const current = store.data.semesters.find((semester) => semester.id === store.data.activeSemesterId)
-    if (current) return current.id
-    return store.createSemester({ name: semesterName.trim() || "Semestre actual", status: "active" }).id
+    if (current) {
+      if (current.name !== name) store.updateSemester(current.id, { name })
+      return current.id
+    }
+    return store.createSemester({ name, status: "active" }).id
   }
   const continueTo = (nextStep: number) => { setStep(nextStep); saveProgress(nextStep); setNotice(null) }
 
