@@ -93,3 +93,32 @@ Flujos manuales recomendados con dos usuarios:
 5. Solicitar recuperación de contraseña, verificar la vista “Revisa tu correo para continuar” y completar `/auth/update-password` antes de que expire el enlace.
 
 Si un enlace expira o ya fue usado, solicita uno nuevo desde recuperación o desde el reenvío de confirmación; la app muestra `/auth/status` con acciones seguras.
+
+
+## Macrofase foundation onboarding dashboard
+
+Esta rama introduce la constitución técnica, hardening base, onboarding, semestre activo, dashboard académico, motor determinista y contrato de plugins internos.
+
+### Validación local
+
+```bash
+pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm check
+```
+
+### Pruebas SQL/RLS
+
+Con Docker y Supabase CLI disponibles:
+
+```bash
+pnpm supabase test db
+# o
+supabase test db
+```
+
+### Seguridad manual recomendada
+
+Activar branch protection en `main`, required reviews, Dependabot alerts, secret scanning y bloqueo de force push. Ejecutar Supabase Security Advisor antes de merge.

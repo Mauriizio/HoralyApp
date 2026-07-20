@@ -11,7 +11,7 @@ import { validateModules } from "./time-modules.ts"
 
 export const STORAGE_KEY = "horario-escolar:v1"
 
-const ARRAY_FIELDS = ["subjects", "blocks", "studyBlocks", "reminders", "modules", "grades"] as const
+const ARRAY_FIELDS = ["subjects", "blocks", "studyBlocks", "reminders", "modules", "grades", "semesters"] as const
 
 const daySchema = z.enum(["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"])
 const difficultySchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)])
@@ -21,6 +21,7 @@ const gradeScaleSchema = z
   .refine((scale) => scale.passing >= scale.min && scale.passing <= scale.max, "La nota de aprobación debe estar dentro de la escala.")
 
 const subjectSchema = z.object({
+  semesterId: z.string().optional(),
   id: z.string().min(1),
   name: z.string().min(1),
   color: z.string().min(1),
@@ -39,6 +40,7 @@ const moduleSchema = z.object({
 })
 
 const blockSchema = z.object({
+  semesterId: z.string().optional(),
   id: z.string().min(1),
   subjectId: z.string().min(1),
   day: daySchema,
@@ -46,6 +48,7 @@ const blockSchema = z.object({
 })
 
 const studyBlockSchema = z.object({
+  semesterId: z.string().optional(),
   id: z.string().min(1),
   title: z.string().min(1),
   subjectId: z.string().optional(),
@@ -62,6 +65,7 @@ const reminderTriggerSchema = z.discriminatedUnion("kind", [
 ])
 
 const reminderSchema = z.object({
+  semesterId: z.string().optional(),
   id: z.string().min(1),
   subjectId: z.string().optional(),
   studyBlockId: z.string().optional(),
@@ -75,6 +79,7 @@ const reminderSchema = z.object({
 })
 
 const gradeSchema = z.object({
+  semesterId: z.string().optional(),
   id: z.string().min(1),
   subjectId: z.string().min(1),
   title: z.string().min(1),
@@ -85,7 +90,7 @@ const gradeSchema = z.object({
   createdAt: z.number().finite(),
 })
 
-const profileSchema = z.object({ displayName: z.string(), avatar: z.string().optional() })
+const profileSchema = z.object({ displayName: z.string(), avatar: z.string().optional(), institution: z.string().optional(), career: z.string().optional(), timezone: z.string().optional(), onboardingCompletedAt: z.string().optional() })
 
 const settingsSchema = z.object({
   theme: z.enum(["light", "dark", "system"]),
@@ -100,7 +105,10 @@ const settingsSchema = z.object({
   enableSaturday: z.boolean(),
   googleCalendarConnected: z.boolean(),
   gradeScale: gradeScaleSchema,
+  onboarding: z.object({ currentStep: z.number().int().nonnegative(), completed: z.boolean(), updatedAt: z.string().optional() }),
 })
+
+const semesterSchema = z.object({ id: z.string().min(1), name: z.string().min(1), startsOn: z.string().optional(), endsOn: z.string().optional(), status: z.enum(["planned", "active", "archived"]), createdAt: z.number().finite() })
 
 const appDataSchema = z.object({
   subjects: z.array(subjectSchema),
@@ -111,7 +119,9 @@ const appDataSchema = z.object({
   grades: z.array(gradeSchema),
   profile: profileSchema,
   settings: settingsSchema,
-  version: z.literal(3),
+  semesters: z.array(semesterSchema),
+  activeSemesterId: z.string().optional(),
+  version: z.literal(4),
 })
 
 export type LoadDataResult =
@@ -190,10 +200,22 @@ export function migrateData(parsed: Partial<AppData> & Record<string, unknown>):
     modules: Array.isArray(parsed.modules) && parsed.modules.length ? parsed.modules : EMPTY_APP_DATA.modules,
     grades: Array.isArray(parsed.grades) ? parsed.grades : [],
     profile: { ...DEFAULT_PROFILE, ...(parsed.profile ?? {}) },
-    version: 3,
+    semesters: Array.isArray(parsed.semesters) ? parsed.semesters : [],
+    activeSemesterId: typeof parsed.activeSemesterId === "string" ? parsed.activeSemesterId : undefined,
+    version: 4,
   } as AppData
 
   migrated.subjects = normalizeSubjects(Array.isArray(migrated.subjects) ? migrated.subjects : [])
+  if (migrated.semesters.length === 0 && (migrated.subjects.length || migrated.blocks.length || migrated.grades.length || migrated.reminders.length || migrated.studyBlocks.length)) {
+    const initial = { id: "initial-semester", name: "Semestre inicial", status: "active" as const, createdAt: Date.now() }
+    migrated.semesters = [initial]
+    migrated.activeSemesterId = initial.id
+    migrated.subjects = migrated.subjects.map((item) => ({ ...item, semesterId: item.semesterId ?? initial.id }))
+    migrated.blocks = migrated.blocks.map((item) => ({ ...item, semesterId: item.semesterId ?? initial.id }))
+    migrated.studyBlocks = migrated.studyBlocks.map((item) => ({ ...item, semesterId: item.semesterId ?? initial.id }))
+    migrated.reminders = migrated.reminders.map((item) => ({ ...item, semesterId: item.semesterId ?? initial.id }))
+    migrated.grades = migrated.grades.map((item) => ({ ...item, semesterId: item.semesterId ?? initial.id }))
+  }
   return migrated
 }
 
