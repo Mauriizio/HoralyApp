@@ -23,7 +23,7 @@ set search_path = ''
 as $$
 begin
   insert into public.profiles (id, user_id, email, display_name)
-  values (new.id, new.id, new.email, pg_catalog.coalesce(new.raw_user_meta_data->>'display_name', ''))
+  values (new.id, new.id, new.email, coalesce(new.raw_user_meta_data->>'display_name', ''))
   on conflict (id) do update set email = excluded.email, updated_at = pg_catalog.now();
   return new;
 end;
@@ -43,7 +43,7 @@ to authenticated
 using (
   bucket_id = 'avatars'
   and auth.uid()::text = (storage.foldername(name))[1]
-  and storage.allow_any_operation(array['object.get', 'object.get_info', 'object.get_authenticated', 'object.get_authenticated_info'])
+  and storage.allow_any_operation(array['storage.object.get_authenticated', 'storage.object.info_authenticated', 'object.get_authenticated_info', 'object.head_authenticated_info', 'storage.object.upload_update', 'storage.object.delete', 'storage.object.delete_many'])
 );
 
 drop policy if exists avatars_insert_own on storage.objects;

@@ -5,15 +5,30 @@ import { readFile } from "node:fs/promises"
 
 const migrationPath = "supabase/migrations/202607200002_security_advisor_hardening.sql"
 
+function extractFunction(sql: string, functionName: string) {
+  const escapedName = functionName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const match = sql.match(new RegExp(`create or replace function public\\.${escapedName}\\(\\)[\\s\\S]*?\\$\\$;`, "i"))
+  assert.ok(match, `No se encontró public.${functionName}()`)
+  return match[0]
+}
+
+function extractStorageOperations(sql: string) {
+  const match = sql.match(/storage\.allow_any_operation\(array\[([^\]]+)\]\)/i)
+  assert.ok(match, "No se encontró storage.allow_any_operation(array[...])")
+  return [...match[1].matchAll(/'([^']+)'/g)].map((operation) => operation[1])
+}
+
 test("migración endurece funciones con search_path seguro y permisos mínimos", async () => {
   const sql = await readFile(migrationPath, "utf8")
   assert.match(sql, /create or replace function public\.set_updated_at\(\)[\s\S]*set search_path = ''/i)
   assert.match(sql, /new\.updated_at = pg_catalog\.now\(\)/i)
   assert.doesNotMatch(sql.match(/create or replace function public\.set_updated_at\(\)[\s\S]*?\$\$;/i)?.[0] ?? "", /security definer/i)
   assert.match(sql, /create or replace function public\.handle_new_user_profile\(\)[\s\S]*security definer[\s\S]*set search_path = ''/i)
-  assert.match(sql, /public\.profiles/i)
-  assert.match(sql, /pg_catalog\.coalesce/i)
-  assert.match(sql, /pg_catalog\.now\(\)/i)
+  const handleNewUserProfile = extractFunction(sql, "handle_new_user_profile")
+  assert.match(handleNewUserProfile, /insert into public\.profiles/i)
+  assert.match(handleNewUserProfile, /coalesce\(\s*new\.raw_user_meta_data->>'display_name',\s*''\s*\)/i)
+  assert.doesNotMatch(handleNewUserProfile, /pg_catalog\.coalesce/i)
+  assert.match(handleNewUserProfile, /pg_catalog\.now\(\)/i)
   assert.match(sql, /revoke execute on function public\.handle_new_user_profile\(\) from public;/i)
   assert.match(sql, /revoke execute on function public\.handle_new_user_profile\(\) from anon;/i)
   assert.match(sql, /revoke execute on function public\.handle_new_user_profile\(\) from authenticated;/i)
@@ -25,7 +40,18 @@ test("migración restringe avatars sin listing amplio y conserva bucket público
   assert.match(sql, /drop policy if exists avatars_select_public on storage\.objects;/i)
   assert.match(sql, /create policy avatars_select_own_authenticated[\s\S]*for select[\s\S]*to authenticated/i)
   assert.match(sql, /auth\.uid\(\)::text = \(storage\.foldername\(name\)\)\[1\]/i)
-  assert.match(sql, /storage\.allow_any_operation/i)
+  const operations = extractStorageOperations(sql)
+  assert.deepEqual(operations, [
+    "storage.object.get_authenticated",
+    "storage.object.info_authenticated",
+    "object.get_authenticated_info",
+    "object.head_authenticated_info",
+    "storage.object.upload_update",
+    "storage.object.delete",
+    "storage.object.delete_many",
+  ])
+  assert.equal(operations.includes("storage.object.list"), false)
+  assert.equal(operations.includes("object.list"), false)
   assert.doesNotMatch(sql, /create policy avatars_select_public/i)
   assert.match(sql, /values \('avatars', 'avatars', true, 2097152, array\['image\/png','image\/jpeg','image\/webp'\]\)/i)
 })
