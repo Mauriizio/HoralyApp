@@ -44,8 +44,8 @@ export class LocalAcademicRepository implements AcademicRepository {
   async updateProfile() {}
 }
 
-const DATA_TABLES = ["subjects", "schedule_blocks", "study_blocks", "reminders", "grades", "user_settings", "profiles"] as const
-const REPLACE_DELETE_TABLES = ["schedule_blocks", "study_blocks", "reminders", "grades", "subjects"] as const
+const DATA_TABLES = ["semesters", "subjects", "schedule_blocks", "study_blocks", "reminders", "grades", "user_settings", "profiles"] as const
+const REPLACE_DELETE_TABLES = ["schedule_blocks", "study_blocks", "reminders", "grades", "subjects", "semesters"] as const
 
 export class SupabaseAcademicRepository implements AcademicRepository {
   readonly kind = "supabase" as const
@@ -93,6 +93,7 @@ export class SupabaseAcademicRepository implements AcademicRepository {
   async replaceAll(data: AppData): Promise<void> {
     const rows = appDataToSupabaseRows(data, this.userIdForCache)
     const keepByTable = {
+      semesters: data.semesters.map((item) => item.id),
       subjects: data.subjects.map((item) => item.id),
       schedule_blocks: data.blocks.map((item) => item.id),
       study_blocks: data.studyBlocks.map((item) => item.id),
@@ -100,7 +101,7 @@ export class SupabaseAcademicRepository implements AcademicRepository {
       grades: data.grades.map((item) => item.id),
     }
     for (const table of REPLACE_DELETE_TABLES) await this.deleteObsolete(table, keepByTable[table])
-    for (const table of ["profiles", "user_settings", "subjects", "schedule_blocks", "study_blocks", "reminders", "grades"] as (keyof SupabaseDataset)[]) {
+    for (const table of ["profiles", "user_settings", "semesters", "subjects", "schedule_blocks", "study_blocks", "reminders", "grades"] as (keyof SupabaseDataset)[]) {
       await this.upsert(table, rows[table])
     }
   }

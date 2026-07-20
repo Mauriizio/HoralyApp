@@ -17,6 +17,7 @@ import {
   Cloud,
   HardDrive,
   LogIn,
+  Wrench,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -46,6 +47,9 @@ import { ProfileButton } from "@/components/profile-button"
 import { MigrationModal } from "@/components/migration-modal"
 import { InstallAppButton } from "@/components/install-app-button"
 import { HorarilySpeakingCard } from "@/components/HorarilySpeakingCard"
+import { AcademicDashboard } from "@/components/dashboard/academic-dashboard"
+import { OnboardingFlow } from "@/components/onboarding/onboarding-flow"
+import { PluginsView } from "@/components/tools/plugins-view"
 import { usePwaInstall } from "@/hooks/use-pwa-install"
 import { I18nProvider, useI18n } from "@/components/i18n-provider"
 import type { DayKey, Subject } from "@/lib/types"
@@ -75,7 +79,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
     updateSettings,
   } = store
   const { t, day: tDay } = useI18n()
-  const [tab, setTab] = useState("horario")
+  const [tab, setTab] = useState("dashboard")
   const [quickOpen, setQuickOpen] = useState(false)
   const { authenticated, loading: authLoading } = useAuth()
 
@@ -94,11 +98,14 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
     const params = new URLSearchParams(window.location.search)
     const requestedTab = params.get("tab")
     const validTabs = new Set([
+      "dashboard",
       "horario",
       "materias",
       "estudio",
       "recordatorios",
       "notas",
+      "herramientas",
+      "onboarding",
       "analitica",
       "preferencias",
     ])
@@ -476,6 +483,10 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
             {/* Tabs are horizontally scrollable on mobile (snap), wrap on md+. */}
             <div className="-mx-3 sm:mx-0 overflow-x-auto no-scrollbar scroll-snap-x">
               <TabsList className="h-auto w-max md:w-full md:flex-wrap px-3 sm:px-0">
+                <TabsTrigger value="dashboard" className="shrink-0">
+                  <BarChart3 className="h-4 w-4 mr-1.5" />
+                  Dashboard
+                </TabsTrigger>
                 <TabsTrigger value="horario" className="shrink-0">
                   <CalendarDays className="h-4 w-4 mr-1.5" />
                   {t("tabs.schedule")}
@@ -516,9 +527,9 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
                     </Badge>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="analitica" className="shrink-0">
-                  <BarChart3 className="h-4 w-4 mr-1.5" />
-                  {t("tabs.analytics")}
+                <TabsTrigger value="herramientas" className="shrink-0">
+                  <Wrench className="h-4 w-4 mr-1.5" />
+                  Herramientas
                 </TabsTrigger>
                 <TabsTrigger value="preferencias" className="shrink-0">
                   <Settings2 className="h-4 w-4 mr-1.5" />
@@ -526,6 +537,14 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
                 </TabsTrigger>
               </TabsList>
             </div>
+
+            <TabsContent value="dashboard" className="space-y-4 mt-4">
+              <AcademicDashboard store={store} onNavigate={setTab} />
+            </TabsContent>
+
+            <TabsContent value="onboarding" className="space-y-4 mt-4">
+              <OnboardingFlow store={store} onDone={() => setTab("dashboard")} />
+            </TabsContent>
 
             <TabsContent value="horario" className="space-y-4 mt-4">
               <div className="flex items-start sm:items-center justify-between flex-wrap gap-2">
@@ -594,8 +613,8 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
               <GradesPanel store={store} />
             </TabsContent>
 
-            <TabsContent value="analitica" className="mt-4">
-              <AnalyticsView store={store} />
+            <TabsContent value="herramientas" className="mt-4">
+              <PluginsView />
             </TabsContent>
 
             <TabsContent value="preferencias" className="mt-4">

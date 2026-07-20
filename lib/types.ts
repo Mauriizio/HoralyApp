@@ -96,6 +96,7 @@ export const DIFFICULTY_LABELS: Record<DifficultyLevel, string> = {
 
 export interface Subject {
   id: string
+  semesterId?: string
   name: string
   color: string
   icon?: string
@@ -107,6 +108,7 @@ export interface Subject {
 
 export interface ScheduleBlock {
   id: string
+  semesterId?: string
   subjectId: string
   day: DayKey
   moduleIds: string[]
@@ -114,6 +116,7 @@ export interface ScheduleBlock {
 
 export interface StudyBlock {
   id: string
+  semesterId?: string
   title: string
   subjectId?: string
   day: DayKey
@@ -131,6 +134,7 @@ export type ReminderTrigger =
 
 export interface Reminder {
   id: string
+  semesterId?: string
   subjectId?: string
   studyBlockId?: string
   title: string
@@ -145,6 +149,7 @@ export interface Reminder {
 // --- New: grades / evaluations ---
 export interface Grade {
   id: string
+  semesterId?: string
   subjectId: string
   title: string
   score: number
@@ -171,6 +176,25 @@ export const GRADE_SCALE_PRESETS: { id: GradeScalePresetId; scale: GradeScale }[
 export interface UserProfile {
   displayName: string
   avatar?: string // data URL
+  institution?: string
+  career?: string
+  timezone?: string
+  onboardingCompletedAt?: string
+}
+
+export interface Semester {
+  id: string
+  name: string
+  startsOn?: string
+  endsOn?: string
+  status: "planned" | "active" | "archived"
+  createdAt: number
+}
+
+export interface OnboardingState {
+  currentStep: number
+  completed: boolean
+  updatedAt?: string
 }
 
 export const DEFAULT_PROFILE: UserProfile = {
@@ -204,6 +228,7 @@ export interface AppSettings {
   enableSaturday: boolean
   googleCalendarConnected: boolean
   gradeScale: GradeScale
+  onboarding: OnboardingState
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -219,6 +244,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   enableSaturday: false,
   googleCalendarConnected: false,
   gradeScale: { min: 1, max: 7, passing: 4 },
+  onboarding: { currentStep: 0, completed: false },
 }
 
 export interface AppData {
@@ -230,7 +256,9 @@ export interface AppData {
   grades: Grade[]
   profile: UserProfile
   settings: AppSettings
-  version: 3
+  semesters: Semester[]
+  activeSemesterId?: string
+  version: 4
 }
 
 export const EMPTY_APP_DATA: AppData = {
@@ -242,5 +270,7 @@ export const EMPTY_APP_DATA: AppData = {
   grades: [],
   profile: DEFAULT_PROFILE,
   settings: DEFAULT_SETTINGS,
-  version: 3,
+  semesters: [],
+  activeSemesterId: undefined,
+  version: 4,
 }

@@ -13,6 +13,7 @@ import {
   type ScheduleBlock,
   type StudyBlock,
   type Subject,
+  type Semester,
   type TimeModule,
   type UserProfile,
 } from "@/lib/types"
@@ -126,10 +127,10 @@ export function useScheduleStore() {
   const addSubject = useCallback((subject: Omit<Subject, "id" | "createdAt">) => {
     const id = uid()
     const createdAt = Date.now()
-    let createdSubject = normalizeSubjectForStorage(subject, data.subjects, { id, createdAt })
+    let createdSubject = normalizeSubjectForStorage({ ...subject, semesterId: subject.semesterId ?? data.activeSemesterId }, data.subjects, { id, createdAt })
 
     setData((d) => {
-      const newSubject = normalizeSubjectForStorage(subject, d.subjects, { id, createdAt })
+      const newSubject = normalizeSubjectForStorage({ ...subject, semesterId: subject.semesterId ?? d.activeSemesterId }, d.subjects, { id, createdAt })
       createdSubject = newSubject
       return { ...d, subjects: [...d.subjects, newSubject] }
     })
@@ -217,11 +218,11 @@ export function useScheduleStore() {
 
   // --- Study blocks ---
   const addStudyBlock = useCallback((sb: Omit<StudyBlock, "id">) => {
-    const next: StudyBlock = { ...sb, id: uid() }
+    const next: StudyBlock = { ...sb, semesterId: sb.semesterId ?? data.activeSemesterId, id: uid() }
     setData((d) => ({ ...d, studyBlocks: [...d.studyBlocks, next] }))
     void persistCloud((repository) => repository.saveStudyBlock(next))
     return next
-  }, [persistCloud])
+  }, [data.activeSemesterId, persistCloud])
 
   const updateStudyBlock = useCallback((id: string, patch: Partial<StudyBlock>) => {
     const current = data.studyBlocks.find((sb) => sb.id === id)
@@ -241,6 +242,7 @@ export function useScheduleStore() {
       const next: Reminder = {
         ...reminder,
         id: uid(),
+        semesterId: reminder.semesterId ?? data.activeSemesterId,
         createdAt: Date.now(),
         notifiedTriggerIndexes: [],
       }
@@ -248,7 +250,7 @@ export function useScheduleStore() {
       void persistCloud((repository) => repository.saveReminder(next))
       return next
     },
-    [persistCloud],
+    [data.activeSemesterId, persistCloud],
   )
 
   const updateReminder = useCallback((id: string, patch: Partial<Reminder>) => {
@@ -265,11 +267,11 @@ export function useScheduleStore() {
 
   // --- Grades ---
   const addGrade = useCallback((grade: Omit<Grade, "id" | "createdAt">) => {
-    const next: Grade = { ...grade, id: uid(), createdAt: Date.now() }
+    const next: Grade = { ...grade, semesterId: grade.semesterId ?? data.activeSemesterId, id: uid(), createdAt: Date.now() }
     setData((d) => ({ ...d, grades: [...d.grades, next] }))
     void persistCloud((repository) => repository.saveGrade(next))
     return next
-  }, [persistCloud])
+  }, [data.activeSemesterId, persistCloud])
 
   const updateGrade = useCallback((id: string, patch: Partial<Grade>) => {
     const current = data.grades.find((g) => g.id === id)
@@ -306,6 +308,28 @@ export function useScheduleStore() {
     setData((d) => ({ ...d, settings: DEFAULT_SETTINGS }))
     void persistCloud((repository) => repository.updateSettings(DEFAULT_SETTINGS, data.modules))
   }, [data.modules, persistCloud])
+
+
+  // --- Semesters ---
+  const createSemester = useCallback((semester: Omit<Semester, "id" | "createdAt">) => {
+    const next: Semester = { ...semester, id: uid(), createdAt: Date.now() }
+    const semesters = next.status === "active" ? data.semesters.map((item) => item.status === "active" ? { ...item, status: "planned" as const } : item) : data.semesters
+    const nextData = { ...data, semesters: [...semesters, next], activeSemesterId: next.status === "active" ? next.id : data.activeSemesterId }
+    setData(nextData)
+    void persistCloud((repository) => repository.replaceAll(nextData))
+    return next
+  }, [data, persistCloud])
+
+  const updateSemester = useCallback((id: string, patch: Partial<Semester>) => {
+    const nextSemesters = data.semesters.map((semester) => semester.id === id ? { ...semester, ...patch } : semester)
+    const normalized = patch.status === "active" ? nextSemesters.map((semester) => semester.id === id ? { ...semester, status: "active" as const } : semester.status === "active" ? { ...semester, status: "planned" as const } : semester) : nextSemesters
+    const nextData = { ...data, semesters: normalized, activeSemesterId: patch.status === "active" ? id : data.activeSemesterId }
+    setData(nextData)
+    void persistCloud((repository) => repository.replaceAll(nextData))
+  }, [data, persistCloud])
+
+  const archiveSemester = useCallback((id: string) => updateSemester(id, { status: "archived" }), [updateSemester])
+  const selectActiveSemester = useCallback((id: string) => updateSemester(id, { status: "active" }), [updateSemester])
 
   // --- Notification loop ---
   const lastCheckRef = useRef<number>(0)
@@ -374,6 +398,10 @@ export function useScheduleStore() {
     addGrade,
     updateGrade,
     deleteGrade,
+    createSemester,
+    updateSemester,
+    archiveSemester,
+    selectActiveSemester,
     updateProfile,
     resetProfile,
     updateSettings,
