@@ -80,3 +80,16 @@ La app puede funcionar en modo invitado/local sin variables de Supabase. Para ac
 - `docs/09-migracion-localstorage.md`
 
 Nunca expongas `SUPABASE_SERVICE_ROLE_KEY` en el cliente ni en variables públicas.
+
+## UX de autenticación y URLs públicas
+
+Horaly mantiene el modo invitado cuando Supabase no está configurado, pero en producción usa `NEXT_PUBLIC_SITE_URL` como origen público para enlaces de confirmación, recuperación y metadata. En Vercel configura `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y `NEXT_PUBLIC_SITE_URL` para Production y Preview; `NEXT_PUBLIC_SUPABASE_ANON_KEY` queda solo como compatibilidad.
+
+Flujos manuales recomendados con dos usuarios:
+1. Registrar usuario A y verificar que la pantalla indique que la cuenta queda pendiente de confirmación, con correo enmascarado y opción de reenvío tras cooldown.
+2. Intentar iniciar sesión con usuario A sin confirmar y comprobar el aviso accionable de correo no confirmado.
+3. Confirmar el correo desde el enlace recibido y validar que el callback no redirige a URLs externas.
+4. Registrar/iniciar sesión con usuario B, crear datos privados y comprobar que no aparecen para usuario A.
+5. Solicitar recuperación de contraseña, verificar la vista “Revisa tu correo para continuar” y completar `/auth/update-password` antes de que expire el enlace.
+
+Si un enlace expira o ya fue usado, solicita uno nuevo desde recuperación o desde el reenvío de confirmación; la app muestra `/auth/status` con acciones seguras.

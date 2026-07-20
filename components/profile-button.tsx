@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Moon, Sun, Monitor, UserPen, User, Languages, LogIn, LogOut } from "lucide-react"
+import { Moon, Sun, Monitor, UserPen, User, Languages, LogOut } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -11,7 +11,6 @@ import { useI18n } from "@/components/i18n-provider"
 import { ProfileForm } from "@/components/profile-form"
 import { InstallAppButton } from "@/components/install-app-button"
 import { usePwaInstall } from "@/hooks/use-pwa-install"
-import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 
 function initials(name: string) {
@@ -25,7 +24,7 @@ export function ProfileButton({ store }: { store: ScheduleStore }) {
   const [open, setOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const { data, updateSettings } = store
-  const { authenticated, signOut } = useAuth()
+  const { authenticated, loading, signOut } = useAuth()
   const { profile, settings } = data
 
   const isDark = useMemo(() => {
@@ -39,6 +38,8 @@ export function ProfileButton({ store }: { store: ScheduleStore }) {
   const displayInitials = initials(profile.displayName)
   const { canPrompt, showInstructions, installed } = usePwaInstall()
   const showInstall = !installed && (canPrompt || showInstructions)
+
+  if (loading || !authenticated) return null
 
   return (
     <>
@@ -115,24 +116,18 @@ export function ProfileButton({ store }: { store: ScheduleStore }) {
           </Button>
 
           <Separator />
-          {authenticated ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-start"
-              onClick={async () => {
-                await signOut()
-                setOpen(false)
-              }}
-            >
-              <LogOut className="h-4 w-4 mr-1.5" />
-              Cerrar sesión
-            </Button>
-          ) : (
-            <Button variant="outline" size="sm" className="w-full justify-start" asChild>
-              <Link href="/auth/login"><LogIn className="h-4 w-4 mr-1.5" />Iniciar sesión</Link>
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-start"
+            onClick={async () => {
+              await signOut()
+              setOpen(false)
+            }}
+          >
+            <LogOut className="h-4 w-4 mr-1.5" />
+            Cerrar sesión
+          </Button>
 
           <Separator />
 

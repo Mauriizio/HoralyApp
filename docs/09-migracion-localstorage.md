@@ -13,3 +13,7 @@ Flujo esperado:
 8. Mantener respaldo local; no se elimina `localStorage` automáticamente.
 
 Si falla una parte, no se marca como completada y se puede reintentar sin duplicar datos.
+
+## Prueba manual con dos usuarios
+
+Después de confirmar los correos, crea datos distintos con dos usuarios reales. Verifica materias, notas, recordatorios, horarios, bloques de estudio, perfil y configuración por separado. Si un usuario inicia sesión sin migrar, los datos invitados deben conservarse hasta que el propietario decida migrarlos.
