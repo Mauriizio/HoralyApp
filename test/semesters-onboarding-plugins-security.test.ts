@@ -1,6 +1,7 @@
 import test from "node:test"
 import assert from "node:assert/strict"
 import { execFileSync } from "node:child_process"
+import { readFileSync } from "node:fs"
 import nextConfig from "../next.config.mjs"
 import { calculateWeightedAverage, detectSubjectsAtRisk, detectSubjectsRequiringAttention, getTodayClasses } from "../domain/academic-engine/index.ts"
 import { ensureSingleActiveSemester, filterDataByActiveSemester, migrateLegacyDataToInitialSemester } from "../application/semesters.ts"
@@ -77,4 +78,10 @@ test("dashboard filtrado excluye semestres archivados y planificados", () => {
   const filtered = filterDataByActiveSemester(data)
   assert.deepEqual(filtered.subjects.map((subject) => subject.id), ["s-active"])
   assert.equal(calculateWeightedAverage(filtered.grades, filtered.settings.gradeScale).value, 6)
+})
+
+
+test("migración preserva user_id al desvincular study_blocks", () => {
+  const migration = readFileSync("supabase/migrations/202607200001_foundation_security_semesters.sql", "utf8")
+  assert.match(migration, /on delete set null \(subject_id\)/i)
 })

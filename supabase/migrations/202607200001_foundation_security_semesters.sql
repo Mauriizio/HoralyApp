@@ -100,7 +100,7 @@ alter table public.grades add constraint grades_semester_fk foreign key (semeste
 alter table public.schedule_blocks drop constraint if exists schedule_blocks_subject_fk;
 alter table public.schedule_blocks add constraint schedule_blocks_subject_fk foreign key (subject_id, user_id) references public.subjects(id, user_id) on delete cascade not valid;
 alter table public.study_blocks drop constraint if exists study_blocks_subject_fk;
-alter table public.study_blocks add constraint study_blocks_subject_fk foreign key (subject_id, user_id) references public.subjects(id, user_id) on delete set null not valid;
+alter table public.study_blocks add constraint study_blocks_subject_fk foreign key (subject_id, user_id) references public.subjects(id, user_id) on delete set null (subject_id) not valid;
 alter table public.reminders drop constraint if exists reminders_subject_fk;
 alter table public.reminders add constraint reminders_subject_fk foreign key (subject_id, user_id) references public.subjects(id, user_id) on delete cascade not valid;
 alter table public.reminders drop constraint if exists reminders_study_block_fk;

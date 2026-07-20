@@ -1,5 +1,5 @@
 begin;
-select plan(45);
+select plan(49);
 
 select has_table('public', 'profiles');
 select has_table('public', 'semesters');
@@ -41,6 +41,10 @@ select lives_ok($$insert into public.schedule_blocks(id, user_id, semester_id, s
 select lives_ok($$insert into public.study_blocks(id, user_id, semester_id, subject_id, title, day, start_time, end_time) values ('study-a', '00000000-0000-0000-0000-0000000000a1', 'sem-a', 'sub-a', 'Estudio A', 'martes', '10:00', '10:30')$$, 'A inserta bloque de estudio propio');
 select lives_ok($$insert into public.reminders(id, user_id, semester_id, subject_id, study_block_id, title, priority, target_date_time) values ('rem-a', '00000000-0000-0000-0000-0000000000a1', 'sem-a', 'sub-a', 'study-a', 'Entrega A', 'media', '2026-07-21T10:00:00.000Z')$$, 'A inserta recordatorio propio');
 select lives_ok($$insert into public.grades(id, user_id, semester_id, subject_id, title, score, weight, grade_date) values ('grade-a', '00000000-0000-0000-0000-0000000000a1', 'sem-a', 'sub-a', 'P1', 5, 50, '2026-07-20')$$, 'A inserta nota propia');
+select lives_ok($$delete from public.subjects where id = 'sub-a'$$, 'A elimina su materia sin borrar el bloque de estudio');
+select results_eq($$select count(*)::int from public.study_blocks where id = 'study-a'$$, array[1], 'El bloque de estudio sobrevive a la eliminación de la materia');
+select results_eq($$select subject_id from public.study_blocks where id = 'study-a'$$, array[null::text], 'Solo subject_id queda NULL en el bloque de estudio');
+select results_eq($$select user_id from public.study_blocks where id = 'study-a'$$, array['00000000-0000-0000-0000-0000000000a1'::uuid], 'user_id se conserva en el bloque de estudio');
 
 select throws_ok($$insert into public.subjects(id, user_id, semester_id, name, color, difficulty) values ('sub-bad-user', '00000000-0000-0000-0000-0000000000b2', 'sem-a', 'Bad', '#000', 3)$$, null, null, 'A no inserta con user_id de B');
 select throws_ok($$insert into public.semesters(id, user_id, name, status) values ('sem-a-2', '00000000-0000-0000-0000-0000000000a1', 'A2', 'active')$$, null, null, 'A no puede crear dos semestres activos');
