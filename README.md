@@ -122,3 +122,9 @@ supabase test db
 ### Seguridad manual recomendada
 
 Activar branch protection en `main`, required reviews, Dependabot alerts, secret scanning y bloqueo de force push. Ejecutar Supabase Security Advisor antes de merge.
+
+## Gestión visible de semestres y onboarding
+
+HoralyApp permite gestionar semestres académicos desde Preferencias sin modificar migraciones ni borrar datos históricos. En esta fase los semestres nunca se eliminan desde la UI: se pueden crear, editar, activar, archivar y restaurar. Solo un semestre puede estar activo a la vez; materias, horarios, bloques de estudio, recordatorios y notas pertenecen a un semestre y las vistas principales consumen únicamente el semestre activo.
+
+Archivar un semestre lo oculta del selector principal, pero conserva materias, notas, horario e historial. Un semestre archivado puede restaurarse como planificado y luego activarse. El onboarding académico puede abrirse nuevamente desde Preferencias para revisar o completar institución, carrera, zona horaria y semestre activo sin reiniciar datos ni crear duplicados automáticamente.

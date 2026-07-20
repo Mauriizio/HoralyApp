@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process"
 import { readFileSync } from "node:fs"
 import nextConfig from "../next.config.mjs"
 import { calculateWeightedAverage, detectSubjectsAtRisk, detectSubjectsRequiringAttention, getTodayClasses } from "../domain/academic-engine/index.ts"
-import { ensureSingleActiveSemester, filterDataByActiveSemester, migrateLegacyDataToInitialSemester } from "../application/semesters.ts"
+import { canArchiveSemester, ensureSingleActiveSemester, filterDataByActiveSemester, getAvailableSemesters, migrateLegacyDataToInitialSemester, validateSemesterDates } from "../application/semesters.ts"
 import { EMPTY_APP_DATA } from "../lib/types.ts"
 import { createPluginRegistry, resistorCalculatorPlugin } from "../lib/plugins/plugin-registry.ts"
 import { permissionsAllowedByCapabilities } from "../lib/plugins/plugin-capabilities.ts"
@@ -84,4 +84,96 @@ test("dashboard filtrado excluye semestres archivados y planificados", () => {
 test("migración preserva user_id al desvincular study_blocks", () => {
   const migration = readFileSync("supabase/migrations/202607200001_foundation_security_semesters.sql", "utf8")
   assert.match(migration, /on delete set null \(subject_id\)/i)
+})
+
+test("selector de semestre muestra activo y excluye archivados", () => {
+  const source = readFileSync("components/semesters/semester-switcher.tsx", "utf8")
+  assert.match(source, /Semestre activo/)
+  assert.match(source, /getAvailableSemesters/)
+  const available = getAvailableSemesters([
+    { id: "a", name: "Activo", status: "active", createdAt: 1 },
+    { id: "x", name: "Archivado", status: "archived", createdAt: 2 },
+  ])
+  assert.deepEqual(available.map((semester) => semester.id), ["a"])
+})
+
+test("cambiar semestre actualiza datos visibles sin mezclar materias", () => {
+  const data = {
+    ...EMPTY_APP_DATA,
+    activeSemesterId: "b",
+    semesters: [{ id: "a", name: "A", status: "planned" as const, createdAt: 1 }, { id: "b", name: "B", status: "active" as const, createdAt: 2 }],
+    subjects: [{ id: "s-a", semesterId: "a", name: "A", color: "#000", difficulty: 3 as const, createdAt: 1 }, { id: "s-b", semesterId: "b", name: "B", color: "#000", difficulty: 3 as const, createdAt: 2 }],
+  }
+  assert.deepEqual(filterDataByActiveSemester(data).subjects.map((subject) => subject.id), ["s-b"])
+})
+
+test("crear y editar semestre preserva datos por reemplazo completo", () => {
+  const storeSource = readFileSync("hooks/use-schedule-store.ts", "utf8")
+  assert.match(storeSource, /const createSemester = useCallback/)
+  assert.match(storeSource, /const updateSemester = useCallback/)
+  assert.match(storeSource, /repository\.replaceAll\(nextData\)/)
+})
+
+test("solo existe un semestre activo al normalizar", () => {
+  const semesters = ensureSingleActiveSemester([{ id: "a", name: "A", status: "active", createdAt: 1 }, { id: "b", name: "B", status: "active", createdAt: 2 }])
+  assert.equal(semesters.filter((semester) => semester.status === "active").length, 1)
+})
+
+test("no se puede archivar el único semestre", () => {
+  const data = { ...EMPTY_APP_DATA, activeSemesterId: "a", semesters: [{ id: "a", name: "A", status: "active" as const, createdAt: 1 }] }
+  assert.equal(canArchiveSemester(data, "a").ok, false)
+})
+
+test("archivar el activo requiere reemplazo", () => {
+  const data = { ...EMPTY_APP_DATA, activeSemesterId: "a", semesters: [{ id: "a", name: "A", status: "active" as const, createdAt: 1 }, { id: "b", name: "B", status: "planned" as const, createdAt: 2 }] }
+  const result = canArchiveSemester(data, "a")
+  assert.equal(result.ok, false)
+  if (!result.ok) assert.match(result.reason, /Activa otro semestre/)
+})
+
+test("restaurar semestre vuelve a planificado", () => {
+  const manager = readFileSync("components/semesters/semester-manager.tsx", "utf8")
+  assert.match(manager, /status: "planned"/)
+  assert.match(manager, /Restaurar/)
+})
+
+test("fechas inválidas se rechazan", () => {
+  assert.equal(validateSemesterDates("2026-08-01", "2026-07-01"), "La fecha de término no puede ser anterior al inicio.")
+  assert.equal(validateSemesterDates("2026-07-01", "2026-08-01"), null)
+})
+
+test("contadores cambian con semestre activo", () => {
+  const a = filterDataByActiveSemester({ ...EMPTY_APP_DATA, activeSemesterId: "a", semesters: [{ id: "a", name: "A", status: "active" as const, createdAt: 1 }], subjects: [{ id: "s-a", semesterId: "a", name: "A", color: "#000", difficulty: 3 as const, createdAt: 1 }] })
+  const b = filterDataByActiveSemester({ ...EMPTY_APP_DATA, activeSemesterId: "b", semesters: [{ id: "b", name: "B", status: "active" as const, createdAt: 2 }], subjects: [{ id: "s-b1", semesterId: "b", name: "B1", color: "#000", difficulty: 3 as const, createdAt: 2 }, { id: "s-b2", semesterId: "b", name: "B2", color: "#000", difficulty: 3 as const, createdAt: 3 }] })
+  assert.equal(a.subjects.length, 1)
+  assert.equal(b.subjects.length, 2)
+})
+
+test("invitado persiste localmente y autenticado persiste en Supabase", () => {
+  const storeSource = readFileSync("hooks/use-schedule-store.ts", "utf8")
+  assert.match(storeSource, /else saveData\(data\)/)
+  assert.match(storeSource, /repository\.kind !== "supabase"/)
+  assert.match(storeSource, /repository\.replaceAll/)
+})
+
+test("onboarding completado puede abrirse nuevamente sin duplicar semestres", () => {
+  const settings = readFileSync("components/settings-view.tsx", "utf8")
+  const onboarding = readFileSync("components/onboarding/onboarding-flow.tsx", "utf8")
+  assert.match(settings, /Revisar configuración inicial/)
+  assert.match(settings, /Continuar onboarding/)
+  assert.match(onboarding, /if \(current\) \{/)
+  assert.match(onboarding, /store\.updateSemester\(current\.id/)
+})
+
+test("dashboard contiene un solo indicador de sincronización global", () => {
+  const dashboard = readFileSync("components/dashboard/academic-dashboard.tsx", "utf8")
+  const app = readFileSync("app/page.tsx", "utf8")
+  assert.equal((dashboard.match(/syncMessage/g) ?? []).length, 0)
+  assert.ok((app.match(/syncMessage/g) ?? []).length >= 1)
+})
+
+test("no existen accesos directos nuevos de UI a Supabase en semestres", () => {
+  const switcher = readFileSync("components/semesters/semester-switcher.tsx", "utf8")
+  const manager = readFileSync("components/semesters/semester-manager.tsx", "utf8")
+  assert.equal(/supabase/i.test(switcher + manager), false)
 })

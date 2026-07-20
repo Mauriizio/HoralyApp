@@ -22,6 +22,7 @@ import { toast } from "sonner"
 import { useI18n } from "@/components/i18n-provider"
 import { TimeModulesEditor } from "@/components/time-modules-editor"
 import { GradeScaleEditor } from "@/components/grade-scale-editor"
+import { SemesterManager } from "@/components/semesters/semester-manager"
 
 const ACCENT_PRESETS = [
   { hex: "#0d9488", label: "Teal" },
@@ -34,7 +35,7 @@ const ACCENT_PRESETS = [
   { hex: "#475569", label: "Pizarra" },
 ]
 
-export function SettingsView({ store }: { store: ScheduleStore }) {
+export function SettingsView({ store, onOpenOnboarding }: { store: ScheduleStore; onOpenOnboarding?: () => void }) {
   const { t } = useI18n()
   const { data, updateSettings, replaceAll, resetSettings, storageRecovery, clearStorageRecovery } = store
   const { settings } = data
@@ -103,6 +104,28 @@ export function SettingsView({ store }: { store: ScheduleStore }) {
           </CardContent>
         </Card>
       )}
+
+
+      <SemesterManager store={store} />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Configuración académica inicial</CardTitle>
+          <CardDescription>Revisa el onboarding existente sin reiniciar datos, semestres ni materias.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid gap-2 text-sm sm:grid-cols-2">
+            <p><span className="text-muted-foreground">Estado:</span> {data.settings.onboarding.completed || data.profile.onboardingCompletedAt ? "Completado" : "No completado"}</p>
+            <p><span className="text-muted-foreground">Institución:</span> {data.profile.institution ?? "No definida"}</p>
+            <p><span className="text-muted-foreground">Carrera:</span> {data.profile.career ?? "No definida"}</p>
+            <p><span className="text-muted-foreground">Zona horaria:</span> {data.profile.timezone ?? "No definida"}</p>
+            <p><span className="text-muted-foreground">Semestre activo:</span> {data.semesters.find((semester) => semester.id === data.activeSemesterId)?.name ?? "Sin semestre activo"}</p>
+          </div>
+          <Button onClick={onOpenOnboarding}>
+            {data.settings.onboarding.completed || data.profile.onboardingCompletedAt ? "Revisar configuración inicial" : "Continuar onboarding"}
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

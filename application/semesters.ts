@@ -6,6 +6,31 @@ export function ensureSingleActiveSemester(semesters: Semester[]): Semester[] {
   return semesters.map((s) => s.id === active.id ? { ...s, status: "active" } : { ...s, status: s.status === "active" ? "planned" : s.status })
 }
 
+export function validateSemesterDates(startsOn?: string, endsOn?: string): string | null {
+  if (!startsOn || !endsOn) return null
+  return endsOn < startsOn ? "La fecha de término no puede ser anterior al inicio." : null
+}
+
+export function canArchiveSemester(data: AppData, semesterId: string): { ok: true } | { ok: false; reason: string } {
+  const semester = data.semesters.find((item) => item.id === semesterId)
+  if (!semester) return { ok: false, reason: "Semestre no encontrado." }
+  if (data.semesters.filter((item) => item.status !== "archived").length <= 1) return { ok: false, reason: "Crea otro semestre antes de archivar el único disponible." }
+  if (semester.status === "active") return { ok: false, reason: "Activa otro semestre antes de archivar el semestre actual." }
+  return { ok: true }
+}
+
+export function countSubjectsBySemester(data: AppData): Record<string, number> {
+  return data.subjects.reduce<Record<string, number>>((acc, subject) => {
+    if (!subject.semesterId) return acc
+    acc[subject.semesterId] = (acc[subject.semesterId] ?? 0) + 1
+    return acc
+  }, {})
+}
+
+export function getAvailableSemesters(semesters: Semester[]): Semester[] {
+  return semesters.filter((semester) => semester.status !== "archived")
+}
+
 export function migrateLegacyDataToInitialSemester(data: AppData): AppData {
   if (data.semesters.length > 0) return data
   const semester: Semester = { id: "initial-semester", name: "Semestre inicial", status: "active", createdAt: Date.now() }

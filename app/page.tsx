@@ -618,7 +618,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
             </TabsContent>
 
             <TabsContent value="preferencias" className="mt-4">
-              <SettingsView store={store} />
+              <SettingsView store={store} onOpenOnboarding={() => setTab("onboarding")} />
             </TabsContent>
           </Tabs>
         </main>

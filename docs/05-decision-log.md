@@ -29,3 +29,7 @@
 ## 2026-07-19 — Cierre de UX Auth para producción
 
 Se mantiene Supabase Auth con confirmación de correo habilitada. Se añade una capa de helpers puros para clasificar resultados y errores, enmascarar correos, construir URLs públicas y evitar open redirects. La UI diferencia registro pendiente, sesión inmediata, correo no confirmado, credenciales inválidas, rate limit, error de red y enlaces expirados o reutilizados. Quedan como pasos manuales del propietario validar dominios finales en Vercel/Supabase y revisar RLS en el proyecto real tras cada cambio de esquema.
+
+## 2026-07-20 — Gestión visible de semestres sin eliminación definitiva
+
+Se decide completar la interfaz visible de semestres con selector en Dashboard y gestor en Preferencias. La eliminación definitiva queda fuera de alcance: archivar conserva historial y restaurar vuelve a dejar el semestre disponible. Se mantiene la regla de un único semestre activo y el onboarding puede revisarse sin destruir ni duplicar datos existentes.

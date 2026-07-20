@@ -1,11 +1,11 @@
 "use client"
 
-import { AlertCircle, Bell, BookOpen, CalendarDays, CheckCircle2, Cloud, GraduationCap, Loader2, WifiOff } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { AlertCircle, Bell, BookOpen, CalendarDays, CheckCircle2, GraduationCap, Loader2, WifiOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { calculateWeightedAverage, detectOverdueReminders, detectSubjectsAtRisk, detectSubjectsRequiringAttention, determineNextClass, estimateWeeklyLoad, getTodayClasses, suggestBasicStudyBlock } from "@/domain/academic-engine"
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
+import { SemesterSwitcher } from "@/components/semesters/semester-switcher"
 
 const confidenceLabel = { complete: "completa", partial: "parcial", none: "sin datos" } as const
 
@@ -38,9 +38,8 @@ export function AcademicDashboard({ store, onNavigate }: { store: ScheduleStore;
           <div>
             <p className="text-sm text-muted-foreground">Dashboard académico</p>
             <h1 className="text-2xl font-semibold">Hola{data.profile.displayName ? `, ${data.profile.displayName}` : ""}</h1>
-            <p className="text-sm text-muted-foreground">Semestre activo: {activeSemester.name}</p>
           </div>
-          <Badge variant="outline"><Cloud className="mr-1 h-3 w-3" />{store.syncMessage}</Badge>
+          <SemesterSwitcher store={store} onManage={() => onNavigate("preferencias")} />
         </div>
       </section>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
