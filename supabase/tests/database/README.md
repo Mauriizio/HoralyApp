@@ -1,6 +1,6 @@
 # Pruebas SQL/RLS
 
-Ejecutar localmente con Docker disponible:
+Ejecutar localmente con Docker y Supabase CLI disponible:
 
 ```bash
 pnpm supabase test db
@@ -8,4 +8,10 @@ pnpm supabase test db
 supabase test db
 ```
 
-Cobertura prevista: tablas, índices, constraints, triggers, políticas CRUD por usuario y storage avatars. Para validación interactiva de aislamiento A/B, crear dos usuarios de prueba y ejecutar consultas con JWT de cada usuario verificando que `auth.uid() = user_id` permite solo filas propias.
+Las pruebas cubren estructura, políticas, comportamiento RLS con usuario A/B/anónimo, perfiles, semestre activo único, asociaciones cruzadas, storage avatars y ausencia de `public.ensure_initial_semester` al finalizar la migración.
+
+Para dry-run antes de aplicar al proyecto remoto:
+
+```bash
+supabase db reset --local && supabase test db
+```

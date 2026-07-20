@@ -1,11 +1,14 @@
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseOrigin = supabaseUrl ? new URL(supabaseUrl).origin : "https://*.supabase.co"
 const isDev = process.env.NODE_ENV !== "production"
+const scriptSrc = ["script-src 'self'", "'unsafe-inline'", ...(isDev ? ["'unsafe-eval'"] : [])].join(" ")
+
+// 'unsafe-inline' se mantiene temporalmente por compatibilidad con Next.js/Turbopack y estilos/scripts inyectados.
 const csp = [
   "default-src 'self'",
   `connect-src 'self' ${supabaseOrigin} https://*.supabase.co${isDev ? " ws://localhost:* http://localhost:*" : ""}`,
   `img-src 'self' data: blob: ${supabaseOrigin} https://*.supabase.co`,
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  scriptSrc,
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
   "frame-ancestors 'none'",

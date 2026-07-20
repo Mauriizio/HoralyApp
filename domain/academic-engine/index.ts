@@ -2,6 +2,7 @@ import type { AppData, DayKey, GradeScale, Reminder, ScheduleBlock, Subject, Tim
 
 export interface AverageResult { value: number | null; completedWeight: number; confidence: "none" | "partial" | "complete" }
 export interface SubjectRisk { subjectId: string; subjectName: string; average: number | null; reason: string; severity: "low" | "medium" | "high" }
+export interface SubjectAttention { subjectId: string; subjectName: string; reason: string; severity: "low" | "medium" | "high" }
 export interface NextClass { subject: Subject; block: ScheduleBlock; day: DayKey; start: string; end: string; startsAt: Date }
 
 const DAY_ORDER: DayKey[] = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"]
@@ -17,13 +18,23 @@ export function calculateWeightedAverage(grades: AppData["grades"], scale: Grade
 export function detectSubjectsAtRisk(data: AppData): SubjectRisk[] {
   return data.subjects.flatMap((subject) => {
     const average = calculateWeightedAverage(data.grades.filter((g) => g.subjectId === subject.id), data.settings.gradeScale)
-    const overdue = detectOverdueReminders(data.reminders.filter((r) => r.subjectId === subject.id), new Date()).length
     if (average.value !== null && average.value < data.settings.gradeScale.passing) {
       return [{ subjectId: subject.id, subjectName: subject.name, average: average.value, reason: "Promedio bajo la nota de aprobación.", severity: "high" as const }]
     }
-    if (overdue > 0 || subject.difficulty >= 4) {
-      return [{ subjectId: subject.id, subjectName: subject.name, average: average.value, reason: overdue > 0 ? "Tiene recordatorios vencidos." : "Dificultad declarada alta.", severity: overdue > 1 ? "high" as const : "medium" as const }]
+    const remaining = Math.max(0, 100 - average.completedWeight)
+    const required = calculateRequiredGrade(average, data.settings.gradeScale, remaining)
+    if (average.confidence === "partial" && required.required !== null && required.required > data.settings.gradeScale.max) {
+      return [{ subjectId: subject.id, subjectName: subject.name, average: average.value, reason: "Situación matemáticamente crítica con la ponderación restante.", severity: "high" as const }]
     }
+    return []
+  })
+}
+
+export function detectSubjectsRequiringAttention(data: AppData, now = new Date()): SubjectAttention[] {
+  return data.subjects.flatMap((subject) => {
+    const overdue = detectOverdueReminders(data.reminders.filter((r) => r.subjectId === subject.id), now).length
+    if (overdue > 0) return [{ subjectId: subject.id, subjectName: subject.name, reason: overdue === 1 ? "Tiene un recordatorio vencido." : `Tiene ${overdue} recordatorios vencidos.`, severity: overdue > 1 ? "high" as const : "medium" as const }]
+    if (subject.difficulty >= 4) return [{ subjectId: subject.id, subjectName: subject.name, reason: "Dificultad declarada alta.", severity: "medium" as const }]
     return []
   })
 }
@@ -56,6 +67,15 @@ function nextDateForDay(day: DayKey, now: Date): Date {
   return date
 }
 
+export function getTodayClasses(data: AppData, now: Date): NextClass[] {
+  const today = DAY_ORDER[(now.getDay() + 6) % 7]
+  return data.blocks.flatMap((block) => {
+    if (block.day !== today) return []
+    const next = determineNextClass({ ...data, blocks: [block] }, new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0))
+    return next ? [next] : []
+  }).sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime())
+}
+
 export function determineNextClass(data: AppData, now: Date): NextClass | null {
   const modules = new Map(data.modules.map((m) => [m.id, m]))
   const subjects = new Map(data.subjects.map((s) => [s.id, s]))
@@ -82,6 +102,8 @@ export function estimateWeeklyLoad(data: AppData): { classBlocks: number; studyB
 export function suggestBasicStudyBlock(data: AppData): { subjectId?: string; message: string; confidence: "low" | "medium" } {
   const risk = orderAcademicPriorities(detectSubjectsAtRisk(data))[0]
   if (risk) return { subjectId: risk.subjectId, message: `Reserva 30 minutos para ${risk.subjectName}.`, confidence: "medium" }
+  const attention = detectSubjectsRequiringAttention(data)[0]
+  if (attention) return { subjectId: attention.subjectId, message: `Reserva 25 minutos para revisar ${attention.subjectName}.`, confidence: "medium" }
   if (data.subjects[0]) return { subjectId: data.subjects[0].id, message: `Reserva 25 minutos para repasar ${data.subjects[0].name}.`, confidence: "low" }
   return { message: "Agrega materias para sugerir estudio.", confidence: "low" }
 }

@@ -17,17 +17,80 @@ const str = (value: unknown, fallback = "") => typeof value === "string" ? value
 const optStr = (value: unknown) => typeof value === "string" && value.length ? value : undefined
 const arr = (value: unknown): string[] => Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []
 
+function profileRow(data: AppData, userId: string, email?: string): SupabaseRow {
+  const row: SupabaseRow = {
+    id: userId,
+    user_id: userId,
+    display_name: data.profile.displayName,
+    avatar_url: data.profile.avatar ?? null,
+    institution: data.profile.institution ?? null,
+    career: data.profile.career ?? null,
+    timezone: data.profile.timezone ?? null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }
+  if (email !== undefined) row.email = email
+  if (data.profile.onboardingCompletedAt) row.onboarding_completed_at = data.profile.onboardingCompletedAt
+  return row
+}
+
+export function requireSemesterId(value: string | undefined, entity: string): string {
+  if (!value) throw new Error(`No se puede guardar ${entity} sin semestre activo.`)
+  return value
+}
+
+export function subjectToSupabaseRow(subject: AppData["subjects"][number], userId: string): SupabaseRow {
+  return { id: subject.id, user_id: userId, semester_id: requireSemesterId(subject.semesterId, "la materia"), name: subject.name, color: subject.color, icon: subject.icon, notes: subject.notes, command_key: subject.commandKey, difficulty: subject.difficulty, created_at: iso(subject.createdAt), updated_at: new Date().toISOString() }
+}
+
+export function scheduleBlockToSupabaseRow(block: AppData["blocks"][number], userId: string): SupabaseRow {
+  return { id: block.id, user_id: userId, semester_id: requireSemesterId(block.semesterId, "el bloque horario"), subject_id: block.subjectId, day: block.day, module_ids: block.moduleIds, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+}
+
+export function studyBlockToSupabaseRow(block: AppData["studyBlocks"][number], userId: string): SupabaseRow {
+  return { id: block.id, user_id: userId, semester_id: requireSemesterId(block.semesterId, "el bloque de estudio"), subject_id: block.subjectId, day: block.day, title: block.title, start_time: block.start, end_time: block.end, notes: block.notes, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+}
+
+export function reminderToSupabaseRow(reminder: AppData["reminders"][number], userId: string): SupabaseRow {
+  return { id: reminder.id, user_id: userId, semester_id: requireSemesterId(reminder.semesterId, "el recordatorio"), subject_id: reminder.subjectId, study_block_id: reminder.studyBlockId, title: reminder.title, description: reminder.description, priority: reminder.priority, triggers: reminder.triggers, target_date_time: reminder.targetDateTime, notified_trigger_indexes: reminder.notifiedTriggerIndexes, created_at: iso(reminder.createdAt), updated_at: new Date().toISOString() }
+}
+
+export function gradeToSupabaseRow(grade: AppData["grades"][number], userId: string): SupabaseRow {
+  return { id: grade.id, user_id: userId, semester_id: requireSemesterId(grade.semesterId, "la nota"), subject_id: grade.subjectId, title: grade.title, score: grade.score, weight: grade.weight, grade_date: grade.date, notes: grade.notes, created_at: iso(grade.createdAt), updated_at: new Date().toISOString() }
+}
+
+
+function dataWithRequiredSemesters(data: AppData): AppData {
+  const hasEntities = data.subjects.length > 0 || data.blocks.length > 0 || data.studyBlocks.length > 0 || data.reminders.length > 0 || data.grades.length > 0
+  if (!hasEntities) return data
+  const activeSemesterId = data.activeSemesterId ?? data.semesters.find((semester) => semester.status === "active")?.id ?? "initial-semester"
+  const semesters = data.semesters.some((semester) => semester.id === activeSemesterId)
+    ? data.semesters
+    : [...data.semesters, { id: activeSemesterId, name: "Semestre inicial", status: "active" as const, createdAt: Date.now() }]
+  return {
+    ...data,
+    semesters,
+    activeSemesterId,
+    subjects: data.subjects.map((item) => ({ ...item, semesterId: item.semesterId ?? activeSemesterId })),
+    blocks: data.blocks.map((item) => ({ ...item, semesterId: item.semesterId ?? activeSemesterId })),
+    studyBlocks: data.studyBlocks.map((item) => ({ ...item, semesterId: item.semesterId ?? activeSemesterId })),
+    reminders: data.reminders.map((item) => ({ ...item, semesterId: item.semesterId ?? activeSemesterId })),
+    grades: data.grades.map((item) => ({ ...item, semesterId: item.semesterId ?? activeSemesterId })),
+  }
+}
+
 export function appDataToSupabaseRows(data: AppData, userId: string, email?: string): SupabaseDataset {
+  const normalizedData = dataWithRequiredSemesters(data)
   const now = new Date().toISOString()
   return {
-    semesters: data.semesters.map((m) => ({ id: m.id, user_id: userId, name: m.name, starts_on: m.startsOn, ends_on: m.endsOn, status: m.status, created_at: iso(m.createdAt), updated_at: now })),
-    subjects: data.subjects.map((s) => ({ id: s.id, user_id: userId, semester_id: s.semesterId ?? data.activeSemesterId, name: s.name, color: s.color, icon: s.icon, notes: s.notes, command_key: s.commandKey, difficulty: s.difficulty, created_at: iso(s.createdAt), updated_at: now })),
-    schedule_blocks: data.blocks.map((b) => ({ id: b.id, user_id: userId, semester_id: b.semesterId ?? data.activeSemesterId, subject_id: b.subjectId, day: b.day, module_ids: b.moduleIds, created_at: now, updated_at: now })),
-    study_blocks: data.studyBlocks.map((b) => ({ id: b.id, user_id: userId, semester_id: b.semesterId ?? data.activeSemesterId, subject_id: b.subjectId, day: b.day, title: b.title, start_time: b.start, end_time: b.end, notes: b.notes, created_at: now, updated_at: now })),
-    reminders: data.reminders.map((r) => ({ id: r.id, user_id: userId, semester_id: r.semesterId ?? data.activeSemesterId, subject_id: r.subjectId, study_block_id: r.studyBlockId, title: r.title, description: r.description, priority: r.priority, triggers: r.triggers, target_date_time: r.targetDateTime, notified_trigger_indexes: r.notifiedTriggerIndexes, created_at: iso(r.createdAt), updated_at: now })),
-    grades: data.grades.map((g) => ({ id: g.id, user_id: userId, semester_id: g.semesterId ?? data.activeSemesterId, subject_id: g.subjectId, title: g.title, score: g.score, weight: g.weight, grade_date: g.date, notes: g.notes, created_at: iso(g.createdAt), updated_at: now })),
-    user_settings: [{ id: "settings", user_id: userId, settings: { ...data.settings, modules: data.modules, activeSemesterId: data.activeSemesterId }, created_at: now, updated_at: now }],
-    profiles: [{ id: userId, user_id: userId, display_name: data.profile.displayName, email: email ?? null, avatar_url: data.profile.avatar, created_at: now, updated_at: now }],
+    semesters: normalizedData.semesters.map((m) => ({ id: m.id, user_id: userId, name: m.name, starts_on: m.startsOn, ends_on: m.endsOn, status: m.status, created_at: iso(m.createdAt), updated_at: now })),
+    subjects: normalizedData.subjects.map((s) => subjectToSupabaseRow({ ...s, semesterId: s.semesterId ?? normalizedData.activeSemesterId }, userId)),
+    schedule_blocks: normalizedData.blocks.map((b) => scheduleBlockToSupabaseRow({ ...b, semesterId: b.semesterId ?? normalizedData.activeSemesterId }, userId)),
+    study_blocks: normalizedData.studyBlocks.map((b) => studyBlockToSupabaseRow({ ...b, semesterId: b.semesterId ?? normalizedData.activeSemesterId }, userId)),
+    reminders: normalizedData.reminders.map((r) => reminderToSupabaseRow({ ...r, semesterId: r.semesterId ?? normalizedData.activeSemesterId }, userId)),
+    grades: normalizedData.grades.map((g) => gradeToSupabaseRow({ ...g, semesterId: g.semesterId ?? normalizedData.activeSemesterId }, userId)),
+    user_settings: [{ id: "settings", user_id: userId, settings: { ...normalizedData.settings, modules: normalizedData.modules, activeSemesterId: normalizedData.activeSemesterId }, created_at: now, updated_at: now }],
+    profiles: [profileRow(normalizedData, userId, email)],
   }
 }
 

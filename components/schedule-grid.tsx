@@ -548,6 +548,7 @@ function EmptyCell({
                 onClick={() => {
                   const block = {
                     id: Math.random().toString(36).slice(2),
+                    semesterId: s.semesterId,
                     subjectId: s.id,
                     day,
                     moduleIds: [moduleId],

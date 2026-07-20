@@ -25,11 +25,17 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client"
 import { SupabaseAcademicRepository, selectAcademicRepository, type AcademicRepository, type SyncStatus } from "@/lib/repositories/academic-repository"
 import { loadCloudCache, saveCloudCache, saveMigrationBackup, loadMigrationBackup } from "@/lib/local-cloud-storage"
 import { transitionDeleteModule, transitionMoveBlock, transitionSetModules, transitionUpdateSubject, transitionUpsertBlock } from "@/lib/schedule-transitions"
+import { filterDataByActiveSemester } from "@/application/semesters"
 
 export { validateModules }
 
 function uid() {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
+}
+
+function requireActiveSemesterId(activeSemesterId: string | undefined, entity: string): string {
+  if (!activeSemesterId) throw new Error(`Crea o selecciona un semestre activo antes de agregar ${entity}.`)
+  return activeSemesterId
 }
 
 export function useScheduleStore() {
@@ -127,17 +133,18 @@ export function useScheduleStore() {
   const addSubject = useCallback((subject: Omit<Subject, "id" | "createdAt">) => {
     const id = uid()
     const createdAt = Date.now()
-    let createdSubject = normalizeSubjectForStorage({ ...subject, semesterId: subject.semesterId ?? data.activeSemesterId }, data.subjects, { id, createdAt })
+    const semesterId = subject.semesterId ?? requireActiveSemesterId(data.activeSemesterId, "materias")
+    let createdSubject = normalizeSubjectForStorage({ ...subject, semesterId }, data.subjects, { id, createdAt })
 
     setData((d) => {
-      const newSubject = normalizeSubjectForStorage({ ...subject, semesterId: subject.semesterId ?? d.activeSemesterId }, d.subjects, { id, createdAt })
+      const newSubject = normalizeSubjectForStorage({ ...subject, semesterId: subject.semesterId ?? requireActiveSemesterId(d.activeSemesterId, "materias") }, d.subjects, { id, createdAt })
       createdSubject = newSubject
       return { ...d, subjects: [...d.subjects, newSubject] }
     })
 
     void persistCloud((repository) => repository.saveSubject(createdSubject))
     return createdSubject
-  }, [data.subjects, persistCloud])
+  }, [data.activeSemesterId, data.subjects, persistCloud])
 
   const updateSubject = useCallback((id: string, patch: Partial<Subject>) => {
     const transition = transitionUpdateSubject(data, id, patch)
@@ -162,12 +169,14 @@ export function useScheduleStore() {
 
   // --- Schedule blocks ---
   const upsertBlock = useCallback((block: ScheduleBlock, options: { replaceConflicts?: boolean } = {}) => {
-    const transition = transitionUpsertBlock(data, block, options)
+    const semesterId = block.semesterId ?? requireActiveSemesterId(data.activeSemesterId, "bloques horarios")
+    const blockWithSemester = { ...block, semesterId }
+    const transition = transitionUpsertBlock(data, blockWithSemester, options)
     if (!transition.ok) return { ok: false as const, conflictIds: transition.conflictIds }
     setData(transition.nextData)
     void persistCloud(async (repository) => {
       await Promise.all(transition.deletedIds.map((id) => repository.deleteScheduleBlock(id)))
-      await repository.saveScheduleBlock(block)
+      await repository.saveScheduleBlock(blockWithSemester)
     })
     return { ok: true as const, conflictIds: transition.conflictIds }
   }, [data, persistCloud])
@@ -218,7 +227,7 @@ export function useScheduleStore() {
 
   // --- Study blocks ---
   const addStudyBlock = useCallback((sb: Omit<StudyBlock, "id">) => {
-    const next: StudyBlock = { ...sb, semesterId: sb.semesterId ?? data.activeSemesterId, id: uid() }
+    const next: StudyBlock = { ...sb, semesterId: sb.semesterId ?? requireActiveSemesterId(data.activeSemesterId, "bloques de estudio"), id: uid() }
     setData((d) => ({ ...d, studyBlocks: [...d.studyBlocks, next] }))
     void persistCloud((repository) => repository.saveStudyBlock(next))
     return next
@@ -242,7 +251,7 @@ export function useScheduleStore() {
       const next: Reminder = {
         ...reminder,
         id: uid(),
-        semesterId: reminder.semesterId ?? data.activeSemesterId,
+        semesterId: reminder.semesterId ?? requireActiveSemesterId(data.activeSemesterId, "recordatorios"),
         createdAt: Date.now(),
         notifiedTriggerIndexes: [],
       }
@@ -267,7 +276,7 @@ export function useScheduleStore() {
 
   // --- Grades ---
   const addGrade = useCallback((grade: Omit<Grade, "id" | "createdAt">) => {
-    const next: Grade = { ...grade, semesterId: grade.semesterId ?? data.activeSemesterId, id: uid(), createdAt: Date.now() }
+    const next: Grade = { ...grade, semesterId: grade.semesterId ?? requireActiveSemesterId(data.activeSemesterId, "notas"), id: uid(), createdAt: Date.now() }
     setData((d) => ({ ...d, grades: [...d.grades, next] }))
     void persistCloud((repository) => repository.saveGrade(next))
     return next
@@ -360,15 +369,18 @@ export function useScheduleStore() {
     return () => window.clearInterval(interval)
   }, [data.reminders, hydrated, updateReminder])
 
+  const visibleData = useMemo(() => filterDataByActiveSemester(data), [data])
+
   // Memoized lookups
   const subjectsById = useMemo(() => {
     const map = new Map<string, Subject>()
-    for (const s of data.subjects) map.set(s.id, s)
+    for (const s of visibleData.subjects) map.set(s.id, s)
     return map
-  }, [data.subjects])
+  }, [visibleData.subjects])
 
   return {
-    data,
+    data: visibleData,
+    allData: data,
     hydrated,
     syncStatus,
     syncMessage: syncStatus === "local" ? "Guardado local" : syncStatus === "loading" ? "Cargando" : syncStatus === "syncing" ? "Sincronizando" : syncStatus === "synced" ? "Sincronizado" : syncStatus === "offline" ? "Sin conexión" : "Error de sincronización",

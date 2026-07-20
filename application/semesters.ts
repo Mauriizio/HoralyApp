@@ -24,14 +24,14 @@ export function migrateLegacyDataToInitialSemester(data: AppData): AppData {
 export function filterDataByActiveSemester(data: AppData): AppData {
   const active = data.activeSemesterId
   if (!active) return data
-  const subjects = data.subjects.filter((s) => s.semesterId === active || !s.semesterId)
+  const subjects = data.subjects.filter((s) => s.semesterId === active)
   const subjectIds = new Set(subjects.map((s) => s.id))
   return {
     ...data,
     subjects,
-    blocks: data.blocks.filter((b) => (b.semesterId === active || !b.semesterId) && subjectIds.has(b.subjectId)),
-    studyBlocks: data.studyBlocks.filter((b) => b.semesterId === active || !b.semesterId),
-    reminders: data.reminders.filter((r) => r.semesterId === active || !r.semesterId),
-    grades: data.grades.filter((g) => (g.semesterId === active || !g.semesterId) && subjectIds.has(g.subjectId)),
+    blocks: data.blocks.filter((b) => b.semesterId === active && subjectIds.has(b.subjectId)),
+    studyBlocks: data.studyBlocks.filter((b) => b.semesterId === active),
+    reminders: data.reminders.filter((r) => r.semesterId === active),
+    grades: data.grades.filter((g) => g.semesterId === active && subjectIds.has(g.subjectId)),
   }
 }

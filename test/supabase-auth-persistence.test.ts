@@ -40,6 +40,20 @@ test("transforma AppData a filas Supabase conservando IDs, user_id y profile onC
   assert.equal(back.subjects[0].id, "s1")
 })
 
+test("round-trip de perfil onboarding conserva todos los campos", () => {
+  const data = { ...EMPTY_APP_DATA, profile: { displayName: "Ana", avatar: "data:image/png;base64,abc", institution: "Universidad", career: "Ingeniería", timezone: "America/Santiago", onboardingCompletedAt: "2026-07-20T10:00:00.000Z" } }
+  const rows = appDataToSupabaseRows(data, "u1", "ana@example.test")
+  assert.equal(rows.profiles[0].display_name, "Ana")
+  assert.equal(rows.profiles[0].avatar_url, "data:image/png;base64,abc")
+  assert.equal(rows.profiles[0].institution, "Universidad")
+  assert.equal(rows.profiles[0].career, "Ingeniería")
+  assert.equal(rows.profiles[0].timezone, "America/Santiago")
+  assert.equal(rows.profiles[0].onboarding_completed_at, "2026-07-20T10:00:00.000Z")
+  assert.equal(rows.profiles[0].email, "ana@example.test")
+  const restored = supabaseRowsToAppData(rows)
+  assert.deepEqual(restored.profile, data.profile)
+})
+
 test("módulos personalizados sobreviven round-trip en user_settings", () => {
   const modules = [{ id: "custom-1", start: "08:00", end: "08:45", label: "Laboratorio" }]
   const rows = appDataToSupabaseRows({ ...EMPTY_APP_DATA, modules }, "u1")
@@ -233,7 +247,7 @@ test("transitionUpdateSubject devuelve la materia actualizada antes de setData",
 test("updateSubject genera exactamente una escritura cloud por entidad", async () => {
   const calls: Call[] = []
   const repo = new SupabaseAcademicRepository(createRepositoryClient({}, calls), "u1")
-  await repo.updateSubject({ id: "s1", name: "Historia", color: "#fff", difficulty: 3, createdAt: 1 })
+  await repo.updateSubject({ id: "s1", semesterId: "sem1", name: "Historia", color: "#fff", difficulty: 3, createdAt: 1 })
   assert.equal(calls.filter((call) => call.action === "upsert" && call.table === "subjects").length, 1)
 })
 
@@ -311,4 +325,30 @@ test("ninguna operación depende de variables asignadas dentro de setData", asyn
   assert.equal(source.includes("transitionUpdateSubject"), true)
   assert.equal(source.includes("transitionUpsertBlock"), true)
   assert.equal(source.includes("transitionMoveBlock"), true)
+})
+
+
+test("operaciones individuales persisten semester_id en cada entidad", async () => {
+  const calls: Call[] = []
+  const repo = new SupabaseAcademicRepository(createRepositoryClient({}, calls), "u1")
+  await repo.saveSubject({ id: "s1", semesterId: "sem1", name: "Mate", color: "#fff", difficulty: 3, createdAt: 1 })
+  await repo.saveScheduleBlock({ id: "b1", semesterId: "sem1", subjectId: "s1", day: "lunes", moduleIds: ["m1"] })
+  await repo.saveStudyBlock({ id: "sb1", semesterId: "sem1", subjectId: "s1", title: "Estudio", day: "martes", start: "10:00", end: "10:30" })
+  await repo.saveReminder({ id: "r1", semesterId: "sem1", subjectId: "s1", title: "Entrega", priority: "media", triggers: [], targetDateTime: "2026-07-20T10:00:00.000Z", createdAt: 1, notifiedTriggerIndexes: [] })
+  await repo.saveGrade({ id: "g1", semesterId: "sem1", subjectId: "s1", title: "P1", score: 5, weight: 50, date: "2026-07-20", createdAt: 1 })
+  const upserts = calls.filter((call) => call.action === "upsert")
+  assert.equal(upserts.length, 5)
+  for (const call of upserts) {
+    const rows = call.args[0] as Array<{ semester_id?: string }>
+    assert.equal(rows[0]?.semester_id, "sem1")
+  }
+})
+
+test("operaciones individuales rechazan entidades nuevas sin semester_id", async () => {
+  const repo = new SupabaseAcademicRepository(createRepositoryClient({}), "u1")
+  await assert.rejects(() => repo.saveSubject({ id: "s1", name: "Mate", color: "#fff", difficulty: 3, createdAt: 1 }), /semestre activo/)
+  await assert.rejects(() => repo.saveScheduleBlock({ id: "b1", subjectId: "s1", day: "lunes", moduleIds: ["m1"] }), /semestre activo/)
+  await assert.rejects(() => repo.saveStudyBlock({ id: "sb1", title: "Estudio", day: "lunes", start: "10:00", end: "10:30" }), /semestre activo/)
+  await assert.rejects(() => repo.saveReminder({ id: "r1", title: "Entrega", priority: "media", triggers: [], targetDateTime: "2026-07-20T10:00:00.000Z", createdAt: 1, notifiedTriggerIndexes: [] }), /semestre activo/)
+  await assert.rejects(() => repo.saveGrade({ id: "g1", subjectId: "s1", title: "P1", score: 5, weight: 50, date: "2026-07-20", createdAt: 1 }), /semestre activo/)
 })

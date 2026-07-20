@@ -4,17 +4,22 @@ import { AlertCircle, Bell, BookOpen, CalendarDays, CheckCircle2, Cloud, Graduat
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { calculateWeightedAverage, detectOverdueReminders, determineNextClass, detectSubjectsAtRisk, estimateWeeklyLoad, suggestBasicStudyBlock } from "@/domain/academic-engine"
+import { calculateWeightedAverage, detectOverdueReminders, detectSubjectsAtRisk, detectSubjectsRequiringAttention, determineNextClass, estimateWeeklyLoad, getTodayClasses, suggestBasicStudyBlock } from "@/domain/academic-engine"
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
+
+const confidenceLabel = { complete: "completa", partial: "parcial", none: "sin datos" } as const
 
 export function AcademicDashboard({ store, onNavigate }: { store: ScheduleStore; onNavigate: (tab: string) => void }) {
   const { data } = store
+  const now = new Date()
   const activeSemester = data.semesters.find((semester) => semester.id === data.activeSemesterId)
-  const nextClass = determineNextClass(data, new Date())
-  const overdue = detectOverdueReminders(data.reminders, new Date())
-  const upcoming = data.reminders.filter((reminder) => new Date(reminder.targetDateTime).getTime() >= Date.now()).slice(0, 3)
+  const nextClass = determineNextClass(data, now)
+  const todayClasses = getTodayClasses(data, now)
+  const overdue = detectOverdueReminders(data.reminders, now)
+  const upcoming = data.reminders.filter((reminder) => new Date(reminder.targetDateTime).getTime() >= now.getTime()).slice(0, 3)
   const average = calculateWeightedAverage(data.grades, data.settings.gradeScale)
   const risks = detectSubjectsAtRisk(data)
+  const attention = detectSubjectsRequiringAttention(data, now)
   const load = estimateWeeklyLoad(data)
   const suggestion = suggestBasicStudyBlock(data)
   const isNew = !data.profile.onboardingCompletedAt && data.subjects.length === 0
@@ -38,14 +43,15 @@ export function AcademicDashboard({ store, onNavigate }: { store: ScheduleStore;
           <Badge variant="outline"><Cloud className="mr-1 h-3 w-3" />{store.syncMessage}</Badge>
         </div>
       </section>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <Metric title="Próxima clase" value={nextClass ? nextClass.subject.name : "Sin clases"} detail={nextClass ? `${nextClass.day} ${nextClass.start}-${nextClass.end}` : "Agrega horario"} />
-        <Metric title="Promedio global" value={average.value === null ? "Sin notas" : average.value.toString()} detail={`Confianza: ${average.confidence}`} />
-        <Metric title="Materias en riesgo" value={String(risks.length)} detail={risks[0]?.reason ?? "Sin alertas críticas"} />
+        <Metric title="Promedio global" value={average.value === null ? "Sin notas" : average.value.toString()} detail={`Confianza: ${confidenceLabel[average.confidence]}`} />
+        <Metric title="Materias en riesgo" value={String(risks.length)} detail={risks[0]?.reason ?? "Sin riesgo académico real"} />
+        <Metric title="Requiere atención" value={String(attention.length)} detail={attention[0]?.reason ?? "Sin señales adicionales"} />
         <Metric title="Carga semanal" value={`${load.totalBlocks} bloques`} detail={`${load.classBlocks} clase · ${load.studyBlocks} estudio`} />
       </div>
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card><CardHeader><CardTitle>Clases de hoy</CardTitle><CardDescription>Según tu horario actual.</CardDescription></CardHeader><CardContent>{nextClass ? <p className="text-sm">Próxima: {nextClass.subject.name} a las {nextClass.start}</p> : <Empty text="No hay clases próximas registradas." />}</CardContent></Card>
+        <Card><CardHeader><CardTitle>Clases de hoy</CardTitle><CardDescription>Solo clases del día actual.</CardDescription></CardHeader><CardContent className="space-y-2">{todayClasses.length ? todayClasses.map((item) => <p key={item.block.id} className="text-sm">{item.subject.name}: {item.start}-{item.end}</p>) : <Empty text="No hay clases registradas para hoy." />}</CardContent></Card>
         <Card><CardHeader><CardTitle>Recordatorios</CardTitle><CardDescription>Próximos y vencidos.</CardDescription></CardHeader><CardContent className="space-y-2"><p className="text-sm text-destructive">Vencidos: {overdue.length}</p>{upcoming.length ? upcoming.map((r) => <p key={r.id} className="text-sm"><Bell className="mr-1 inline h-3 w-3" />{r.title}</p>) : <Empty text="No hay recordatorios próximos." />}</CardContent></Card>
         <Card><CardHeader><CardTitle>Acción sugerida</CardTitle><CardDescription>No es certeza: depende de datos disponibles.</CardDescription></CardHeader><CardContent className="space-y-3"><p className="text-sm">{suggestion.message}</p><Button size="sm" onClick={() => onNavigate("estudio")}>Planificar estudio</Button></CardContent></Card>
       </div>
