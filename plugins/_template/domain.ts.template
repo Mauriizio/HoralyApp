@@ -1,0 +1,3 @@
+export function examplePureFunction(input: string) {
+  return input.trim()
+}

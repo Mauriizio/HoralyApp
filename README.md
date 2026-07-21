@@ -128,3 +128,13 @@ Activar branch protection en `main`, required reviews, Dependabot alerts, secret
 HoralyApp permite gestionar semestres académicos desde Preferencias sin modificar migraciones ni borrar datos históricos. En esta fase los semestres nunca se eliminan desde la UI: se pueden crear, editar, activar, archivar y restaurar. Solo un semestre puede estar activo a la vez; materias, horarios, bloques de estudio, recordatorios y notas pertenecen a un semestre y las vistas principales consumen únicamente el semestre activo.
 
 Archivar un semestre lo oculta del selector principal, pero conserva materias, notas, horario e historial. Un semestre archivado puede restaurarse como planificado y luego activarse. El onboarding académico puede abrirse nuevamente desde Preferencias para revisar o completar institución, carrera, zona horaria y semestre activo sin reiniciar datos ni crear duplicados automáticamente.
+
+## Auth UX y herramientas
+
+La cabecera pública usa una única fuente de acciones de invitado para iniciar sesión o crear cuenta. Las pantallas Auth tienen salida segura a Horaly y el callback filtra redirects externos. Google OAuth puede activarse con `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=true` configurando manualmente Google/Supabase sin versionar secretos.
+
+La pestaña Herramientas incluye un catálogo interno con categorías, búsqueda y error boundary por herramienta. La primera herramienta disponible es el código de colores de resistencias, con cálculo de 4, 5 y 6 bandas en ambos sentidos.
+
+### Herramientas autocontenidas
+
+Las herramientas internas se integran como módulos bajo `plugins/{id}/` y el host no conoce sus implementaciones. Para agregar una herramienta nueva: copiar la carpeta del módulo, registrar una entrada en `plugins/index.ts` y ejecutar `pnpm typecheck`, `pnpm test`, `pnpm build` y `pnpm check`. La guía completa está en `docs/20-adding-tools.md`.

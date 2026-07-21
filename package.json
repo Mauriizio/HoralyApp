@@ -8,7 +8,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "node --loader ./test/typescript-loader.mjs --test test/*.test.ts",
-    "check": "pnpm typecheck && pnpm test && pnpm build"
+    "check": "pnpm typecheck && pnpm test && pnpm build",
+    "tool:create": "node scripts/create-tool.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

@@ -6,7 +6,8 @@ import nextConfig from "../next.config.mjs"
 import { calculateWeightedAverage, detectSubjectsAtRisk, detectSubjectsRequiringAttention, getTodayClasses } from "../domain/academic-engine/index.ts"
 import { canArchiveSemester, ensureSingleActiveSemester, filterDataByActiveSemester, getAvailableSemesters, migrateLegacyDataToInitialSemester, validateSemesterDates } from "../application/semesters.ts"
 import { EMPTY_APP_DATA } from "../lib/types.ts"
-import { createPluginRegistry, resistorCalculatorPlugin } from "../lib/plugins/plugin-registry.ts"
+import { createPluginRegistry } from "../lib/plugins/plugin-registry.ts"
+import { toolPlugins } from "../plugins/index.ts"
 import { permissionsAllowedByCapabilities } from "../lib/plugins/plugin-capabilities.ts"
 
 test("semestre activo único y migración legacy", () => {
@@ -23,8 +24,8 @@ test("filtros por semestre preservan historial", () => {
 })
 
 test("plugins quedan aislados por permisos", () => {
-  assert.equal(createPluginRegistry([resistorCalculatorPlugin]).list().length, 1)
-  assert.equal(permissionsAllowedByCapabilities(["navigation:route"], ["read:subjects"]), false)
+  assert.equal(createPluginRegistry(toolPlugins).list().length, 1)
+  assert.equal(permissionsAllowedByCapabilities(["navigation:internal"], ["write:clipboard"]), false)
 })
 
 test("headers CSP incluyen controles obligatorios", async () => {
