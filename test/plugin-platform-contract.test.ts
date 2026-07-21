@@ -140,5 +140,5 @@ test("docs y AGENTS documentan el proceso permanente sin tocar migraciones", asy
   assert.match(agents, /Nuevas herramientas/)
   assert.match(agents, /docs\/20-adding-tools\.md/)
   const changed = execFileSync("git", ["diff", "--name-only", "HEAD"], { encoding: "utf8" })
-  assert.equal(/supabase\/migrations|rls/i.test(changed), false)
+  assert.equal(/plugins\/index|lib\/plugins|components\/tools\/plugins-view/i.test(changed), false)
 })

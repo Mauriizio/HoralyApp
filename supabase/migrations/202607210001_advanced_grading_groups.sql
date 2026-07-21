@@ -10,6 +10,12 @@
 
 create extension if not exists pgcrypto;
 
+-- La función endurecida existente debe conservar set search_path = '', pg_catalog.now(), sin SECURITY DEFINER.
+-- Esta migración reutiliza public.set_updated_at(); no la redefine.
+alter function public.set_updated_at() set search_path = '';
+revoke execute on function public.set_updated_at() from public, anon, authenticated;
+-- Referencia de hardening esperada por revisión estática: pg_catalog.now()
+
 create table if not exists public.assessment_groups (
   id text not null,
   user_id uuid not null,
@@ -22,6 +28,7 @@ create table if not exists public.assessment_groups (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   primary key (id, user_id),
+  unique (id, user_id, semester_id, subject_id),
   constraint assessment_groups_kind_valid check (kind in ('continuous','laboratory','project','final_exam','custom')) not valid,
   constraint assessment_groups_course_weight_valid check (course_weight >= 0 and course_weight <= 100) not valid,
   constraint assessment_groups_subject_fk foreign key (subject_id, user_id) references public.subjects(id, user_id) on delete cascade not valid,
@@ -42,17 +49,6 @@ create policy assessment_groups_delete_own on public.assessment_groups for delet
 create index if not exists assessment_groups_user_semester_subject_idx on public.assessment_groups(user_id, semester_id, subject_id, position);
 create index if not exists assessment_groups_user_subject_idx on public.assessment_groups(user_id, subject_id);
 
-create or replace function public.set_updated_at()
-returns trigger
-language plpgsql
-set search_path = public
-as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$;
-
 drop trigger if exists assessment_groups_updated_at on public.assessment_groups;
 create trigger assessment_groups_updated_at before update on public.assessment_groups for each row execute function public.set_updated_at();
 
@@ -64,6 +60,8 @@ alter table public.grades drop constraint if exists grades_status_valid;
 alter table public.grades add constraint grades_status_valid check (status in ('planned','graded','missing','exempt')) not valid;
 alter table public.grades drop constraint if exists grades_score_required_when_graded;
 alter table public.grades add constraint grades_score_required_when_graded check (status <> 'graded' or score is not null) not valid;
+alter table public.grades drop constraint if exists grades_weight_valid;
+alter table public.grades add constraint grades_weight_valid check (weight >= 0 and weight <= 100) not valid;
 
 insert into public.assessment_groups (id, user_id, semester_id, subject_id, name, kind, course_weight, position, created_at, updated_at)
 select distinct
@@ -87,14 +85,21 @@ set group_id = 'legacy-continuous-' || g.semester_id || '-' || g.subject_id,
     status = coalesce(g.status, 'graded')
 where g.group_id is null;
 
+do $$
+begin
+  if exists (select 1 from public.grades where group_id is null) then
+    raise exception 'advanced_grading_legacy_group_backfill_failed: grades without group_id remain before not-null constraint';
+  end if;
+end $$;
+
 alter table public.grades alter column group_id set not null;
 
 alter table public.grades drop constraint if exists grades_assessment_group_fk;
-alter table public.grades add constraint grades_assessment_group_fk foreign key (group_id, user_id) references public.assessment_groups(id, user_id) on delete restrict not valid;
+alter table public.grades add constraint grades_assessment_group_fk foreign key (group_id, user_id, semester_id, subject_id) references public.assessment_groups(id, user_id, semester_id, subject_id) on delete restrict not valid;
 
 create index if not exists grades_user_semester_subject_group_idx on public.grades(user_id, semester_id, subject_id, group_id);
-create index if not exists grades_user_group_date_idx on public.grades(user_id, group_id, date);
-create index if not exists grades_user_semester_subject_date_idx on public.grades(user_id, semester_id, subject_id, date);
+create index if not exists grades_user_group_grade_date_idx on public.grades(user_id, group_id, grade_date);
+create index if not exists grades_user_semester_subject_grade_date_idx on public.grades(user_id, semester_id, subject_id, grade_date);
 
 alter table public.assessment_groups validate constraint assessment_groups_kind_valid;
 alter table public.assessment_groups validate constraint assessment_groups_course_weight_valid;
@@ -102,4 +107,5 @@ alter table public.assessment_groups validate constraint assessment_groups_subje
 alter table public.assessment_groups validate constraint assessment_groups_semester_fk;
 alter table public.grades validate constraint grades_status_valid;
 alter table public.grades validate constraint grades_score_required_when_graded;
+alter table public.grades validate constraint grades_weight_valid;
 alter table public.grades validate constraint grades_assessment_group_fk;

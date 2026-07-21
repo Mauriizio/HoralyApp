@@ -147,14 +147,31 @@ export interface Reminder {
 }
 
 // --- New: grades / evaluations ---
+export type AssessmentGroupKind = "continuous" | "laboratory" | "project" | "final_exam" | "custom"
+export type AssessmentStatus = "planned" | "graded" | "missing" | "exempt"
+
+export interface AssessmentGroup {
+  id: string
+  semesterId: string
+  subjectId: string
+  name: string
+  kind: AssessmentGroupKind
+  courseWeight: number
+  position: number
+  createdAt: number
+}
+
 export interface Grade {
   id: string
   semesterId?: string
   subjectId: string
+  groupId?: string
   title: string
-  score: number
-  weight: number // percentage 0-100
+  score: number | null
+  weight: number // legacy/effective internal percentage 0-100
+  weightWithinGroup?: number
   date: string // ISO date (YYYY-MM-DD)
+  status?: AssessmentStatus
   notes?: string
   createdAt: number
 }
@@ -254,6 +271,7 @@ export interface AppData {
   reminders: Reminder[]
   modules: TimeModule[]
   grades: Grade[]
+  assessmentGroups: AssessmentGroup[]
   profile: UserProfile
   settings: AppSettings
   semesters: Semester[]
@@ -268,6 +286,7 @@ export const EMPTY_APP_DATA: AppData = {
   reminders: [],
   modules: DEFAULT_MODULES,
   grades: [],
+  assessmentGroups: [],
   profile: DEFAULT_PROFILE,
   settings: DEFAULT_SETTINGS,
   semesters: [],

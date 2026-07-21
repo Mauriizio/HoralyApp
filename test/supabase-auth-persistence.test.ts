@@ -269,7 +269,7 @@ test("deleteSubject limpia dependencias remotas y desvincula study_blocks", asyn
   const calls: Call[] = []
   const repo = new SupabaseAcademicRepository(createRepositoryClient({}, calls), "u1")
   await repo.deleteSubject("s1")
-  assert.deepEqual(calls.filter((call) => call.action === "delete").map((call) => call.table), ["schedule_blocks", "grades", "reminders", "subjects"])
+  assert.deepEqual(calls.filter((call) => call.action === "delete").map((call) => call.table), ["schedule_blocks", "grades", "assessment_groups", "reminders", "subjects"])
   assert.equal(calls.some((call) => call.table === "study_blocks" && call.action === "update"), true)
 })
 

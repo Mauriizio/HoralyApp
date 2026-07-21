@@ -31,10 +31,12 @@ describe("planificación académica avanzada", () => {
   it("calcula presentación, proyección, transversal necesario 2,5 y pesos incompletos", () => {
     const result = evaluateSubjectGradingPlan(plan)
     assert.equal(result.presentationAverage, 5)
-    assert.equal(result.currentFinalGrade, 3)
+    assert.equal(result.currentContribution, 3)
+    assert.equal(result.currentFinalGrade, null)
     assert.equal(result.projectedFinalGrade, 5)
     assert.equal(result.requiredFinalExamScore?.requiredScore, 2.5)
-    assert.equal(result.status, "mathematically_approved")
+    assert.equal(result.mathematicallyApproved, false)
+    assert.equal(result.status, "in_progress")
 
     const invalid = evaluateSubjectGradingPlan({ ...plan, groups: [{ ...groups[0], courseWeight: 80 }], assessments: assessments.slice(0, 5) })
     assert.equal(invalid.validity.isValid, false)
@@ -78,6 +80,7 @@ describe("planificación académica avanzada", () => {
     assert.equal(model.days.includes("domingo"), true)
     assert.equal(sanitizeSchedulePdfFilename("María Pérez", "2026-1"), "horario-maria-perez-2026-1.pdf")
     const pdf = createSchedulePdfRenderer().render(model)
-    assert.equal(Buffer.from(pdf).subarray(0, 5).toString(), "%PDF-")
+    assert.equal(pdf.mimeType, "application/pdf")
+    assert.equal(Buffer.from(pdf.bytes).subarray(0, 5).toString(), "%PDF-")
   })
 })

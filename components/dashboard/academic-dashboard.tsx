@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { calculateWeightedAverage, detectOverdueReminders, detectSubjectsAtRisk, detectSubjectsRequiringAttention, determineNextClass, estimateWeeklyLoad, getTodayClasses, suggestBasicStudyBlock } from "@/domain/academic-engine"
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
 import { SemesterSwitcher } from "@/components/semesters/semester-switcher"
+import { AcademicAgendaPanel } from "@/components/academic-agenda-panel"
+import { generateAcademicRecommendations } from "@/domain/academic-advisor"
 
 const confidenceLabel = { complete: "completa", partial: "parcial", none: "sin datos" } as const
 
@@ -22,6 +24,9 @@ export function AcademicDashboard({ store, onNavigate }: { store: ScheduleStore;
   const attention = detectSubjectsRequiringAttention(data, now)
   const load = estimateWeeklyLoad(data)
   const suggestion = suggestBasicStudyBlock(data)
+  const firstSubject = data.subjects[0]
+  const advisorPlan = firstSubject ? { semesterId: firstSubject.semesterId ?? data.activeSemesterId ?? "", subjectId: firstSubject.id, groups: data.assessmentGroups.filter((group) => group.subjectId === firstSubject.id), assessments: data.grades.filter((grade) => grade.subjectId === firstSubject.id).map((grade) => ({ ...grade, groupId: grade.groupId ?? "", weightWithinGroup: grade.weightWithinGroup ?? grade.weight, scheduledDate: grade.date, status: grade.status ?? (grade.score === null ? "planned" : "graded") })), scale: data.settings.gradeScale, targetGrade: data.settings.gradeScale.passing } : null
+  const advisorItems = advisorPlan ? generateAcademicRecommendations({ now, plan: advisorPlan, subjects: data.subjects, agendaItems: [], weeklyLoad: load }) : []
   const isNew = !data.profile.onboardingCompletedAt && data.subjects.length === 0
 
   if (!store.hydrated) return <StateCard icon={<Loader2 className="h-5 w-5 animate-spin" />} title="Cargando dashboard" body="Estamos preparando tus datos académicos." />
@@ -52,8 +57,9 @@ export function AcademicDashboard({ store, onNavigate }: { store: ScheduleStore;
       <div className="grid gap-4 lg:grid-cols-3">
         <Card><CardHeader><CardTitle>Clases de hoy</CardTitle><CardDescription>Solo clases del día actual.</CardDescription></CardHeader><CardContent className="space-y-2">{todayClasses.length ? todayClasses.map((item) => <p key={item.block.id} className="text-sm">{item.subject.name}: {item.start}-{item.end}</p>) : <Empty text="No hay clases registradas para hoy." />}</CardContent></Card>
         <Card><CardHeader><CardTitle>Recordatorios</CardTitle><CardDescription>Próximos y vencidos.</CardDescription></CardHeader><CardContent className="space-y-2"><p className="text-sm text-destructive">Vencidos: {overdue.length}</p>{upcoming.length ? upcoming.map((r) => <p key={r.id} className="text-sm"><Bell className="mr-1 inline h-3 w-3" />{r.title}</p>) : <Empty text="No hay recordatorios próximos." />}</CardContent></Card>
-        <Card><CardHeader><CardTitle>Acción sugerida</CardTitle><CardDescription>No es certeza: depende de datos disponibles.</CardDescription></CardHeader><CardContent className="space-y-3"><p className="text-sm">{suggestion.message}</p><Button size="sm" onClick={() => onNavigate("estudio")}>Planificar estudio</Button></CardContent></Card>
+        <Card><CardHeader><CardTitle>Consejero académico</CardTitle><CardDescription>Etiqueta proyección: recomendaciones deterministas con evidencia.</CardDescription></CardHeader><CardContent className="space-y-3">{advisorItems[0] ? <><p className="text-sm font-medium">{advisorItems[0].message}</p><p className="text-xs text-muted-foreground">Urgencia: {advisorItems[0].priority} · Vigencia: {advisorItems[0].validUntil.slice(0, 10)}</p><p className="text-xs">Evidencia: {advisorItems[0].evidence.join(" · ")}</p><Button size="sm" onClick={() => onNavigate("notas")}>{advisorItems[0].suggestedAction}</Button></> : <><p className="text-sm">{suggestion.message}</p><Button size="sm" onClick={() => onNavigate("estudio")}>Planificar estudio</Button></>}</CardContent></Card>
       </div>
+      <AcademicAgendaPanel store={store} onNavigate={onNavigate} />
       <div className="flex flex-wrap gap-2"><Button onClick={() => onNavigate("materias")}><BookOpen className="mr-1 h-4 w-4" />Materia</Button><Button variant="outline" onClick={() => onNavigate("recordatorios")}><Bell className="mr-1 h-4 w-4" />Recordatorio</Button><Button variant="outline" onClick={() => onNavigate("notas")}><GraduationCap className="mr-1 h-4 w-4" />Nota</Button></div>
     </div>
   )

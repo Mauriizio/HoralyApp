@@ -7,6 +7,7 @@ export type SupabaseDataset = {
   study_blocks: SupabaseRow[]
   reminders: SupabaseRow[]
   grades: SupabaseRow[]
+  assessment_groups: SupabaseRow[]
   user_settings: SupabaseRow[]
   semesters: SupabaseRow[]
   profiles: SupabaseRow[]
@@ -55,13 +56,17 @@ export function reminderToSupabaseRow(reminder: AppData["reminders"][number], us
   return { id: reminder.id, user_id: userId, semester_id: requireSemesterId(reminder.semesterId, "el recordatorio"), subject_id: reminder.subjectId, study_block_id: reminder.studyBlockId, title: reminder.title, description: reminder.description, priority: reminder.priority, triggers: reminder.triggers, target_date_time: reminder.targetDateTime, notified_trigger_indexes: reminder.notifiedTriggerIndexes, created_at: iso(reminder.createdAt), updated_at: new Date().toISOString() }
 }
 
+export function assessmentGroupToSupabaseRow(group: AppData["assessmentGroups"][number], userId: string): SupabaseRow {
+  return { id: group.id, user_id: userId, semester_id: requireSemesterId(group.semesterId, "el grupo de evaluación"), subject_id: group.subjectId, name: group.name, kind: group.kind, course_weight: group.courseWeight, position: group.position, created_at: iso(group.createdAt), updated_at: new Date().toISOString() }
+}
+
 export function gradeToSupabaseRow(grade: AppData["grades"][number], userId: string): SupabaseRow {
-  return { id: grade.id, user_id: userId, semester_id: requireSemesterId(grade.semesterId, "la nota"), subject_id: grade.subjectId, title: grade.title, score: grade.score, weight: grade.weight, grade_date: grade.date, notes: grade.notes, created_at: iso(grade.createdAt), updated_at: new Date().toISOString() }
+  return { id: grade.id, user_id: userId, semester_id: requireSemesterId(grade.semesterId, "la evaluación"), subject_id: grade.subjectId, group_id: grade.groupId, title: grade.title, score: grade.score, weight: grade.weightWithinGroup ?? grade.weight, grade_date: grade.date, status: grade.status ?? (grade.score === null ? "planned" : "graded"), notes: grade.notes, created_at: iso(grade.createdAt), updated_at: new Date().toISOString() }
 }
 
 
 function dataWithRequiredSemesters(data: AppData): AppData {
-  const hasEntities = data.subjects.length > 0 || data.blocks.length > 0 || data.studyBlocks.length > 0 || data.reminders.length > 0 || data.grades.length > 0
+  const hasEntities = data.subjects.length > 0 || data.blocks.length > 0 || data.studyBlocks.length > 0 || data.reminders.length > 0 || data.grades.length > 0 || data.assessmentGroups.length > 0
   if (!hasEntities) return data
   const activeSemesterId = data.activeSemesterId ?? data.semesters.find((semester) => semester.status === "active")?.id ?? "initial-semester"
   const semesters = data.semesters.some((semester) => semester.id === activeSemesterId)
@@ -76,6 +81,7 @@ function dataWithRequiredSemesters(data: AppData): AppData {
     studyBlocks: data.studyBlocks.map((item) => ({ ...item, semesterId: item.semesterId ?? activeSemesterId })),
     reminders: data.reminders.map((item) => ({ ...item, semesterId: item.semesterId ?? activeSemesterId })),
     grades: data.grades.map((item) => ({ ...item, semesterId: item.semesterId ?? activeSemesterId })),
+    assessmentGroups: data.assessmentGroups.map((item) => ({ ...item, semesterId: item.semesterId ?? activeSemesterId })),
   }
 }
 
@@ -88,6 +94,7 @@ export function appDataToSupabaseRows(data: AppData, userId: string, email?: str
     schedule_blocks: normalizedData.blocks.map((b) => scheduleBlockToSupabaseRow({ ...b, semesterId: b.semesterId ?? normalizedData.activeSemesterId }, userId)),
     study_blocks: normalizedData.studyBlocks.map((b) => studyBlockToSupabaseRow({ ...b, semesterId: b.semesterId ?? normalizedData.activeSemesterId }, userId)),
     reminders: normalizedData.reminders.map((r) => reminderToSupabaseRow({ ...r, semesterId: r.semesterId ?? normalizedData.activeSemesterId }, userId)),
+    assessment_groups: normalizedData.assessmentGroups.map((g) => assessmentGroupToSupabaseRow({ ...g, semesterId: g.semesterId ?? normalizedData.activeSemesterId }, userId)),
     grades: normalizedData.grades.map((g) => gradeToSupabaseRow({ ...g, semesterId: g.semesterId ?? normalizedData.activeSemesterId }, userId)),
     user_settings: [{ id: "settings", user_id: userId, settings: { ...normalizedData.settings, modules: normalizedData.modules, activeSemesterId: normalizedData.activeSemesterId }, created_at: now, updated_at: now }],
     profiles: [profileRow(normalizedData, userId, email)],
@@ -107,7 +114,8 @@ export function supabaseRowsToAppData(rows: Partial<SupabaseDataset>): AppData {
     blocks: (rows.schedule_blocks ?? []).map((b) => ({ id: str(b.id), semesterId: optStr(b.semester_id), subjectId: str(b.subject_id), day: str(b.day, "lunes") as DayKey, moduleIds: arr(b.module_ids) })),
     studyBlocks: (rows.study_blocks ?? []).map((b) => ({ id: str(b.id), semesterId: optStr(b.semester_id), subjectId: optStr(b.subject_id), day: str(b.day, "lunes") as DayKey, title: str(b.title), start: str(b.start_time), end: str(b.end_time), notes: optStr(b.notes) })),
     reminders: (rows.reminders ?? []).map((r) => ({ id: str(r.id), semesterId: optStr(r.semester_id), subjectId: optStr(r.subject_id), studyBlockId: optStr(r.study_block_id), title: str(r.title), description: optStr(r.description), priority: str(r.priority, "media") as ReminderPriority, triggers: Array.isArray(r.triggers) ? r.triggers as AppData["reminders"][number]["triggers"] : [], targetDateTime: str(r.target_date_time), createdAt: ms(r.created_at), notifiedTriggerIndexes: Array.isArray(r.notified_trigger_indexes) ? r.notified_trigger_indexes.filter((n): n is number => typeof n === "number") : [] })),
-    grades: (rows.grades ?? []).map((g) => ({ id: str(g.id), semesterId: optStr(g.semester_id), subjectId: str(g.subject_id), title: str(g.title), score: Number(g.score) || 0, weight: Number(g.weight) || 1, date: str(g.grade_date), notes: optStr(g.notes), createdAt: ms(g.created_at) })),
+    assessmentGroups: (rows.assessment_groups ?? []).map((g) => ({ id: str(g.id), semesterId: str(g.semester_id), subjectId: str(g.subject_id), name: str(g.name), kind: str(g.kind, "continuous") as AppData["assessmentGroups"][number]["kind"], courseWeight: Number(g.course_weight) || 0, position: Number(g.position) || 0, createdAt: ms(g.created_at) })),
+    grades: (rows.grades ?? []).map((g) => ({ id: str(g.id), semesterId: optStr(g.semester_id), subjectId: str(g.subject_id), groupId: optStr(g.group_id), title: str(g.title), score: g.score === null || g.score === undefined ? null : Number(g.score), weight: Number(g.weight) || 0, weightWithinGroup: Number(g.weight) || 0, date: str(g.grade_date), status: str(g.status, g.score === null ? "planned" : "graded") as AppData["grades"][number]["status"], notes: optStr(g.notes), createdAt: ms(g.created_at) })),
     modules,
     settings,
     profile: { displayName: str(profileRow?.display_name), avatar: optStr(profileRow?.avatar_url), institution: optStr(profileRow?.institution), career: optStr(profileRow?.career), timezone: optStr(profileRow?.timezone), onboardingCompletedAt: optStr(profileRow?.onboarding_completed_at) },

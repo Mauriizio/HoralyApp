@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   type AppData,
   type AppSettings,
+  type AssessmentGroup,
   type DayKey,
   DEFAULT_PROFILE,
   DEFAULT_SETTINGS,
@@ -218,6 +219,7 @@ export function useScheduleStore() {
       blocks: d.blocks.filter((b) => b.subjectId !== id),
       reminders: d.reminders.filter((r) => r.subjectId !== id),
       grades: d.grades.filter((g) => g.subjectId !== id),
+      assessmentGroups: d.assessmentGroups.filter((g) => g.subjectId !== id),
       studyBlocks: d.studyBlocks.map((sb) =>
         sb.subjectId === id ? { ...sb, subjectId: undefined } : sb,
       ),
@@ -332,13 +334,80 @@ export function useScheduleStore() {
     void persistCloud(dataOwnerUserId, (repository) => repository.deleteReminder(id))
   }, [dataOwnerUserId, persistCloud])
 
+
+  // --- Assessment groups / grading plans ---
+  const createAssessmentGroup = useCallback((group: Omit<AssessmentGroup, "id" | "createdAt">) => {
+    const next: AssessmentGroup = { ...group, id: uid(), createdAt: Date.now() }
+    setData((d) => ({ ...d, assessmentGroups: [...d.assessmentGroups, next].sort((a, b) => a.position - b.position) }))
+    void persistCloud(dataOwnerUserId, (repository) => repository.saveAssessmentGroup(next))
+    return next
+  }, [dataOwnerUserId, persistCloud])
+
+  const updateAssessmentGroup = useCallback((id: string, patch: Partial<AssessmentGroup>) => {
+    const current = data.assessmentGroups.find((group) => group.id === id)
+    const next = current ? { ...current, ...patch } : undefined
+    setData((d) => ({ ...d, assessmentGroups: d.assessmentGroups.map((group) => group.id === id ? { ...group, ...patch } : group) }))
+    if (next) void persistCloud(dataOwnerUserId, (repository) => repository.saveAssessmentGroup(next))
+  }, [data.assessmentGroups, dataOwnerUserId, persistCloud])
+
+  const deleteAssessmentGroup = useCallback((id: string, options: { confirm?: boolean } = {}) => {
+    const affectedGrades = data.grades.filter((grade) => grade.groupId === id)
+    if (affectedGrades.length > 0 && !options.confirm) return { ok: false as const, preview: affectedGrades }
+    const nextData = { ...data, assessmentGroups: data.assessmentGroups.filter((group) => group.id !== id), grades: data.grades.map((grade) => grade.groupId === id ? { ...grade, groupId: undefined } : grade) }
+    setData(nextData)
+    void persistCloud(dataOwnerUserId, (repository) => repository.replaceAll(nextData))
+    return { ok: true as const, preview: affectedGrades }
+  }, [data, dataOwnerUserId, persistCloud])
+
+  const reorderAssessmentGroups = useCallback((subjectId: string, orderedIds: string[]) => {
+    const order = new Map(orderedIds.map((id, index) => [id, index + 1]))
+    const nextData = { ...data, assessmentGroups: data.assessmentGroups.map((group) => group.subjectId === subjectId && order.has(group.id) ? { ...group, position: order.get(group.id)! } : group) }
+    setData(nextData)
+    void persistCloud(dataOwnerUserId, (repository) => repository.replaceAll(nextData))
+  }, [data, dataOwnerUserId, persistCloud])
+
+  const applyGradingPreset = useCallback((subjectId: string, preset: "continuous100" | "presentation60Transversal40" | "laboratoryTheoryTransversal" | "custom") => {
+    const subject = data.subjects.find((item) => item.id === subjectId)
+    const semesterId = subject?.semesterId ?? data.activeSemesterId
+    if (!semesterId) throw new Error("No se puede configurar una materia sin semestre.")
+    const presets = {
+      continuous100: [{ name: "Evaluación continua", kind: "continuous" as const, courseWeight: 100 }],
+      presentation60Transversal40: [{ name: "Presentación", kind: "continuous" as const, courseWeight: 60 }, { name: "Examen transversal", kind: "final_exam" as const, courseWeight: 40 }],
+      laboratoryTheoryTransversal: [{ name: "Laboratorio", kind: "laboratory" as const, courseWeight: 30 }, { name: "Teoría", kind: "continuous" as const, courseWeight: 30 }, { name: "Examen transversal", kind: "final_exam" as const, courseWeight: 40 }],
+      custom: [],
+    }[preset]
+    const newGroups = presets.map((group, index): AssessmentGroup => ({ ...group, id: `${subjectId}-${group.kind}-${index + 1}-${uid()}`, semesterId, subjectId, position: index + 1, createdAt: Date.now() }))
+    const nextData = { ...data, assessmentGroups: [...data.assessmentGroups.filter((group) => group.subjectId !== subjectId), ...newGroups] }
+    setData(nextData)
+    void persistCloud(dataOwnerUserId, (repository) => repository.replaceAll(nextData))
+    return newGroups
+  }, [data, dataOwnerUserId, persistCloud])
+
+  const duplicateGradingPlan = useCallback((fromSubjectId: string, toSubjectId: string) => {
+    const toSubject = data.subjects.find((subject) => subject.id === toSubjectId)
+    const targetSemesterId = toSubject?.semesterId
+    if (!targetSemesterId) throw new Error("La materia destino no tiene semestre.")
+    const sourceGroups = data.assessmentGroups.filter((group) => group.subjectId === fromSubjectId).sort((a, b) => a.position - b.position)
+    const copied = sourceGroups.map((group): AssessmentGroup => ({ ...group, id: `${toSubjectId}-${group.kind}-${uid()}`, subjectId: toSubjectId, semesterId: targetSemesterId, createdAt: Date.now() }))
+    const nextData = { ...data, assessmentGroups: [...data.assessmentGroups.filter((group) => group.subjectId !== toSubjectId), ...copied] }
+    setData(nextData)
+    void persistCloud(dataOwnerUserId, (repository) => repository.replaceAll(nextData))
+    return copied
+  }, [data, dataOwnerUserId, persistCloud])
+
+  const simulateAssessmentScore = useCallback((gradeId: string, score: number) => data.grades.map((grade) => grade.id === gradeId ? { ...grade, score, status: "graded" as const } : grade), [data.grades])
+
   // --- Grades ---
   const addGrade = useCallback((grade: Omit<Grade, "id" | "createdAt">) => {
-    const next: Grade = { ...grade, semesterId: grade.semesterId ?? requireActiveSemesterId(data.activeSemesterId, "notas"), id: uid(), createdAt: Date.now() }
+    const semesterId = grade.semesterId ?? requireActiveSemesterId(data.activeSemesterId, "notas")
+    const groupId = grade.groupId ?? data.assessmentGroups.find((group) => group.subjectId === grade.subjectId && group.semesterId === semesterId)?.id
+    const next: Grade = { ...grade, semesterId, groupId, status: grade.status ?? (grade.score === null ? "planned" : "graded"), weightWithinGroup: grade.weightWithinGroup ?? grade.weight, id: uid(), createdAt: Date.now() }
     setData((d) => ({ ...d, grades: [...d.grades, next] }))
     void persistCloud(dataOwnerUserId, (repository) => repository.saveGrade(next))
     return next
   }, [data.activeSemesterId, dataOwnerUserId, persistCloud])
+
+  const createAssessment = addGrade
 
   const updateGrade = useCallback((id: string, patch: Partial<Grade>) => {
     const current = data.grades.find((g) => g.id === id)
@@ -347,10 +416,14 @@ export function useScheduleStore() {
     if (next) void persistCloud(dataOwnerUserId, (repository) => repository.saveGrade(next))
   }, [data.grades, dataOwnerUserId, persistCloud])
 
+  const updateAssessment = updateGrade
+
   const deleteGrade = useCallback((id: string) => {
     setData((d) => ({ ...d, grades: d.grades.filter((g) => g.id !== id) }))
     void persistCloud(dataOwnerUserId, (repository) => repository.deleteGrade(id))
   }, [dataOwnerUserId, persistCloud])
+
+  const deleteAssessment = deleteGrade
 
   // --- Profile ---
   const updateProfileConfirmed = useCallback(async (patch: Partial<UserProfile>, context?: OperationIdentityContext) => {
@@ -478,6 +551,16 @@ export function useScheduleStore() {
     addReminder,
     updateReminder,
     deleteReminder,
+    createAssessmentGroup,
+    updateAssessmentGroup,
+    deleteAssessmentGroup,
+    reorderAssessmentGroups,
+    applyGradingPreset,
+    duplicateGradingPlan,
+    simulateAssessmentScore,
+    createAssessment,
+    updateAssessment,
+    deleteAssessment,
     addGrade,
     updateGrade,
     deleteGrade,
