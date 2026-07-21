@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process"
 import { readFile } from "node:fs/promises"
 
 const migrationPath = "supabase/migrations/202607200002_security_advisor_hardening.sql"
+const avatarUploadFixMigrationPath = "supabase/migrations/202607200003_fix_avatar_first_upload.sql"
 
 function extractFunction(sql: string, functionName: string) {
   const escapedName = functionName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
@@ -35,7 +36,7 @@ test("migración endurece funciones con search_path seguro y permisos mínimos",
   assert.match(sql, /grant execute on function public\.handle_new_user_profile\(\) to supabase_auth_admin;/i)
 })
 
-test("migración restringe avatars sin listing amplio y conserva bucket público", async () => {
+test("migración 002 restringe avatars sin listing amplio y conserva bucket público", async () => {
   const sql = await readFile(migrationPath, "utf8")
   assert.match(sql, /drop policy if exists avatars_select_public on storage\.objects;/i)
   assert.match(sql, /create policy avatars_select_own_authenticated[\s\S]*for select[\s\S]*to authenticated/i)
@@ -51,10 +52,41 @@ test("migración restringe avatars sin listing amplio y conserva bucket público
     "storage.object.delete_many",
   ])
   assert.equal(operations.includes("storage.object.list"), false)
+  assert.equal(operations.includes("storage.object.list_v2"), false)
   assert.equal(operations.includes("object.list"), false)
   assert.doesNotMatch(sql, /create policy avatars_select_public/i)
   assert.match(sql, /values \('avatars', 'avatars', true, 2097152, array\['image\/png','image\/jpeg','image\/webp'\]\)/i)
 })
+
+test("migración 003 permite primera subida y upsert sin listing amplio", async () => {
+  const sql = await readFile(avatarUploadFixMigrationPath, "utf8")
+  assert.match(sql, /drop policy if exists avatars_select_own_authenticated on storage\.objects;/i)
+  assert.match(sql, /create policy avatars_select_own_authenticated[\s\S]*for select[\s\S]*to authenticated/i)
+  assert.match(sql, /bucket_id = 'avatars'/i)
+  assert.match(sql, /auth\.uid\(\)::text = \(storage\.foldername\(name\)\)\[1\]/i)
+  const operations = extractStorageOperations(sql)
+  assert.deepEqual(operations, [
+    "storage.object.upload",
+    "storage.object.upload_update",
+    "storage.object.get_authenticated",
+    "storage.object.info_authenticated",
+    "object.get_authenticated_info",
+    "object.head_authenticated_info",
+    "storage.object.delete",
+    "storage.object.delete_many",
+  ])
+  assert.equal(operations.includes("storage.object.list"), false)
+  assert.equal(operations.includes("storage.object.list_v2"), false)
+  assert.equal(operations.includes("object.list"), false)
+})
+
+test("la migración 002 aplicada no se reescribe para la corrección de primera subida", async () => {
+  const sql002 = await readFile(migrationPath, "utf8")
+  const sql003 = await readFile(avatarUploadFixMigrationPath, "utf8")
+  assert.equal(sql002.includes("storage.object.upload'"), false)
+  assert.equal(sql003.includes("storage.object.upload'"), true)
+})
+
 
 test("migración es idempotente", async () => {
   const sql = await readFile(migrationPath, "utf8")
@@ -75,4 +107,18 @@ test("documenta leaked password como riesgo aceptado del plan Free", async () =>
 test("no existen secretos versionados", () => {
   const tracked = execFileSync("git", ["ls-files"], { encoding: "utf8" })
   assert.equal(/SERVICE_ROLE|SUPABASE_DB_PASSWORD|postgres:\/\//.test(tracked), false)
+})
+
+
+test("diagnóstico de avatar no expone secretos y mantiene mensajes seguros", async () => {
+  const source = await readFile("lib/avatar-storage.ts", "utf8")
+  assert.match(source, /statusCode/)
+  assert.match(source, /bucket: AVATARS_BUCKET/)
+  assert.match(source, /operation/)
+  assert.match(source, /No se pudo subir el avatar\. Intenta nuevamente\./)
+  assert.match(source, /Debes iniciar sesión para modificar tu avatar/)
+  assert.match(source, /No tienes permiso para modificar ese avatar/)
+  assert.match(source, /El avatar ya existe/)
+  assert.match(source, /No se pudo conectar con el almacenamiento/)
+  assert.doesNotMatch(source, /access_token|refresh_token|authorization|cookie|jwt|service_role/i)
 })
