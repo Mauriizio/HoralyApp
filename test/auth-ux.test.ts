@@ -139,9 +139,10 @@ test("rate limit 429 se muestra como límite temporal de envío", () => {
 test("encabezado invitado define una sola fuente de login y registro", async () => {
   const page = await readFile("app/page.tsx", "utf8")
   const profileButton = await readFile("components/profile-button.tsx", "utf8")
-  assert.match(page, /!authenticated \? \(/)
-  assert.match(page, /Iniciar sesión/)
-  assert.match(page, /Crear cuenta/)
+  assert.match(page, /<GuestAuthActions/)
+  const actions = await readFile("components/auth/guest-auth-actions.tsx", "utf8")
+  assert.match(actions, /Iniciar sesión/)
+  assert.match(actions, /Crear cuenta/)
   assert.match(page, /\{authenticated && <ProfileButton store=\{store\} \/>\}/)
   assert.equal((profileButton.match(/Iniciar sesión/g) ?? []).length, 0)
   assert.equal((profileButton.match(/Crear cuenta/g) ?? []).length, 0)

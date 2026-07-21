@@ -16,7 +16,6 @@ import {
   Settings,
   Cloud,
   HardDrive,
-  LogIn,
   Wrench,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -55,7 +54,7 @@ import { I18nProvider, useI18n } from "@/components/i18n-provider"
 import type { DayKey, Subject } from "@/lib/types"
 import { formatTime, parseTime } from "@/lib/time-format"
 import { AuthProvider, useAuth } from "@/lib/auth-context"
-import Link from "next/link"
+import { GuestAuthActions } from "@/components/auth/guest-auth-actions"
 
 const DAY_INDEX_TO_KEY: Record<number, DayKey | null> = {
   0: "domingo",
@@ -312,18 +311,9 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
             {store.syncStatus === "error" && (
               <Button variant="outline" size="sm" className="hidden sm:inline-flex shrink-0" onClick={store.retrySync}>Reintentar</Button>
             )}
-            {authLoading ? (
-              <div className="hidden sm:block h-9 w-28 rounded-md bg-muted animate-pulse" aria-label="Cargando sesión" />
-            ) : !authenticated ? (
-              <div className="hidden sm:flex items-center gap-2 shrink-0">
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/auth/login"><LogIn className="h-3.5 w-3.5 mr-1.5" />Iniciar sesión</Link>
-                </Button>
-                <Button size="sm" asChild>
-                  <Link href="/auth/register">Crear cuenta</Link>
-                </Button>
-              </div>
-            ) : null}
+            <div className="hidden sm:block">
+              <GuestAuthActions loading={authLoading} authenticated={authenticated} />
+            </div>
 
             <Button
               variant="outline"

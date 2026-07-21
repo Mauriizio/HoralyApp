@@ -20,3 +20,7 @@ Estas reglas son obligatorias para toda macrofase:
 ## Regla de producto: semestres visibles
 
 La gestión visible de semestres forma parte del núcleo académico. La UI no elimina semestres en esta fase: archivar conserva historial y restaurar devuelve el semestre al flujo operativo. Solo puede existir un semestre activo y todos los datos académicos deben pertenecer a un semestre. El onboarding se puede revisar sin destruir materias, horarios, notas, recordatorios, semestres ni historial.
+
+## Enmienda: herramientas internas empaquetadas
+
+Las herramientas de `lib/plugins` y `plugins/` son parte del build de HoralyApp. Deben declarar manifiesto, categoría, estado, capacidades, permisos y feature flag cuando aplique. No pueden cargar JavaScript remoto, usar `eval`, iframes externos, cookies, JWT, cliente Supabase ni datos académicos fuera del contexto mínimo autorizado.

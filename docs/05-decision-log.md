@@ -33,3 +33,7 @@ Se mantiene Supabase Auth con confirmación de correo habilitada. Se añade una 
 ## 2026-07-20 — Gestión visible de semestres sin eliminación definitiva
 
 Se decide completar la interfaz visible de semestres con selector en Dashboard y gestor en Preferencias. La eliminación definitiva queda fuera de alcance: archivar conserva historial y restaurar vuelve a dejar el semestre disponible. Se mantiene la regla de un único semestre activo y el onboarding puede revisarse sin destruir ni duplicar datos existentes.
+
+## 2026-07-21 — Auth UX de lanzamiento y primera herramienta eléctrica
+
+Se centralizan las acciones públicas de invitado, se añade confirmación de contraseña y se deja Google OAuth detrás de `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED`. Se registra la plataforma interna de herramientas con catálogo y se habilita el plugin local de código de colores de resistencias. No se modifican migraciones, RLS ni Storage.
