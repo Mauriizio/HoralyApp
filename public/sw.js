@@ -1,6 +1,6 @@
 // Service worker conservador para instalación PWA, shell básico offline y assets reales.
 
-const CACHE_NAME = "horaly-shell-v2"
+const CACHE_NAME = "horaly-shell-v3"
 const SHELL_URLS = [
   "/",
   "/manifest.webmanifest",
@@ -9,6 +9,26 @@ const SHELL_URLS = [
   "/icon-512.png",
   "/icon-512-maskable.png",
 ]
+
+function isSameOrigin(url) {
+  return url.origin === self.location.origin
+}
+
+function isSupabaseRequest(url) {
+  return url.hostname.includes("supabase.co") || url.pathname.includes("/storage/v1/") || url.pathname.includes("/auth/v1/") || url.pathname.includes("/rest/v1/")
+}
+
+function isAvatarRequest(url) {
+  return url.pathname.includes("/storage/v1/object/public/avatars/") || url.pathname.includes("/avatars/")
+}
+
+function canCache(request) {
+  const url = new URL(request.url)
+  if (!isSameOrigin(url)) return false
+  if (isSupabaseRequest(url) || isAvatarRequest(url)) return false
+  if (url.pathname.startsWith("/_next/") && url.pathname.includes("webpack-hmr")) return false
+  return true
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -26,7 +46,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))),
+      Promise.all(keys.filter((key) => key.startsWith("horaly-") && key !== CACHE_NAME).map((key) => caches.delete(key))),
     ),
   )
   self.clients.claim()
@@ -34,7 +54,7 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const req = event.request
-  if (req.method !== "GET") return
+  if (req.method !== "GET" || !canCache(req)) return
 
   if (req.mode === "navigate") {
     event.respondWith(

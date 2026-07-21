@@ -66,3 +66,22 @@ También aceptan rutas nuevas versionadas. Se rechazan dominios externos, bucket
 14. Eliminar C.
 15. Recargar y comprobar que no hay avatar.
 16. Confirmar que ningún avatar de otro usuario fue afectado.
+
+## Checklist manual multicuenta A/B
+
+Usar perfil normal para usuario A y ventana incógnito o segundo perfil Chrome para usuario B. No usar dos pestañas normales del mismo origen como sesiones independientes.
+
+1. A sube A1.
+2. B sube B1.
+3. Confirmar que Storage crea carpetas distintas.
+4. Confirmar que `profiles` guarda URLs distintas.
+5. A reemplaza A1 por A2.
+6. Confirmar que B permanece con B1.
+7. B reemplaza B1 por B2.
+8. Confirmar que A permanece con A2.
+9. Recargar ambos contextos.
+10. Cerrar y reabrir ambos contextos.
+11. Abrir dos pestañas del mismo perfil y cambiar sesión.
+12. Confirmar que la aplicación bloquea transición y nunca mezcla datos.
+13. Confirmar que cada subida nueva aparece bajo `/avatars/{uuid}`.
+14. Confirmar que ninguna ruta legacy nueva es creada.

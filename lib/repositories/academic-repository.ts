@@ -2,12 +2,14 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { AppData, Grade, Reminder, ScheduleBlock, StudyBlock, Subject, AppSettings, UserProfile } from "@/lib/types"
 import { EMPTY_APP_DATA } from "@/lib/types"
 import { loadData, saveData } from "@/lib/storage"
+import { SessionIdentityMismatchError } from "@/lib/session-identity"
 import { appDataToSupabaseRows, gradeToSupabaseRow, reminderToSupabaseRow, scheduleBlockToSupabaseRow, studyBlockToSupabaseRow, subjectToSupabaseRow, supabaseRowsToAppData, type SupabaseDataset } from "./supabase-mappers"
 
 export type SyncStatus = "local" | "loading" | "syncing" | "synced" | "error" | "offline"
 
 export interface AcademicRepository {
   readonly kind: "local" | "supabase"
+  readonly userIdForCache?: string
   loadData(): Promise<AppData>
   replaceAll(data: AppData): Promise<void>
   saveSubject(subject: Subject): Promise<void>
@@ -23,6 +25,7 @@ export interface AcademicRepository {
   deleteGrade(id: string): Promise<void>
   updateSettings(settings: AppSettings, modules: AppData["modules"]): Promise<void>
   updateProfile(profile: UserProfile, email?: string): Promise<void>
+  assertRepositoryOwner(expectedUserId: string): void
 }
 
 export class LocalAcademicRepository implements AcademicRepository {
@@ -42,6 +45,7 @@ export class LocalAcademicRepository implements AcademicRepository {
   async deleteGrade() {}
   async updateSettings() {}
   async updateProfile() {}
+  assertRepositoryOwner() {}
 }
 
 const DATA_TABLES = ["semesters", "subjects", "schedule_blocks", "study_blocks", "reminders", "grades", "user_settings", "profiles"] as const
@@ -50,6 +54,10 @@ const REPLACE_DELETE_TABLES = ["schedule_blocks", "study_blocks", "reminders", "
 export class SupabaseAcademicRepository implements AcademicRepository {
   readonly kind = "supabase" as const
   constructor(private client: SupabaseClient, public readonly userIdForCache: string) {}
+
+  assertRepositoryOwner(expectedUserId: string) {
+    if (this.userIdForCache !== expectedUserId) throw new SessionIdentityMismatchError()
+  }
 
   private async upsert(table: keyof SupabaseDataset, values: object[], onConflict = "id,user_id") {
     if (!values.length) return

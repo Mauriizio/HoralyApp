@@ -81,7 +81,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
   const { t, day: tDay } = useI18n()
   const [tab, setTab] = useState("dashboard")
   const [quickOpen, setQuickOpen] = useState(false)
-  const { authenticated, loading: authLoading } = useAuth()
+  const { authenticated, loading: authLoading, transitioning } = useAuth()
 
   const [subjectOpen, setSubjectOpen] = useState(false)
   const [subjectEditing, setSubjectEditing] = useState<Subject | undefined>()
@@ -261,6 +261,14 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
       date: new Date().toISOString().slice(0, 10),
     })
     return true
+  }
+
+  if (transitioning || !store.identityReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
+        Cambiando de cuenta…
+      </div>
+    )
   }
 
   if (!store.hydrated) {
@@ -708,8 +716,22 @@ function InstallBanner() {
   )
 }
 
+function WorkspaceSessionBoundary() {
+  const { userId, loading, transitioning } = useAuth()
+  if (loading || transitioning) {
+    return (
+      <I18nProvider lang="es">
+        <div className="min-h-screen flex items-center justify-center text-muted-foreground">
+          Cambiando de cuenta…
+        </div>
+      </I18nProvider>
+    )
+  }
+  return <HomePageWorkspace key={userId ?? "guest"} />
+}
+
 // Wrapper that reads the language from storage and provides i18n context.
-function HomePageWithAuth() {
+function HomePageWorkspace() {
   const store = useScheduleStore()
   return (
     <I18nProvider lang={store.data.settings.language}>
@@ -721,7 +743,7 @@ function HomePageWithAuth() {
 export default function HomePage() {
   return (
     <AuthProvider>
-      <HomePageWithAuth />
+      <WorkspaceSessionBoundary />
     </AuthProvider>
   )
 }

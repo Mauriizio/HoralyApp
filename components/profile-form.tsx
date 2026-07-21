@@ -19,6 +19,7 @@ import type { ScheduleStore } from "@/hooks/use-schedule-store"
 import { useAuth } from "@/lib/auth-context"
 import { createSupabaseBrowserClient } from "@/lib/supabase/client"
 import { cleanupAvatar, uploadAvatar } from "@/lib/avatar-storage"
+import { SessionIdentityMismatchError, type OperationIdentityContext } from "@/lib/session-identity"
 import { validateAvatar } from "@/lib/auth-utils"
 
 function initials(name: string) {
@@ -49,7 +50,7 @@ export function ProfileForm({
   const [error, setError] = useState("")
   const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState("")
-  const { user, authenticated } = useAuth()
+  const { userId, authenticated, authGeneration, transitioning, verifyCurrentUser } = useAuth()
   const fileRef = useRef<HTMLInputElement>(null)
   const previewUrlRef = useRef<string | null>(null)
 
@@ -73,7 +74,7 @@ export function ProfileForm({
   useEffect(() => () => revokePreview(), [])
 
   const onPick = (file: File) => {
-    if (saving) return
+    if (saving || transitioning || !store.identityReady) return
     setStatus("Preparando imagen")
     const validation = validateAvatar(file)
     if (validation) {
@@ -91,41 +92,53 @@ export function ProfileForm({
   }
 
   const submit = async () => {
-    if (saving) return
+    if (saving || transitioning || !store.identityReady) return
+    const operationUserId = userId
+    const operationAuthGeneration = authGeneration
+    const operationContext: OperationIdentityContext | undefined = operationUserId ? { expectedUserId: operationUserId, expectedAuthGeneration: operationAuthGeneration } : undefined
     const previousAvatar = data.profile.avatar
     let uploaded: Awaited<ReturnType<typeof uploadAvatar>> | null = null
+    const assertOperationIdentity = async () => {
+      if (!authenticated) return
+      if (!operationUserId || store.dataOwnerUserId !== operationUserId || store.repositoryOwnerUserId !== operationUserId) throw new SessionIdentityMismatchError()
+      const verifiedUser = await verifyCurrentUser()
+      if (verifiedUser.id !== operationUserId || authGeneration !== operationAuthGeneration) throw new SessionIdentityMismatchError()
+    }
     setSaving(true)
     setError("")
     try {
       let nextAvatar = removeRequested ? undefined : previousAvatar
       const supabase = createSupabaseBrowserClient()
-      if (authenticated && user && supabase && pendingFile) {
+      await assertOperationIdentity()
+      if (authenticated && operationUserId && supabase && pendingFile) {
         setStatus("Subiendo imagen")
-        uploaded = await uploadAvatar(supabase, user.id, pendingFile)
+        uploaded = await uploadAvatar(supabase, operationUserId, pendingFile)
         nextAvatar = uploaded.publicUrl
+        await assertOperationIdentity()
       }
       setStatus("Guardando perfil")
-      await updateProfileConfirmed({ displayName: name.trim(), avatar: nextAvatar })
+      await updateProfileConfirmed({ displayName: name.trim(), avatar: nextAvatar }, operationContext)
+      await assertOperationIdentity()
       revokePreview()
       setAvatar(nextAvatar)
-      if (authenticated && user && supabase) {
+      if (authenticated && operationUserId && supabase) {
         if (pendingFile && previousAvatar) {
           setStatus("Limpiando avatar anterior")
-          await cleanupAvatar(supabase, user.id, previousAvatar)
+          await cleanupAvatar(supabase, operationUserId, previousAvatar)
         } else if (removeRequested && previousAvatar) {
           setStatus("Limpiando avatar anterior")
-          await cleanupAvatar(supabase, user.id, previousAvatar)
+          await cleanupAvatar(supabase, operationUserId, previousAvatar)
         }
       }
       setStatus("Guardado")
       onOpenChange(false)
     } catch (err) {
-      if (uploaded) {
+      if (uploaded && operationUserId) {
         const supabase = createSupabaseBrowserClient()
-        if (authenticated && user && supabase) await cleanupAvatar(supabase, user.id, uploaded.path)
+        if (supabase) await cleanupAvatar(supabase, operationUserId, uploaded.path)
       }
       setAvatar(previousAvatar)
-      setError(safeProfileError(err))
+      setError(err instanceof SessionIdentityMismatchError ? "La sesión cambió durante la operación. Vuelve a intentarlo." : safeProfileError(err))
       setStatus("")
     } finally {
       setSaving(false)
@@ -133,7 +146,7 @@ export function ProfileForm({
   }
 
   const handleRemoveAvatar = () => {
-    if (saving) return
+    if (saving || transitioning || !store.identityReady) return
     revokePreview()
     setPendingFile(null)
     setRemoveRequested(true)
@@ -142,7 +155,7 @@ export function ProfileForm({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => { if (!saving) onOpenChange(nextOpen) }}>
+    <Dialog open={open && !transitioning && store.identityReady} onOpenChange={(nextOpen) => { if (!saving && !transitioning && store.identityReady) onOpenChange(nextOpen) }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{t("profile.editProfile")}</DialogTitle>
@@ -171,7 +184,7 @@ export function ProfileForm({
               type="button"
               variant="outline"
               size="sm"
-              disabled={saving}
+              disabled={saving || transitioning || !store.identityReady}
               onClick={() => fileRef.current?.click()}
             >
               <Upload className="h-4 w-4 mr-1.5" />
@@ -182,7 +195,7 @@ export function ProfileForm({
                 type="button"
                 variant="ghost"
                 size="sm"
-                disabled={saving}
+                disabled={saving || transitioning || !store.identityReady}
                 onClick={handleRemoveAvatar}
               >
                 <Trash2 className="h-4 w-4 mr-1.5" />
@@ -193,7 +206,7 @@ export function ProfileForm({
               ref={fileRef}
               type="file"
               accept="image/png,image/jpeg,image/webp"
-              disabled={saving}
+              disabled={saving || transitioning || !store.identityReady}
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0]
@@ -210,7 +223,7 @@ export function ProfileForm({
             <Input
               id="display-name"
               value={name}
-              disabled={saving}
+              disabled={saving || transitioning || !store.identityReady}
               onChange={(e) => setName(e.target.value)}
               maxLength={48}
               placeholder="—"
@@ -224,10 +237,10 @@ export function ProfileForm({
         </FieldGroup>
 
         <DialogFooter>
-          <Button variant="ghost" disabled={saving} onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" disabled={saving || transitioning || !store.identityReady} onClick={() => onOpenChange(false)}>
             {t("common.cancel")}
           </Button>
-          <Button onClick={submit} disabled={saving}>{saving ? (status || "Guardando...") : t("common.save")}</Button>
+          <Button onClick={submit} disabled={saving || transitioning || !store.identityReady}>{saving ? (status || "Guardando...") : t("common.save")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -24,7 +24,7 @@ export function ProfileButton({ store }: { store: ScheduleStore }) {
   const [open, setOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const { data, updateSettings } = store
-  const { authenticated, loading, signOut } = useAuth()
+  const { authenticated, loading, transitioning, signOut } = useAuth()
   const { profile, settings } = data
 
   const isDark = useMemo(() => {
@@ -40,6 +40,7 @@ export function ProfileButton({ store }: { store: ScheduleStore }) {
   const showInstall = !installed && (canPrompt || showInstructions)
 
   if (loading || !authenticated) return null
+  if (transitioning || !store.identityReady) return null
 
   return (
     <>
@@ -107,6 +108,7 @@ export function ProfileButton({ store }: { store: ScheduleStore }) {
             size="sm"
             className="w-full justify-start"
             onClick={() => {
+              if (!store.identityReady) return
               setEditOpen(true)
               setOpen(false)
             }}
