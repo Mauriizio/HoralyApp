@@ -102,7 +102,7 @@ describe("regresión integración académica avanzada", () => {
     assert.notEqual(assessment!.startsAt.toISOString().endsWith("T12:00:00.000Z"), true)
   })
 
-  it("PDF real contiene tabla verificable, catálogo/pages y preview/descarga comparten bytes", () => {
+  it("PDF real contiene tabla verificable, catálogo/pages y preview/descarga comparten bytes", async () => {
     const model = buildScheduleDocumentModel({
       profile: { displayName: "María Pérez", email: "maria@example.test", institution: "U", career: "Ingeniería" },
       semester: { id: "sem-a", name: "2026-1", startsOn: "2026-03-01", endsOn: "2026-07-15" },
@@ -113,8 +113,8 @@ describe("regresión integración académica avanzada", () => {
       options: { includeSaturday: true, includeSunday: true, includeStudyBlocks: false, hidePersonalData: false },
     })
     const renderer = createSchedulePdfRenderer()
-    const preview = renderer.render(model)
-    const download = renderer.render(model)
+    const preview = await renderer.render(model)
+    const download = await renderer.render(model)
     const text = Buffer.from(preview.bytes).toString("latin1")
     assert.equal(preview.mimeType, "application/pdf")
     assert.deepEqual(preview.bytes, download.bytes)

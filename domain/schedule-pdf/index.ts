@@ -1,10 +1,9 @@
-import { jsPDF } from "jspdf/dist/jspdf.es.min.js"
 import type { DayKey } from "../../lib/types"
 
 export interface SchedulePdfOptions { includeSaturday?: boolean; includeSunday?: boolean; includeStudyBlocks?: boolean; hidePersonalData?: boolean; theme?: "print-light" }
 export interface ScheduleDocumentModel { page: { format: "A4"; orientation: "landscape"; width: number; height: number }; title: "Horario académico"; brand: "Horaly"; profile: { displayName: string; institution?: string; career?: string; email?: never }; semester: { id: string; name: string; startsOn?: string; endsOn?: string }; days: DayKey[]; modules: { id: string; label: string; start: string; end: string }[]; entries: { day: DayKey; moduleIds: string[]; subjectName: string; color: string; kind: "class" | "study" }[]; legend: { label: string; color: string }[]; footer: string; generatedAt: string; options: Required<SchedulePdfOptions> }
 export interface RenderedSchedulePdf { bytes: Uint8Array; mimeType: "application/pdf"; filename: string }
-export interface SchedulePdfRenderer { render(model: ScheduleDocumentModel): RenderedSchedulePdf }
+export interface SchedulePdfRenderer { render(model: ScheduleDocumentModel): Promise<RenderedSchedulePdf> }
 const dayLabels: Record<DayKey, string> = { lunes: "Lunes", martes: "Martes", miercoles: "Miércoles", jueves: "Jueves", viernes: "Viernes", sabado: "Sábado", domingo: "Domingo" }
 
 export function buildScheduleDocumentModel(input: { profile: { displayName: string; email?: string; institution?: string; career?: string }; semester: { id: string; name: string; startsOn?: string; endsOn?: string }; subjects: { id: string; name: string; color: string }[]; modules: { id: string; label: string; start: string; end: string }[]; schedule: { subjectId: string; day: DayKey; moduleIds: string[] }[]; studyBlocks?: { title: string; day: DayKey; start: string; end: string; subjectId?: string }[]; generatedAt: Date; options?: SchedulePdfOptions }): ScheduleDocumentModel {
@@ -31,10 +30,11 @@ function hexToRgb(hex: string): [number, number, number] { const clean = hex.rep
 
 export function createSchedulePdfRenderer(): SchedulePdfRenderer {
   const cache = new Map<string, RenderedSchedulePdf>()
-  return { render(model) {
+  return { async render(model) {
     const key = JSON.stringify(model)
     const cached = cache.get(key)
     if (cached) return cached
+    const { jsPDF } = await import("jspdf")
     const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4", compress: false })
     const margin = 32
     doc.setProperties({ title: model.title, subject: model.semester.name, creator: "Horaly" })

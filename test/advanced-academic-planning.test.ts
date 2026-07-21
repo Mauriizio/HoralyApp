@@ -71,7 +71,7 @@ describe("planificación académica avanzada", () => {
     assert.deepEqual(recommendations.map((r) => r.id), generateAcademicRecommendations({ now: new Date("2026-06-28T12:00:00Z"), plan, subjects: [{ id: "fis", name: "Física" }], agendaItems: agenda.next30Days, weeklyLoad: { classBlocks: 20, studyBlocks: 0 } }).map((r) => r.id))
   })
 
-  it("crea modelo PDF A4 horizontal sin correo por defecto y archivo válido", () => {
+  it("crea modelo PDF A4 horizontal sin correo por defecto y archivo válido", async () => {
     const model = buildScheduleDocumentModel({ profile: { displayName: "María Pérez", email: "maria@example.test", institution: "U", career: "Ingeniería" }, semester: { id: "sem-a", name: "2026-1", startsOn: "2026-03-01", endsOn: "2026-07-15" }, subjects: [{ id: "fis", name: "Física", color: "#123456" }], modules: [{ id: "m1", label: "M1", start: "08:00", end: "08:45" }], schedule: [{ subjectId: "fis", day: "lunes", moduleIds: ["m1"] }], generatedAt: new Date("2026-07-01T00:00:00Z"), options: { includeSaturday: false, includeSunday: true, includeStudyBlocks: false, hidePersonalData: false } })
     assert.equal(model.page.format, "A4")
     assert.equal(model.page.orientation, "landscape")
@@ -79,7 +79,7 @@ describe("planificación académica avanzada", () => {
     assert.equal(model.days.includes("sabado"), false)
     assert.equal(model.days.includes("domingo"), true)
     assert.equal(sanitizeSchedulePdfFilename("María Pérez", "2026-1"), "horario-maria-perez-2026-1.pdf")
-    const pdf = createSchedulePdfRenderer().render(model)
+    const pdf = await createSchedulePdfRenderer().render(model)
     assert.equal(pdf.mimeType, "application/pdf")
     assert.equal(Buffer.from(pdf.bytes).subarray(0, 5).toString(), "%PDF-")
   })

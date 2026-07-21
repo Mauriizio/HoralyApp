@@ -102,9 +102,9 @@ export function ScheduleGrid({
     return map
   }, [studyBlocks])
 
-  const downloadSchedulePdf = () => {
+  const downloadSchedulePdf = async () => {
     const model = buildScheduleDocumentModel({ profile: { displayName: data.profile.displayName || "Estudiante", institution: data.profile.institution, career: data.profile.career }, semester: data.semesters.find((semester) => semester.id === data.activeSemesterId) ?? { id: "active", name: "Semestre activo" }, subjects, modules, schedule: blocks, studyBlocks, generatedAt: new Date(), options: { includeSaturday: showSaturday, includeSunday: false, includeStudyBlocks: true, hidePersonalData: false } })
-    const rendered = createSchedulePdfRenderer().render(model)
+    const rendered = await createSchedulePdfRenderer().render(model)
     const blob = new Blob([rendered.bytes], { type: rendered.mimeType })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement("a")
@@ -114,9 +114,9 @@ export function ScheduleGrid({
     URL.revokeObjectURL(url)
   }
 
-  const previewSchedulePdf = () => {
+  const previewSchedulePdf = async () => {
     const model = buildScheduleDocumentModel({ profile: { displayName: data.profile.displayName || "Estudiante", institution: data.profile.institution, career: data.profile.career }, semester: data.semesters.find((semester) => semester.id === data.activeSemesterId) ?? { id: "active", name: "Semestre activo" }, subjects, modules, schedule: blocks, studyBlocks, generatedAt: new Date(), options: { includeSaturday: showSaturday, includeSunday: false, includeStudyBlocks: true, hidePersonalData: false } })
-    const rendered = createSchedulePdfRenderer().render(model)
+    const rendered = await createSchedulePdfRenderer().render(model)
     const blob = new Blob([rendered.bytes], { type: rendered.mimeType })
     const url = URL.createObjectURL(blob)
     window.open(url, "_blank", "noopener,noreferrer")
