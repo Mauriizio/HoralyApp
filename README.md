@@ -138,3 +138,9 @@ La pestaña Herramientas incluye un catálogo interno con categorías, búsqueda
 ### Herramientas autocontenidas
 
 Las herramientas internas se integran como módulos bajo `plugins/{id}/` y el host no conoce sus implementaciones. Para agregar una herramienta nueva: copiar la carpeta del módulo, registrar una entrada en `plugins/index.ts` y ejecutar `pnpm typecheck`, `pnpm test`, `pnpm build` y `pnpm check`. La guía completa está en `docs/20-adding-tools.md`.
+
+## Planificación académica avanzada
+
+Horaly soporta un dominio jerárquico de notas con grupos (`AssessmentGroup`) y evaluaciones (`Assessment`). El peso dentro de una etapa se mantiene separado del peso final del ramo; el peso efectivo se calcula como `courseWeight × weightWithinGroup / 100`. El preset 60/40 calcula presentación y transversal necesario sin redondeos prematuros.
+
+La arquitectura incluye agenda académica, consejero determinista y modelo de PDF de horario A4 horizontal generado localmente, sin incluir correo por defecto ni enviar datos del estudiante a servicios remotos.
