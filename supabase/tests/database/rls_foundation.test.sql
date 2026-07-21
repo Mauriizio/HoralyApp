@@ -1,5 +1,5 @@
 begin;
-select plan(49);
+select plan(63);
 
 select has_table('public', 'profiles');
 select has_table('public', 'semesters');
@@ -20,12 +20,22 @@ select has_policy('public', 'subjects', 'subjects_update_own');
 select has_policy('public', 'subjects', 'subjects_delete_own');
 select has_policy('storage', 'objects', 'avatars_insert_own');
 select has_policy('storage', 'objects', 'avatars_delete_own');
+select has_policy('storage', 'objects', 'avatars_select_own_authenticated');
+select is_empty($$select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'avatars_select_public'$$, 'avatars_select_public ya no existe');
+select results_eq($$select p.proconfig from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = 'set_updated_at'$$, array[array['search_path=']::text[]], 'set_updated_at fija search_path vacío');
+select results_eq($$select p.prosecdef from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = 'set_updated_at'$$, array[false], 'set_updated_at no usa SECURITY DEFINER');
+select results_eq($$select p.proconfig from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = 'handle_new_user_profile'$$, array[array['search_path=']::text[]], 'handle_new_user_profile fija search_path vacío');
+select results_eq($$select p.prosecdef from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = 'handle_new_user_profile'$$, array[true], 'handle_new_user_profile conserva SECURITY DEFINER');
+select is_empty($$select 1 from information_schema.routine_privileges where routine_schema = 'public' and routine_name = 'handle_new_user_profile' and grantee in ('PUBLIC','anon','authenticated')$$, 'handle_new_user_profile no es ejecutable por PUBLIC, anon ni authenticated');
 select is_empty($$select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = 'ensure_initial_semester'$$, 'ensure_initial_semester no queda expuesta');
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a1', 'a@example.test'),
-  ('00000000-0000-0000-0000-0000000000b2', 'b@example.test')
+  ('00000000-0000-0000-0000-0000000000b2', 'b@example.test'),
+  ('00000000-0000-0000-0000-0000000000c3', 'c@example.test')
 on conflict (id) do nothing;
+
+select results_eq($$select count(*)::int from public.profiles where id = '00000000-0000-0000-0000-0000000000c3'$$, array[1], 'registro nuevo crea exactamente un profile');
 
 select set_config('request.jwt.claim.role', 'authenticated', true);
 select set_config('role', 'authenticated', true);
@@ -63,11 +73,17 @@ select lives_ok($$delete from public.subjects where id = 'sub-b'$$, 'DELETE de A
 select results_eq($$select count(*)::int from public.subjects where id = 'sub-b'$$, array[0], 'A sigue sin ver filas de B');
 select throws_ok($$insert into public.subjects(id, user_id, semester_id, name, color, difficulty) values ('sub-cross-semester', '00000000-0000-0000-0000-0000000000a1', 'sem-b', 'Cruce', '#000', 3)$$, null, null, 'A no asocia entidad al semestre de B');
 
-select lives_ok($$insert into storage.objects(bucket_id, name, owner, metadata) values ('avatars', '00000000-0000-0000-0000-0000000000a1/avatar.png', '00000000-0000-0000-0000-0000000000a1', '{}')$$, 'A escribe avatar en su carpeta');
+select lives_ok($$insert into storage.objects(bucket_id, name, owner, metadata) values ('avatars', '00000000-0000-0000-0000-0000000000a1/avatar.png', '00000000-0000-0000-0000-0000000000a1', '{"mimetype":"image/png","size":1024}')$$, 'A escribe primer avatar en su carpeta');
+select lives_ok($$insert into storage.objects(bucket_id, name, owner, metadata) values ('avatars', '00000000-0000-0000-0000-0000000000a1/avatar.png', '00000000-0000-0000-0000-0000000000a1', '{"mimetype":"image/png","size":1024}') on conflict (bucket_id, name) do update set metadata = excluded.metadata$$, 'A hace upsert de su avatar');
+select results_eq($$select count(*)::int from storage.objects where bucket_id = 'avatars' and name like '00000000-0000-0000-0000-0000000000a1/%'$$, array[1], 'A lista solo su carpeta de avatares');
+select results_eq($$select public from storage.buckets where id = 'avatars'$$, array[true], 'bucket avatars sigue público para URL pública');
 select throws_ok($$insert into storage.objects(bucket_id, name, owner, metadata) values ('avatars', '00000000-0000-0000-0000-0000000000b2/avatar.png', '00000000-0000-0000-0000-0000000000a1', '{}')$$, null, null, 'A no escribe avatar en carpeta B');
+select results_eq($$select count(*)::int from storage.objects where bucket_id = 'avatars' and name like '00000000-0000-0000-0000-0000000000b2/%'$$, array[0], 'A no lista avatares de B');
 select lives_ok($$update storage.objects set metadata = '{"ok":true}' where bucket_id = 'avatars' and name = '00000000-0000-0000-0000-0000000000b2/avatar.png'$$, 'UPDATE avatar B no rompe');
 select is_empty($$select 1 from storage.objects where bucket_id = 'avatars' and name = '00000000-0000-0000-0000-0000000000b2/avatar.png' and metadata = '{"ok":true}'$$, 'A no actualiza avatar de B');
 select lives_ok($$delete from storage.objects where bucket_id = 'avatars' and name = '00000000-0000-0000-0000-0000000000b2/avatar.png'$$, 'DELETE avatar B no rompe');
+select lives_ok($$delete from storage.objects where bucket_id = 'avatars' and name = '00000000-0000-0000-0000-0000000000a1/avatar.png'$$, 'A elimina su avatar');
+select results_eq($$select count(*)::int from storage.objects where bucket_id = 'avatars' and name = '00000000-0000-0000-0000-0000000000a1/avatar.png'$$, array[0], 'avatar eliminado ya no queda listado');
 
 select set_config('request.jwt.claim.role', 'anon', true);
 select set_config('role', 'anon', true);

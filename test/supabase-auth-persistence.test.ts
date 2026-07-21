@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises"
 import { EMPTY_APP_DATA } from "../lib/types.ts"
 import { appDataToSupabaseRows, supabaseRowsToAppData } from "../lib/repositories/supabase-mappers.ts"
 import { LocalAcademicRepository, SupabaseAcademicRepository, selectAcademicRepository } from "../lib/repositories/academic-repository.ts"
-import { avatarPath } from "../lib/avatar-storage.ts"
+import { avatarPath, removeAvatar, uploadAvatar } from "../lib/avatar-storage.ts"
 import { sanitizeDisplayName, validateAvatar, validateEmail, validatePassword } from "../lib/auth-utils.ts"
 import { summarizeLocalData } from "../lib/local-migration.ts"
 
@@ -77,6 +77,69 @@ test("validación básica de sesión, email, contraseña y avatar", () => {
 
 test("path de avatar contiene user_id y extensión segura", () => {
   assert.equal(avatarPath("user-123", { type: "image/webp" } as File), "user-123/avatar.webp")
+})
+
+
+test("uploadAvatar usa upsert, devuelve URL pública y removeAvatar elimina rutas propias", async () => {
+  const calls: { action: string; args: unknown[] }[] = []
+  const client = {
+    auth: { getSession: () => Promise.resolve({ data: { session: { user: { id: "user-123" } } }, error: null }) },
+    storage: {
+      from(bucket: string) {
+        calls.push({ action: "from", args: [bucket] })
+        return {
+          upload(path: string, file: File, options: unknown) {
+            calls.push({ action: "upload", args: [path, file.type, options] })
+            return Promise.resolve({ error: null })
+          },
+          getPublicUrl(path: string) {
+            calls.push({ action: "getPublicUrl", args: [path] })
+            return { data: { publicUrl: `https://cdn.example.test/${path}` } }
+          },
+          remove(paths: string[]) {
+            calls.push({ action: "remove", args: [paths] })
+            return Promise.resolve({ error: null })
+          },
+        }
+      },
+    },
+  } as never
+
+  const file = new File(["avatar"], "avatar.png", { type: "image/png" })
+  const uploaded = await uploadAvatar(client, "user-123", file)
+  assert.equal(uploaded.path, "user-123/avatar.png")
+  assert.equal(uploaded.publicUrl, "https://cdn.example.test/user-123/avatar.png")
+  assert.deepEqual(calls.find((call) => call.action === "upload")?.args[2], { upsert: true, contentType: "image/png" })
+  assert.equal(calls.some((call) => call.action === "getPublicUrl"), true)
+
+  await removeAvatar(client, "user-123")
+  assert.deepEqual(calls.find((call) => call.action === "remove")?.args[0], ["user-123/avatar.png", "user-123/avatar.jpg", "user-123/avatar.webp"])
+})
+
+test("errores de avatar diferencian validación, sesión, RLS, existente y red sin exponer secretos", async () => {
+  const originalConsoleError = console.error
+  console.error = () => undefined
+  try {
+    const invalidFile = new File(["bad"], "avatar.txt", { type: "text/plain" })
+    await assert.rejects(() => uploadAvatar({} as never, "user-123", invalidFile), /PNG, JPG o WebP/)
+
+    const noSessionClient = { auth: { getSession: () => Promise.resolve({ data: { session: null }, error: null }) } } as never
+    const validFile = new File(["avatar"], "avatar.png", { type: "image/png" })
+    await assert.rejects(() => uploadAvatar(noSessionClient, "user-123", validFile), /Debes iniciar sesión/)
+
+    function failingClient(error: unknown) {
+      return {
+        auth: { getSession: () => Promise.resolve({ data: { session: { user: { id: "user-123" } } }, error: null }) },
+        storage: { from: () => ({ upload: () => Promise.resolve({ error }), getPublicUrl: () => ({ data: { publicUrl: "" } }) }) },
+      } as never
+    }
+
+    await assert.rejects(() => uploadAvatar(failingClient({ statusCode: "403", message: "new row violates row-level security policy" }), "user-123", validFile), /No tienes permiso/)
+    await assert.rejects(() => uploadAvatar(failingClient({ statusCode: "409", message: "already exists" }), "user-123", validFile), /ya existe/)
+    await assert.rejects(() => uploadAvatar(failingClient({ message: "Failed to fetch" }), "user-123", validFile), /No se pudo conectar/)
+  } finally {
+    console.error = originalConsoleError
+  }
 })
 
 test("recuperación solicita correo y actualización usa updateUser", async () => {
