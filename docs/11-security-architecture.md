@@ -20,3 +20,6 @@
 
 ## Security Advisor
 Ejecutar manualmente en Supabase Dashboard: `Project > Security Advisor > Run checks`. Revisar RLS disabled, policies permissive, leaked credentials, extensions y storage policies. Adjuntar captura o exportar hallazgos a la PR antes de merge.
+
+## Enmienda 2026-07-21: planificación académica avanzada
+Las notas jerárquicas usan grupos por usuario, semestre y asignatura; `grades` conserva compatibilidad legacy como evaluaciones. Las proyecciones dependen de pesos válidos, el consejero académico es determinista sin servicios externos y el PDF de horario se genera localmente sin incluir correo por defecto.

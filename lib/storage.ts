@@ -8,10 +8,11 @@ import {
 } from "./types.ts"
 import { commandKeyForSubjectName, ensureUniqueCommandKey, normalizeCommandKey } from "./command-key.ts"
 import { validateModules } from "./time-modules.ts"
+import { defaultAssessmentGroupId, ensureDefaultAssessmentGroupsForSubjects, ensureGradeAssessmentGroup } from "./assessment-groups.ts"
 
 export const STORAGE_KEY = "horario-escolar:v1"
 
-const ARRAY_FIELDS = ["subjects", "blocks", "studyBlocks", "reminders", "modules", "grades", "semesters"] as const
+const ARRAY_FIELDS = ["subjects", "blocks", "studyBlocks", "reminders", "modules", "grades", "assessmentGroups", "semesters"] as const
 
 const daySchema = z.enum(["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"])
 const difficultySchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)])
@@ -78,14 +79,28 @@ const reminderSchema = z.object({
   notifiedTriggerIndexes: z.array(z.number().int().nonnegative()),
 })
 
+const assessmentStatusSchema = z.enum(["planned", "graded", "missing", "exempt"])
+const assessmentGroupSchema = z.object({
+  semesterId: z.string().min(1),
+  id: z.string().min(1),
+  subjectId: z.string().min(1),
+  name: z.string().min(1),
+  kind: z.enum(["continuous", "laboratory", "project", "final_exam", "custom"]),
+  courseWeight: z.number().finite().min(0).max(100),
+  position: z.number().int().nonnegative(),
+  createdAt: z.number().finite(),
+})
 const gradeSchema = z.object({
   semesterId: z.string().optional(),
   id: z.string().min(1),
   subjectId: z.string().min(1),
+  groupId: z.string().optional(),
   title: z.string().min(1),
-  score: z.number().finite(),
-  weight: z.number().finite().positive().max(100),
+  score: z.number().finite().nullable(),
+  weight: z.number().finite().min(0).max(100),
+  weightWithinGroup: z.number().finite().min(0).max(100).optional(),
   date: z.string().min(1),
+  status: assessmentStatusSchema.optional(),
   notes: z.string().optional(),
   createdAt: z.number().finite(),
 })
@@ -117,6 +132,7 @@ const appDataSchema = z.object({
   reminders: z.array(reminderSchema),
   modules: z.array(moduleSchema),
   grades: z.array(gradeSchema),
+  assessmentGroups: z.array(assessmentGroupSchema),
   profile: profileSchema,
   settings: settingsSchema,
   semesters: z.array(semesterSchema),
@@ -192,6 +208,18 @@ function normalizeSubjects(subjects: Subject[]): Subject[] {
   }, [])
 }
 
+function normalizeAssessmentGroups(data: AppData): AppData["assessmentGroups"] {
+  return ensureDefaultAssessmentGroupsForSubjects(data).assessmentGroups
+}
+
+function normalizeGradeAssessment(grade: AppData["grades"][number], data: AppData): AppData["grades"][number] {
+  const subject = data.subjects.find((item) => item.id === grade.subjectId)
+  const semesterId = grade.semesterId ?? subject?.semesterId ?? data.activeSemesterId
+  const preferredGroupId = grade.groupId ?? (semesterId ? defaultAssessmentGroupId(semesterId, grade.subjectId) : undefined)
+  const normalized = { ...grade, semesterId, groupId: preferredGroupId, status: grade.status ?? (grade.score === null ? "planned" : "graded"), weightWithinGroup: grade.weightWithinGroup ?? grade.weight }
+  return semesterId ? ensureGradeAssessmentGroup(data, normalized).grade : normalized
+}
+
 export function migrateData(parsed: Partial<AppData> & Record<string, unknown>): AppData {
   const migrated = {
     ...EMPTY_APP_DATA,
@@ -199,6 +227,7 @@ export function migrateData(parsed: Partial<AppData> & Record<string, unknown>):
     settings: { ...EMPTY_APP_DATA.settings, ...(parsed.settings ?? {}) },
     modules: Array.isArray(parsed.modules) && parsed.modules.length ? parsed.modules : EMPTY_APP_DATA.modules,
     grades: Array.isArray(parsed.grades) ? parsed.grades : [],
+    assessmentGroups: Array.isArray(parsed.assessmentGroups) ? parsed.assessmentGroups : [],
     profile: { ...DEFAULT_PROFILE, ...(parsed.profile ?? {}) },
     semesters: Array.isArray(parsed.semesters) ? parsed.semesters : [],
     activeSemesterId: typeof parsed.activeSemesterId === "string" ? parsed.activeSemesterId : undefined,
@@ -216,6 +245,12 @@ export function migrateData(parsed: Partial<AppData> & Record<string, unknown>):
     migrated.reminders = migrated.reminders.map((item) => ({ ...item, semesterId: item.semesterId ?? initial.id }))
     migrated.grades = migrated.grades.map((item) => ({ ...item, semesterId: item.semesterId ?? initial.id }))
   }
+  migrated.assessmentGroups = normalizeAssessmentGroups(migrated)
+  migrated.grades = migrated.grades.map((grade) => {
+    const normalized = normalizeGradeAssessment(grade, migrated)
+    migrated.assessmentGroups = ensureGradeAssessmentGroup({ ...migrated, assessmentGroups: migrated.assessmentGroups }, normalized).nextData.assessmentGroups
+    return normalized
+  })
   return migrated
 }
 
@@ -254,16 +289,22 @@ function validateRelations(data: AppData): string[] {
     }
   }
 
+  const groupKeys = new Set(data.assessmentGroups.map((group) => `${group.semesterId}:${group.subjectId}:${group.id}`))
+  for (const group of data.assessmentGroups) {
+    if (!subjectIds.has(group.subjectId)) errors.push(`Grupo ${group.id} referencia una materia inexistente.`)
+  }
   for (const grade of data.grades) {
     if (!subjectIds.has(grade.subjectId)) errors.push(`Nota ${grade.id} referencia una materia inexistente.`)
-    if (grade.weight <= 0 || grade.weight > 100) errors.push(`Nota ${grade.id} tiene ponderación inválida.`)
+    if (grade.weight < 0 || grade.weight > 100) errors.push(`Nota ${grade.id} tiene ponderación inválida.`)
+    if (grade.status === "graded" && grade.score === null) errors.push(`Nota ${grade.id} está calificada sin puntaje.`)
+    if (grade.groupId && grade.semesterId && !groupKeys.has(`${grade.semesterId}:${grade.subjectId}:${grade.groupId}`)) errors.push(`Nota ${grade.id} referencia un grupo inexistente para su semestre y materia.`)
   }
 
   return errors
 }
 
-export function isGradeCompatibleWithScale(score: number, scale: GradeScale): boolean {
-  return Number.isFinite(score) && score >= scale.min && score <= scale.max
+export function isGradeCompatibleWithScale(score: number | null, scale: GradeScale): boolean {
+  return score === null || (Number.isFinite(score) && score >= scale.min && score <= scale.max)
 }
 
 export function hasGradesOutsideScale(data: AppData, scale: GradeScale): boolean {

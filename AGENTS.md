@@ -56,3 +56,8 @@ Reportar limitaciones del entorno sin ocultar fallos.
 - No usar Supabase, sesión, JWT, cookies, store global, JavaScript remoto, `eval` ni iframes externos.
 - Declarar capacidades/permisos mínimos y añadir pruebas obligatorias.
 - No declarar completa una herramienta sin QA en el catálogo.
+
+## Planificación académica avanzada
+- Mantener separado el peso interno de evaluaciones y el peso final de grupos.
+- No presentar proyecciones académicas como certeza; etiquetar resultados reales, proyecciones y simulaciones.
+- El PDF de horario debe generarse desde modelo/adaptador, no desde el DOM, y no debe incluir correo por defecto.

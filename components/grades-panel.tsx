@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { useI18n } from "@/components/i18n-provider"
 import { GradeForm } from "@/components/grade-form"
+import { GradingPlanManager } from "@/components/grades/grading-plan-manager"
 import { computeGlobalStats } from "@/lib/grade-utils"
 import type { Grade } from "@/lib/types"
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
@@ -142,7 +143,8 @@ export function GradesPanel({ store }: { store: ScheduleStore }) {
                   </CardDescription>
                 )}
               </CardHeader>
-              <CardContent className="pt-0">
+              <CardContent className="pt-0 space-y-4">
+                <GradingPlanManager store={store} subject={subject} />
                 {subjectGrades.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-4 text-center">
                     {t("grade.empty")}
@@ -150,7 +152,7 @@ export function GradesPanel({ store }: { store: ScheduleStore }) {
                 ) : (
                   <ul className="space-y-1">
                     {subjectGrades.map((g) => {
-                      const isPassing = g.score >= scale.passing
+                      const isPassing = (g.score ?? 0) >= scale.passing
                       return (
                         <li
                           key={g.id}
@@ -164,7 +166,7 @@ export function GradesPanel({ store }: { store: ScheduleStore }) {
                             variant={isPassing ? "secondary" : "destructive"}
                             className="font-mono tabular-nums"
                           >
-                            {g.score.toFixed(1)}
+                            {g.score === null ? "Pendiente" : g.score.toFixed(1)}
                           </Badge>
                           <span className="text-xs text-muted-foreground font-mono w-10 text-right">
                             {g.weight}%

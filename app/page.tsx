@@ -393,7 +393,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
                 grades: data.grades.map((g) => ({
                   subjectId: g.subjectId,
                   title: g.title,
-                  score: g.score,
+                  score: g.score ?? 0,
                   date: g.date,
                   weight: g.weight,
                 })),
@@ -416,7 +416,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
                 },
                 openGradeForm: () => setGradeOpen(true),
               }}
-              grade={data.grades.length > 0 ? data.grades[data.grades.length - 1]?.score : undefined}
+              grade={data.grades.length > 0 ? (data.grades[data.grades.length - 1]?.score ?? undefined) : undefined}
               isTyping={subjectOpen || reminderOpen || studyOpen || gradeOpen}
               isUrgent={data.reminders.some((r) => {
                 const target = new Date(r.targetDateTime)

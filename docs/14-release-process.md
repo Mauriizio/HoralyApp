@@ -30,3 +30,6 @@ Antes de liberar cambios de semestres se debe validar que solo exista un semestr
 - Confirmar que `plugin-registry.ts` no importa módulos concretos.
 - Ejecutar `pnpm tool:create herramienta-temporal`, validar estructura, no registrarla y eliminarla.
 - Verificar catálogo, búsqueda, filtros, lazy loading, fallback accesible y error boundary.
+
+## Enmienda 2026-07-21: planificación académica avanzada
+Las notas jerárquicas usan grupos por usuario, semestre y asignatura; `grades` conserva compatibilidad legacy como evaluaciones. Las proyecciones dependen de pesos válidos, el consejero académico es determinista sin servicios externos y el PDF de horario se genera localmente sin incluir correo por defecto.

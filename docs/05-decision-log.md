@@ -41,3 +41,7 @@ Se centralizan las acciones públicas de invitado, se añade confirmación de co
 ## 2026-07-21 — Plataforma extensible de herramientas autocontenidas
 
 HoralyApp funciona como plataforma extensible de herramientas internas. Las herramientas son módulos autocontenidos y el host no conoce sus implementaciones. La integración permanente requiere copiar la carpeta del módulo, registrar una exportación en `plugins/index.ts` y ejecutar la suite de validación.
+
+## 2026-07-21 — Planificación académica jerárquica
+
+Se adopta un modelo de grupos de evaluación por asignatura. `grades` permanece como tabla histórica/evaluaciones para evitar pérdida de notas, con `assessment_groups` como nueva etapa jerárquica. El PDF de horario se modela fuera del DOM y el consejero académico es determinista, sin LLM ni APIs externas.

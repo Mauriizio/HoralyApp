@@ -76,10 +76,11 @@ export function computeSubjectStats(
     }
   }
 
-  const totalWeight = subjectGrades.reduce((acc, g) => acc + (g.weight || 0), 0)
-  const weightedSum = subjectGrades.reduce((acc, g) => acc + g.score * (g.weight || 0), 0)
+  const evaluated = subjectGrades.filter((g) => g.score !== null && (g.status ?? "graded") === "graded")
+  const totalWeight = evaluated.reduce((acc, g) => acc + (g.weight || 0), 0)
+  const weightedSum = evaluated.reduce((acc, g) => acc + (g.score ?? 0) * (g.weight || 0), 0)
   const weightedAverage = totalWeight > 0 ? weightedSum / totalWeight : null
-  const simpleAverage = avg(subjectGrades.map((g) => g.score))
+  const simpleAverage = avg(evaluated.map((g) => g.score ?? 0))
 
   // Trend: compare latest vs previous. With <2 grades → null.
   let trend: "up" | "down" | "stable" | null = null
@@ -87,14 +88,14 @@ export function computeSubjectStats(
     const recent = subjectGrades.slice(-3)
     const earlier = subjectGrades.slice(-6, -3)
     if (earlier.length === 0) {
-      const last = recent[recent.length - 1].score
-      const first = recent[0].score
+      const last = recent[recent.length - 1].score ?? 0
+      const first = recent[0].score ?? 0
       const delta = last - first
       if (Math.abs(delta) <= EPS) trend = "stable"
       else trend = delta > 0 ? "up" : "down"
     } else {
-      const a = avg(recent.map((g) => g.score))
-      const b = avg(earlier.map((g) => g.score))
+      const a = avg(recent.map((g) => g.score ?? 0))
+      const b = avg(earlier.map((g) => g.score ?? 0))
       const delta = a - b
       if (Math.abs(delta) <= EPS) trend = "stable"
       else trend = delta > 0 ? "up" : "down"

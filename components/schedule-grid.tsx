@@ -18,6 +18,7 @@ import type { ScheduleStore } from "@/hooks/use-schedule-store"
 import { cn } from "@/lib/utils"
 import { getLucideIcon } from "@/lib/icons"
 import { formatTime } from "@/lib/time-format"
+import { buildScheduleDocumentModel, createSchedulePdfRenderer } from "@/domain/schedule-pdf"
 
 interface ScheduleGridProps {
   store: ScheduleStore
@@ -101,8 +102,32 @@ export function ScheduleGrid({
     return map
   }, [studyBlocks])
 
+  const downloadSchedulePdf = async () => {
+    const model = buildScheduleDocumentModel({ profile: { displayName: data.profile.displayName || "Estudiante", institution: data.profile.institution, career: data.profile.career }, semester: data.semesters.find((semester) => semester.id === data.activeSemesterId) ?? { id: "active", name: "Semestre activo" }, subjects, modules, schedule: blocks, studyBlocks, generatedAt: new Date(), options: { includeSaturday: showSaturday, includeSunday: false, includeStudyBlocks: true, hidePersonalData: false } })
+    const rendered = await createSchedulePdfRenderer().render(model)
+    const blob = new Blob([rendered.bytes], { type: rendered.mimeType })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement("a")
+    anchor.href = url
+    anchor.download = rendered.filename
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const previewSchedulePdf = async () => {
+    const model = buildScheduleDocumentModel({ profile: { displayName: data.profile.displayName || "Estudiante", institution: data.profile.institution, career: data.profile.career }, semester: data.semesters.find((semester) => semester.id === data.activeSemesterId) ?? { id: "active", name: "Semestre activo" }, subjects, modules, schedule: blocks, studyBlocks, generatedAt: new Date(), options: { includeSaturday: showSaturday, includeSunday: false, includeStudyBlocks: true, hidePersonalData: false } })
+    const rendered = await createSchedulePdfRenderer().render(model)
+    const blob = new Blob([rendered.bytes], { type: rendered.mimeType })
+    const url = URL.createObjectURL(blob)
+    window.open(url, "_blank", "noopener,noreferrer")
+  }
+
   return (
     <div className="w-full">
+      <div className="mb-3 flex flex-wrap justify-end gap-2">
+        <Button size="sm" variant="outline" onClick={previewSchedulePdf}>Vista previa PDF</Button>
+        <Button size="sm" onClick={downloadSchedulePdf}>Descargar PDF</Button>
+      </div>
       {/* Cognitive load header (desktop) */}
       <div className="hidden md:block mb-3">
         <div

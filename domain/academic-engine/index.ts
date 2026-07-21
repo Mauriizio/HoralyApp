@@ -8,10 +8,10 @@ export interface NextClass { subject: Subject; block: ScheduleBlock; day: DayKey
 const DAY_ORDER: DayKey[] = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"]
 
 export function calculateWeightedAverage(grades: AppData["grades"], scale: GradeScale): AverageResult {
-  const valid = grades.filter((g) => Number.isFinite(g.score) && Number.isFinite(g.weight) && g.weight > 0 && g.score >= scale.min && g.score <= scale.max)
+  const valid = grades.filter((g) => g.score !== null && (g.status ?? "graded") === "graded" && Number.isFinite(g.score) && Number.isFinite(g.weight) && g.weight > 0 && (g.score ?? 0) >= scale.min && (g.score ?? 0) <= scale.max)
   const totalWeight = valid.reduce((sum, g) => sum + g.weight, 0)
   if (valid.length === 0 || totalWeight <= 0) return { value: null, completedWeight: 0, confidence: "none" }
-  const value = valid.reduce((sum, g) => sum + g.score * g.weight, 0) / totalWeight
+  const value = valid.reduce((sum, g) => sum + (g.score ?? 0) * g.weight, 0) / totalWeight
   return { value: Number(value.toFixed(2)), completedWeight: totalWeight, confidence: totalWeight >= 99.5 ? "complete" : "partial" }
 }
 
