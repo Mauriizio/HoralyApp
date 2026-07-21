@@ -3,7 +3,7 @@ import assert from "node:assert/strict"
 import { readFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
 import { evaluateSubjectGradingPlan } from "../domain/grading/index.ts"
-import { buildAcademicAgenda } from "../domain/academic-agenda/index.ts"
+import { buildAcademicAgenda, getZonedDateTimeParts } from "../domain/academic-agenda/index.ts"
 import { buildScheduleDocumentModel, createSchedulePdfRenderer } from "../domain/schedule-pdf/index.ts"
 import { appDataToSupabaseRows, supabaseRowsToAppData } from "../lib/repositories/supabase-mappers.ts"
 import { migrateData } from "../lib/storage.ts"
@@ -99,7 +99,7 @@ describe("regresión integración académica avanzada", () => {
     assert.equal(agenda.next7Days.some((item) => item.kind === "class"), true)
     const assessment = agenda.next7Days.find((item) => item.kind === "assessment")
     assert.ok(assessment)
-    assert.notEqual(assessment!.startsAt.toISOString().endsWith("T12:00:00.000Z"), true)
+    assert.deepEqual(getZonedDateTimeParts(assessment!.startsAt, "America/Santiago"), { year: 2026, month: 6, day: 2, hour: 8, minute: 0, weekday: "martes" })
   })
 
   it("PDF real contiene tabla verificable, catálogo/pages y preview/descarga comparten bytes", async () => {
