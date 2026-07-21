@@ -37,3 +37,7 @@ Se decide completar la interfaz visible de semestres con selector en Dashboard y
 ## 2026-07-21 — Auth UX de lanzamiento y primera herramienta eléctrica
 
 Se centralizan las acciones públicas de invitado, se añade confirmación de contraseña y se deja Google OAuth detrás de `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED`. Se registra la plataforma interna de herramientas con catálogo y se habilita el plugin local de código de colores de resistencias. No se modifican migraciones, RLS ni Storage.
+
+## 2026-07-21 — Plataforma extensible de herramientas autocontenidas
+
+HoralyApp funciona como plataforma extensible de herramientas internas. Las herramientas son módulos autocontenidos y el host no conoce sus implementaciones. La integración permanente requiere copiar la carpeta del módulo, registrar una exportación en `plugins/index.ts` y ejecutar la suite de validación.

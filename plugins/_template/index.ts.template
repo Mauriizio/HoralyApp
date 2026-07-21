@@ -1,0 +1,11 @@
+// __PLUGIN_ID__ — __PLUGIN_NAME__ — __CATEGORY__
+import type { ToolPluginModule } from "@/lib/plugins/plugin-types"
+import { manifest } from "./manifest"
+
+const __PLUGIN_EXPORT__: ToolPluginModule = {
+  manifest,
+  isEnabled: () => process.env.NEXT_PUBLIC___PLUGIN_CONSTANT___ENABLED !== "false",
+  load: () => import("./ui").then((module) => ({ default: module.default })),
+}
+
+export default __PLUGIN_EXPORT__

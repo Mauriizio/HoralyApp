@@ -2,7 +2,8 @@ import test from "node:test"
 import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 
-import { createPluginRegistry, resistorColorCodePlugin, TOOL_CATEGORIES } from "../lib/plugins/plugin-registry.ts"
+import { createPluginRegistry, TOOL_CATEGORIES } from "../lib/plugins/plugin-registry.ts"
+import { toolPlugins } from "../plugins/index.ts"
 import { permissionsAllowedByCapabilities } from "../lib/plugins/plugin-capabilities.ts"
 import { bandsToValue, valueToBands } from "../plugins/resistor-color-code/domain.ts"
 
@@ -38,9 +39,10 @@ test("Google OAuth queda tras feature flag sin secretos", async () => {
 
 test("catálogo de herramientas registra categorías, filtros y plugin real aislado", async () => {
   assert.deepEqual(TOOL_CATEGORIES, ["Electricidad", "Electrónica", "Automatización", "Matemáticas", "Utilidades"])
-  const registry = createPluginRegistry([resistorColorCodePlugin])
-  assert.equal(registry.get("resistor-color-code")?.status, "available")
-  assert.equal(permissionsAllowedByCapabilities(resistorColorCodePlugin.capabilities, resistorColorCodePlugin.permissions), true)
+  const registry = createPluginRegistry(toolPlugins)
+  const manifest = registry.get("resistor-color-code")
+  assert.equal(manifest?.status, "available")
+  assert.equal(manifest ? permissionsAllowedByCapabilities(manifest.capabilities, manifest.permissions) : false, true)
   const view = await readFile("components/tools/plugins-view.tsx", "utf8")
   assert.match(view, /Buscar herramienta/)
   assert.match(view, /ErrorBoundary/)

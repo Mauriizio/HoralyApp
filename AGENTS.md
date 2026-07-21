@@ -48,3 +48,11 @@ Cuando se modifique código, intentar ejecutar:
 - `pnpm check`
 
 Reportar limitaciones del entorno sin ocultar fallos.
+
+## Nuevas herramientas
+- Antes de crear o modificar herramientas internas, leer `docs/20-adding-tools.md`.
+- Cada herramienta debe ser autocontenida bajo `plugins/{id}/` con dominio puro separado de React.
+- No modificar el host salvo una exportación en `plugins/index.ts` para registrar una herramienta nueva.
+- No usar Supabase, sesión, JWT, cookies, store global, JavaScript remoto, `eval` ni iframes externos.
+- Declarar capacidades/permisos mínimos y añadir pruebas obligatorias.
+- No declarar completa una herramienta sin QA en el catálogo.

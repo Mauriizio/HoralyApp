@@ -134,3 +134,7 @@ Archivar un semestre lo oculta del selector principal, pero conserva materias, n
 La cabecera pública usa una única fuente de acciones de invitado para iniciar sesión o crear cuenta. Las pantallas Auth tienen salida segura a Horaly y el callback filtra redirects externos. Google OAuth puede activarse con `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=true` configurando manualmente Google/Supabase sin versionar secretos.
 
 La pestaña Herramientas incluye un catálogo interno con categorías, búsqueda y error boundary por herramienta. La primera herramienta disponible es el código de colores de resistencias, con cálculo de 4, 5 y 6 bandas en ambos sentidos.
+
+### Herramientas autocontenidas
+
+Las herramientas internas se integran como módulos bajo `plugins/{id}/` y el host no conoce sus implementaciones. Para agregar una herramienta nueva: copiar la carpeta del módulo, registrar una entrada en `plugins/index.ts` y ejecutar `pnpm typecheck`, `pnpm test`, `pnpm build` y `pnpm check`. La guía completa está en `docs/20-adding-tools.md`.

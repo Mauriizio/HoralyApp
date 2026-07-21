@@ -1,12 +1,14 @@
 "use client"
 
-import { Component, useMemo, useState, type ComponentType, type ReactNode } from "react"
+import { Component, lazy, Suspense, useMemo, useState, type ReactNode } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { createPluginRegistry, TOOL_CATEGORIES } from "@/lib/plugins/plugin-registry"
-import { ResistorColorCodeTool } from "@/plugins/resistor-color-code/ui"
-import type { PluginCategory, PluginManifest } from "@/lib/plugins/plugin-types"
+import { useI18n } from "@/components/i18n-provider"
+import { createPluginRegistry } from "@/lib/plugins/plugin-registry"
+import { toolPlugins } from "@/plugins"
+import type { PluginCategory, PluginManifest, ToolPluginProps } from "@/lib/plugins/plugin-types"
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false }
@@ -34,7 +36,10 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean
 }
 
 export function PluginsView() {
-  const plugins = createPluginRegistry().list()
+  const router = useRouter()
+  const { lang } = useI18n()
+  const registry = useMemo(() => createPluginRegistry(toolPlugins), [])
+  const plugins = registry.list()
   const [query, setQuery] = useState("")
   const [category, setCategory] = useState<PluginCategory | "Todas">("Todas")
   const [active, setActive] = useState<PluginManifest | null>(null)
@@ -48,9 +53,28 @@ export function PluginsView() {
     }),
     [category, plugins, query],
   )
+  const pluginProps = useMemo<ToolPluginProps>(() => ({
+    locale: lang,
+    theme: "system",
+    navigateInternal: (path) => {
+      if (!path.startsWith("/") || path.startsWith("//")) return
+      router.push(path)
+    },
+    copyText: async (text) => {
+      try {
+        await navigator.clipboard?.writeText(text)
+        return true
+      } catch {
+        return false
+      }
+    },
+    emitEvent: () => undefined,
+    createNamespacedStorage: (namespace) => createNamespacedStorage(`plugin:${namespace}`),
+    log: (error) => console.error("[plugin]", error.message),
+  }), [lang, router])
 
   if (active) {
-    const Tool = pluginComponents[active.id]
+    const Tool = lazy(() => registry.load(active.id))
     return (
       <div className="space-y-4">
         <Button variant="outline" onClick={() => setActive(null)}>Volver al catálogo</Button>
@@ -60,7 +84,11 @@ export function PluginsView() {
             <CardDescription>{active.description}</CardDescription>
           </CardHeader>
           <CardContent>
-            {Tool ? <ErrorBoundary><Tool /></ErrorBoundary> : <p>Herramienta próximamente.</p>}
+            <ErrorBoundary>
+              <Suspense fallback={<div role="status" aria-live="polite" className="text-sm text-muted-foreground">Cargando herramienta…</div>}>
+                <Tool {...pluginProps} />
+              </Suspense>
+            </ErrorBoundary>
           </CardContent>
         </Card>
       </div>
@@ -73,7 +101,7 @@ export function PluginsView() {
         <Input aria-label="Buscar herramienta" placeholder="Buscar herramienta" value={query} onChange={(e) => setQuery(e.target.value)} />
         <select aria-label="Filtrar por categoría" className="rounded-md border bg-background px-3 py-2 text-sm" value={category} onChange={(e) => setCategory(e.target.value as PluginCategory | "Todas")}>
           <option>Todas</option>
-          {TOOL_CATEGORIES.map((item) => <option key={item}>{item}</option>)}
+          {registry.categories.map((item) => <option key={item}>{item}</option>)}
         </select>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
@@ -97,4 +125,10 @@ export function PluginsView() {
   )
 }
 
-const pluginComponents: Record<string, ComponentType> = { "resistor-color-code": ResistorColorCodeTool }
+function createNamespacedStorage(prefix: string): Pick<Storage, "getItem" | "setItem" | "removeItem"> {
+  return {
+    getItem: (key) => localStorage.getItem(`${prefix}:${key}`),
+    setItem: (key, value) => localStorage.setItem(`${prefix}:${key}`, value),
+    removeItem: (key) => localStorage.removeItem(`${prefix}:${key}`),
+  }
+}

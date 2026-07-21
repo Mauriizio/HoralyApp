@@ -22,3 +22,11 @@ Antes de liberar cambios de semestres se debe validar que solo exista un semestr
 - Validar `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=false` ocultando Google y `true` mostrando el botón.
 - Validar catálogo de herramientas, búsqueda, filtros, teclado y error boundary.
 - Validar plugin de resistencias con 4, 5 y 6 bandas, ambos sentidos y entradas inválidas.
+
+## Checklist adicional para plataforma de herramientas
+
+- Confirmar que una herramienta nueva se integra solo copiando carpeta y registrando una entrada en `plugins/index.ts`.
+- Confirmar que `PluginsView` no importa plugins concretos ni IDs de herramientas.
+- Confirmar que `plugin-registry.ts` no importa módulos concretos.
+- Ejecutar `pnpm tool:create herramienta-temporal`, validar estructura, no registrarla y eliminarla.
+- Verificar catálogo, búsqueda, filtros, lazy loading, fallback accesible y error boundary.

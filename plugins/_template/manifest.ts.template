@@ -1,0 +1,16 @@
+import type { PluginManifest } from "@/lib/plugins/plugin-types"
+
+export const manifest: PluginManifest = {
+  id: "__PLUGIN_ID__",
+  name: "__PLUGIN_NAME__",
+  version: "0.1.0",
+  description: "Describe qué hace __PLUGIN_NAME__ sin incluir datos personales.",
+  enabled: true,
+  category: "__CATEGORY__",
+  icon: "🧰",
+  status: "coming-soon",
+  featureFlag: "NEXT_PUBLIC___PLUGIN_CONSTANT___ENABLED",
+  capabilities: ["locale:read", "theme:read"],
+  permissions: ["read:locale", "read:theme"],
+  routes: [{ path: "herramientas/__PLUGIN_ID__", label: "__PLUGIN_NAME__" }],
+}
