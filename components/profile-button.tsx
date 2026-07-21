@@ -53,7 +53,7 @@ export function ProfileButton({ store }: { store: ScheduleStore }) {
           >
             <Avatar className="h-9 w-9">
               {profile.avatar ? (
-                <AvatarImage src={profile.avatar} alt={profile.displayName || "Avatar"} />
+                <AvatarImage key={profile.avatar} src={profile.avatar} alt={profile.displayName || "Avatar"} />
               ) : null}
               <AvatarFallback
                 className="text-xs font-semibold"
@@ -76,7 +76,7 @@ export function ProfileButton({ store }: { store: ScheduleStore }) {
           <div className="flex items-center gap-3 min-w-0">
             <Avatar className="h-10 w-10 shrink-0">
               {profile.avatar ? (
-                <AvatarImage src={profile.avatar} alt={profile.displayName || "Avatar"} />
+                <AvatarImage key={profile.avatar} src={profile.avatar} alt={profile.displayName || "Avatar"} />
               ) : null}
               <AvatarFallback
                 className="text-sm font-semibold"

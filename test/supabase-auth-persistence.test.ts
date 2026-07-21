@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises"
 import { EMPTY_APP_DATA } from "../lib/types.ts"
 import { appDataToSupabaseRows, supabaseRowsToAppData } from "../lib/repositories/supabase-mappers.ts"
 import { LocalAcademicRepository, SupabaseAcademicRepository, selectAcademicRepository } from "../lib/repositories/academic-repository.ts"
-import { avatarPath, removeAvatar, uploadAvatar } from "../lib/avatar-storage.ts"
+import { avatarPath, extractAvatarPathFromPublicUrl, isOwnedAvatarPath, removeAvatar, uploadAvatar, AVATAR_CACHE_CONTROL } from "../lib/avatar-storage.ts"
 import { sanitizeDisplayName, validateAvatar, validateEmail, validatePassword } from "../lib/auth-utils.ts"
 import { summarizeLocalData } from "../lib/local-migration.ts"
 
@@ -75,12 +75,36 @@ test("validación básica de sesión, email, contraseña y avatar", () => {
   assert.equal(validateAvatar({ type: "image/png", size: 3 * 1024 * 1024 } as File), "El avatar no puede superar 2 MB.")
 })
 
-test("path de avatar contiene user_id y extensión segura", () => {
-  assert.equal(avatarPath("user-123", { type: "image/webp" } as File), "user-123/avatar.webp")
+test("path de avatar versionado contiene user_id, carpeta avatars y extensión segura", () => {
+  const first = avatarPath("user-123", { type: "image/webp" } as File)
+  const second = avatarPath("user-123", { type: "image/webp" } as File)
+  assert.match(first, /^user-123\/avatars\/[0-9a-zA-Z-]+\.webp$/)
+  assert.match(second, /^user-123\/avatars\/[0-9a-zA-Z-]+\.webp$/)
+  assert.notEqual(first, second)
 })
 
+test("helpers de avatar aceptan rutas propias legacy/versionadas y rechazan paths inseguros", () => {
+  const original = process.env.NEXT_PUBLIC_SUPABASE_URL
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://project.supabase.co"
+  try {
+    assert.equal(isOwnedAvatarPath("user-123/avatar.png", "user-123"), true)
+    assert.equal(isOwnedAvatarPath("user-123/avatars/uuid-1.webp", "user-123"), true)
+    assert.equal(isOwnedAvatarPath("user-456/avatars/uuid-1.webp", "user-123"), false)
+    assert.equal(isOwnedAvatarPath("user-123/avatars/../avatar.png", "user-123"), false)
+    assert.equal(isOwnedAvatarPath("user-123/avatars/uuid-1.gif", "user-123"), false)
+    assert.equal(extractAvatarPathFromPublicUrl("https://project.supabase.co/storage/v1/object/public/avatars/user-123/avatar.jpg", "user-123"), "user-123/avatar.jpg")
+    assert.equal(extractAvatarPathFromPublicUrl("https://project.supabase.co/storage/v1/object/public/avatars/user-123/avatars/uuid-2.png", "user-123"), "user-123/avatars/uuid-2.png")
+    assert.equal(extractAvatarPathFromPublicUrl("https://evil.example/storage/v1/object/public/avatars/user-123/avatar.jpg", "user-123"), null)
+    assert.equal(extractAvatarPathFromPublicUrl("https://project.supabase.co/storage/v1/object/public/other/user-123/avatar.jpg", "user-123"), null)
+    assert.equal(extractAvatarPathFromPublicUrl("https://project.supabase.co/storage/v1/object/public/avatars/user-123/avatar.jpg?x=1", "user-123"), null)
+    assert.equal(extractAvatarPathFromPublicUrl("not a url", "user-123"), null)
+  } finally {
+    if (original === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL
+    else process.env.NEXT_PUBLIC_SUPABASE_URL = original
+  }
+})
 
-test("uploadAvatar usa upsert, devuelve URL pública y removeAvatar elimina rutas propias", async () => {
+test("uploadAvatar usa rutas inmutables, upsert false, cache largo y removeAvatar elimina solo path validado", async () => {
   const calls: { action: string; args: unknown[] }[] = []
   const client = {
     auth: { getSession: () => Promise.resolve({ data: { session: { user: { id: "user-123" } } }, error: null }) },
@@ -107,13 +131,16 @@ test("uploadAvatar usa upsert, devuelve URL pública y removeAvatar elimina ruta
 
   const file = new File(["avatar"], "avatar.png", { type: "image/png" })
   const uploaded = await uploadAvatar(client, "user-123", file)
-  assert.equal(uploaded.path, "user-123/avatar.png")
-  assert.equal(uploaded.publicUrl, "https://cdn.example.test/user-123/avatar.png")
-  assert.deepEqual(calls.find((call) => call.action === "upload")?.args[2], { upsert: true, contentType: "image/png" })
+  assert.match(uploaded.path, /^user-123\/avatars\/[0-9a-zA-Z-]+\.png$/)
+  assert.equal(uploaded.publicUrl, `https://cdn.example.test/${uploaded.path}`)
+  assert.deepEqual(calls.find((call) => call.action === "upload")?.args[2], { upsert: false, contentType: "image/png", cacheControl: AVATAR_CACHE_CONTROL })
   assert.equal(calls.some((call) => call.action === "getPublicUrl"), true)
 
-  await removeAvatar(client, "user-123")
-  assert.deepEqual(calls.find((call) => call.action === "remove")?.args[0], ["user-123/avatar.png", "user-123/avatar.jpg", "user-123/avatar.webp"])
+  await removeAvatar(client, "user-123", uploaded.path)
+  assert.deepEqual(calls.find((call) => call.action === "remove")?.args[0], [uploaded.path])
+  const removeCount = calls.filter((call) => call.action === "remove").length
+  await removeAvatar(client, "user-123", "user-456/avatars/not-owned.png")
+  assert.equal(calls.filter((call) => call.action === "remove").length, removeCount)
 })
 
 test("errores de avatar diferencian validación, sesión, RLS, existente y red sin exponer secretos", async () => {

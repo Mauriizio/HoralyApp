@@ -104,7 +104,7 @@ export function useScheduleStore() {
     else saveData(data)
   }, [authenticated, data, hydrated, storageRecovery, user?.id])
 
-  const persistCloud = useCallback(async (operation: (repository: AcademicRepository) => Promise<void>) => {
+  const persistCloud = useCallback(async (operation: (repository: AcademicRepository) => Promise<void>, options: { throwOnError?: boolean } = {}) => {
     const repository = repositoryRef.current
     if (repository.kind !== "supabase" || !authenticated) return
     setSyncStatus("syncing")
@@ -114,6 +114,7 @@ export function useScheduleStore() {
       setSyncStatus("synced")
     } catch (error) {
       setSyncFailure(error)
+      if (options.throwOnError) throw error
     }
   }, [authenticated, setSyncFailure])
 
@@ -295,11 +296,18 @@ export function useScheduleStore() {
   }, [persistCloud])
 
   // --- Profile ---
-  const updateProfile = useCallback((patch: Partial<UserProfile>) => {
+  const updateProfileConfirmed = useCallback(async (patch: Partial<UserProfile>) => {
     const nextProfile = { ...data.profile, ...patch }
-    setData((d) => ({ ...d, profile: { ...d.profile, ...patch } }))
-    void persistCloud((repository) => repository.updateProfile(nextProfile, user?.email))
-  }, [data.profile, persistCloud, user?.email])
+    const nextData = { ...data, profile: nextProfile }
+    await persistCloud((repository) => repository.updateProfile(nextProfile, user?.email), { throwOnError: true })
+    setData(nextData)
+    if (authenticated && user?.id) saveCloudCache(user.id, nextData)
+    else saveData(nextData)
+  }, [authenticated, data, persistCloud, user?.email, user?.id])
+
+  const updateProfile = useCallback((patch: Partial<UserProfile>) => {
+    void updateProfileConfirmed(patch)
+  }, [updateProfileConfirmed])
 
   const resetProfile = useCallback(() => {
     setData((d) => ({ ...d, profile: DEFAULT_PROFILE }))
@@ -415,6 +423,7 @@ export function useScheduleStore() {
     archiveSemester,
     selectActiveSemester,
     updateProfile,
+    updateProfileConfirmed,
     resetProfile,
     updateSettings,
     resetSettings,
