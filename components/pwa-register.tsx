@@ -2,6 +2,18 @@
 
 import { useEffect } from "react"
 
+const HORALY_CACHE_PREFIX = "horaly-"
+
+async function cleanupDevelopmentWorkers() {
+  if (!("serviceWorker" in navigator)) return
+  const registrations = await navigator.serviceWorker.getRegistrations()
+  await Promise.all(registrations.filter((registration) => registration.scope.includes(window.location.origin)).map((registration) => registration.unregister()))
+  if ("caches" in window) {
+    const keys = await caches.keys()
+    await Promise.all(keys.filter((key) => key.startsWith(HORALY_CACHE_PREFIX)).map((key) => caches.delete(key)))
+  }
+}
+
 /**
  * Registers the service worker once the page is interactive. We only register
  * in production builds — during local development the dev server's HMR pipeline
@@ -11,7 +23,10 @@ export function PwaRegister() {
   useEffect(() => {
     if (typeof window === "undefined") return
     if (!("serviceWorker" in navigator)) return
-    if (process.env.NODE_ENV !== "production") return
+    if (process.env.NODE_ENV !== "production") {
+      void cleanupDevelopmentWorkers()
+      return
+    }
 
     const onLoad = () => {
       navigator.serviceWorker

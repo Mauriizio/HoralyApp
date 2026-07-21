@@ -26,6 +26,7 @@ import { SupabaseAcademicRepository, selectAcademicRepository, type AcademicRepo
 import { loadCloudCache, saveCloudCache, saveMigrationBackup, loadMigrationBackup } from "@/lib/local-cloud-storage"
 import { transitionDeleteModule, transitionMoveBlock, transitionSetModules, transitionUpdateSubject, transitionUpsertBlock } from "@/lib/schedule-transitions"
 import { filterDataByActiveSemester } from "@/application/semesters"
+import { assertSameGeneration, assertSameIdentity, logIdentity, type OperationIdentityContext, SessionIdentityMismatchError } from "@/lib/session-identity"
 
 export { validateModules }
 
@@ -45,9 +46,19 @@ export function useScheduleStore() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading")
   const [syncError, setSyncError] = useState<string | null>(null)
   const [migrationSnapshot, setMigrationSnapshot] = useState<AppData | null>(null)
-  const { session, loading: authLoading, authenticated, user } = useAuth()
+  const { session, loading: authLoading, authenticated, user, userId, authGeneration, transitioning } = useAuth()
   const repositoryRef = useRef<AcademicRepository>(selectAcademicRepository(null))
   const loadedForRef = useRef<string>("initial")
+  const [dataOwnerUserId, setDataOwnerUserId] = useState<string | null>(null)
+  const [repositoryOwnerUserId, setRepositoryOwnerUserId] = useState<string | null>(null)
+  const [identityReady, setIdentityReady] = useState(false)
+  const identityReadyRef = useRef(false)
+  const dataOwnerUserIdRef = useRef<string | null>(null)
+  const authGenerationRef = useRef(authGeneration)
+
+  useEffect(() => { identityReadyRef.current = identityReady }, [identityReady])
+  useEffect(() => { dataOwnerUserIdRef.current = dataOwnerUserId }, [dataOwnerUserId])
+  useEffect(() => { authGenerationRef.current = authGeneration }, [authGeneration])
 
   const setSyncFailure = useCallback((error: unknown) => {
     setSyncStatus(typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "error")
@@ -57,75 +68,122 @@ export function useScheduleStore() {
   useEffect(() => {
     let cancelled = false
     async function hydrate() {
-      if (authLoading) {
+      if (authLoading || transitioning) {
+        setIdentityReady(false)
+        setHydrated(false)
+        setData(EMPTY_APP_DATA)
+        setDataOwnerUserId(null)
+        setRepositoryOwnerUserId(null)
         setSyncStatus("loading")
         return
       }
+      const expectedUserId = authenticated ? userId : null
+      const expectedGeneration = authGeneration
       const supabase = createSupabaseBrowserClient()
       const repository = selectAcademicRepository(session, supabase)
       repositoryRef.current = repository
-      const key = repository.kind === "supabase" ? `cloud:${session?.user.id}` : "local"
-      if (loadedForRef.current === key && hydrated) return
+      const key = repository.kind === "supabase" ? `cloud:${expectedUserId}` : "guest"
+      if (loadedForRef.current === key && hydrated && identityReady) return
+      setIdentityReady(false)
+      setHydrated(false)
+      setData(EMPTY_APP_DATA)
+      setDataOwnerUserId(null)
+      setRepositoryOwnerUserId(repository.kind === "supabase" ? expectedUserId : null)
       setSyncStatus(repository.kind === "supabase" ? "loading" : "local")
       try {
         if (repository instanceof SupabaseAcademicRepository) {
+          if (!expectedUserId) throw new SessionIdentityMismatchError()
+          repository.assertRepositoryOwner(expectedUserId)
           const localBeforeCloud = loadDataResult()
           const backup = loadMigrationBackup(repository.userIdForCache) ?? (localBeforeCloud.ok ? saveMigrationBackup(repository.userIdForCache, localBeforeCloud.data) : null)
           setMigrationSnapshot(backup?.data ?? null)
           await repository.ensureProfile(user?.email)
+          if (cancelled || authGenerationRef.current !== expectedGeneration || userId !== expectedUserId) return
         }
         const result = repository.kind === "local"
           ? loadDataResult()
-          : { ok: true as const, data: await repository.loadData().catch(() => loadCloudCache(session!.user.id) ?? Promise.reject(new Error("No se pudieron cargar tus datos sincronizados."))), raw: null }
-        if (cancelled) return
+          : { ok: true as const, data: await repository.loadData().catch(() => loadCloudCache(expectedUserId!) ?? Promise.reject(new Error("No se pudieron cargar tus datos sincronizados."))), raw: null }
+        if (cancelled || authGenerationRef.current !== expectedGeneration || (authenticated && userId !== expectedUserId)) {
+          logIdentity({ authUserId: userId, repositoryOwnerUserId: repository.kind === "supabase" ? repository.userIdForCache : null, authGeneration: expectedGeneration, operation: "store.hydrate", mismatch: "stale_load_discarded" })
+          return
+        }
         setData(result.data)
         if (!result.ok) setStorageRecovery({ raw: result.raw, errors: result.errors })
         else setStorageRecovery(null)
-        if (repository.kind === "supabase" && session?.user.id) saveCloudCache(session.user.id, result.data)
+        if (repository.kind === "supabase" && expectedUserId) saveCloudCache(expectedUserId, result.data)
         loadedForRef.current = key
+        setDataOwnerUserId(repository.kind === "supabase" ? expectedUserId : null)
+        setRepositoryOwnerUserId(repository.kind === "supabase" ? expectedUserId : null)
+        setIdentityReady(true)
         setHydrated(true)
         setSyncStatus(repository.kind === "supabase" ? "synced" : "local")
         setSyncError(null)
       } catch (error) {
-        if (cancelled) return
-        const local = loadDataResult()
-        if (local.ok) setData(local.data)
-        setHydrated(true)
+        if (cancelled || authGenerationRef.current !== expectedGeneration) return
+        if (!authenticated) {
+          const local = loadDataResult()
+          if (local.ok) setData(local.data)
+          setDataOwnerUserId(null)
+          setRepositoryOwnerUserId(null)
+          setIdentityReady(true)
+          setHydrated(true)
+        } else {
+          setData(EMPTY_APP_DATA)
+          setDataOwnerUserId(null)
+          setRepositoryOwnerUserId(null)
+          setIdentityReady(false)
+          setHydrated(false)
+        }
         setSyncFailure(error)
       }
     }
     void hydrate()
     return () => { cancelled = true }
-  }, [authLoading, hydrated, session, setSyncFailure, user?.email])
+  }, [authGeneration, authLoading, authenticated, hydrated, identityReady, session, setSyncFailure, transitioning, user?.email, userId])
 
   useEffect(() => {
-    if (!hydrated || storageRecovery) return
-    if (authenticated && user?.id) saveCloudCache(user.id, data)
+    if (!hydrated || storageRecovery || !identityReady) return
+    if (authenticated && dataOwnerUserId) saveCloudCache(dataOwnerUserId, data)
     else saveData(data)
-  }, [authenticated, data, hydrated, storageRecovery, user?.id])
+  }, [authenticated, data, dataOwnerUserId, hydrated, identityReady, storageRecovery])
 
-  const persistCloud = useCallback(async (operation: (repository: AcademicRepository) => Promise<void>) => {
+  const assertCloudIdentity = useCallback((expectedUserId: string, expectedAuthGeneration = authGeneration, operation = "persistCloud") => {
     const repository = repositoryRef.current
-    if (repository.kind !== "supabase" || !authenticated) return
+    if (!authenticated || transitioning || !identityReadyRef.current || repository.kind !== "supabase") throw new SessionIdentityMismatchError()
+    assertSameIdentity(userId, expectedUserId, "La sesión cambió durante la operación. Vuelve a intentarlo.")
+    assertSameIdentity(dataOwnerUserIdRef.current, expectedUserId, "La sesión cambió durante la operación. Vuelve a intentarlo.")
+    repository.assertRepositoryOwner(expectedUserId)
+    assertSameGeneration(authGenerationRef.current, expectedAuthGeneration)
+    logIdentity({ authUserId: userId, repositoryOwnerUserId: repository.userIdForCache, dataOwnerUserId: dataOwnerUserIdRef.current, authGeneration: expectedAuthGeneration, operation })
+    return repository
+  }, [authGeneration, authenticated, transitioning, userId])
+
+  const persistCloud = useCallback(async (expectedUserId: string | null, operation: (repository: AcademicRepository) => Promise<void>, options: { throwOnError?: boolean; expectedAuthGeneration?: number; operationName?: string } = {}) => {
+    if (!authenticated) return
+    if (!expectedUserId) throw new SessionIdentityMismatchError()
+    const expectedGeneration = options.expectedAuthGeneration ?? authGenerationRef.current
     setSyncStatus("syncing")
     setSyncError(null)
     try {
+      const repository = assertCloudIdentity(expectedUserId, expectedGeneration, options.operationName)
       await operation(repository)
+      assertCloudIdentity(expectedUserId, expectedGeneration, options.operationName)
       setSyncStatus("synced")
     } catch (error) {
-      setSyncFailure(error)
+      if (!(error instanceof SessionIdentityMismatchError)) setSyncFailure(error)
+      if (options.throwOnError || error instanceof SessionIdentityMismatchError) throw error
     }
-  }, [authenticated, setSyncFailure])
+  }, [assertCloudIdentity, authenticated, setSyncFailure])
 
   const retrySync = useCallback(() => {
-    void persistCloud((repository) => repository.replaceAll(data))
-  }, [data, persistCloud])
+    void persistCloud(dataOwnerUserId, (repository) => repository.replaceAll(data))
+  }, [data, dataOwnerUserId, persistCloud])
 
   const replaceAll = useCallback((next: AppData) => {
     setStorageRecovery(null)
     setData(next)
-    void persistCloud((repository) => repository.replaceAll(next))
-  }, [persistCloud])
+    void persistCloud(dataOwnerUserId, (repository) => repository.replaceAll(next))
+  }, [dataOwnerUserId, persistCloud])
 
   const clearStorageRecovery = useCallback(() => setStorageRecovery(null), [])
 
@@ -142,16 +200,16 @@ export function useScheduleStore() {
       return { ...d, subjects: [...d.subjects, newSubject] }
     })
 
-    void persistCloud((repository) => repository.saveSubject(createdSubject))
+    void persistCloud(dataOwnerUserId, (repository) => repository.saveSubject(createdSubject))
     return createdSubject
-  }, [data.activeSemesterId, data.subjects, persistCloud])
+  }, [data.activeSemesterId, data.subjects, dataOwnerUserId, persistCloud])
 
   const updateSubject = useCallback((id: string, patch: Partial<Subject>) => {
     const transition = transitionUpdateSubject(data, id, patch)
     if (!transition.ok || !transition.changedEntity) return
     setData(transition.nextData)
-    void persistCloud((repository) => repository.updateSubject(transition.changedEntity!))
-  }, [data, persistCloud])
+    void persistCloud(dataOwnerUserId, (repository) => repository.updateSubject(transition.changedEntity!))
+  }, [data, dataOwnerUserId, persistCloud])
 
   const deleteSubject = useCallback((id: string) => {
     setData((d) => ({
@@ -164,8 +222,8 @@ export function useScheduleStore() {
         sb.subjectId === id ? { ...sb, subjectId: undefined } : sb,
       ),
     }))
-    void persistCloud((repository) => repository.deleteSubject(id))
-  }, [persistCloud])
+    void persistCloud(dataOwnerUserId, (repository) => repository.deleteSubject(id))
+  }, [dataOwnerUserId, persistCloud])
 
   // --- Schedule blocks ---
   const upsertBlock = useCallback((block: ScheduleBlock, options: { replaceConflicts?: boolean } = {}) => {
@@ -174,34 +232,34 @@ export function useScheduleStore() {
     const transition = transitionUpsertBlock(data, blockWithSemester, options)
     if (!transition.ok) return { ok: false as const, conflictIds: transition.conflictIds }
     setData(transition.nextData)
-    void persistCloud(async (repository) => {
+    void persistCloud(dataOwnerUserId, async (repository) => {
       await Promise.all(transition.deletedIds.map((id) => repository.deleteScheduleBlock(id)))
       await repository.saveScheduleBlock(blockWithSemester)
     })
     return { ok: true as const, conflictIds: transition.conflictIds }
-  }, [data, persistCloud])
+  }, [data, dataOwnerUserId, persistCloud])
 
   const moveBlock = useCallback(
     (blockId: string, targetDay: DayKey, startModuleId: string, modules: TimeModule[]) => {
       const transition = transitionMoveBlock(data, blockId, targetDay, startModuleId, modules)
       if (!transition.ok || !transition.changedEntity) return
       setData(transition.nextData)
-      void persistCloud((repository) => repository.saveScheduleBlock(transition.changedEntity!))
+      void persistCloud(dataOwnerUserId, (repository) => repository.saveScheduleBlock(transition.changedEntity!))
     },
     [data, persistCloud],
   )
 
   const deleteBlock = useCallback((id: string) => {
     setData((d) => ({ ...d, blocks: d.blocks.filter((b) => b.id !== id) }))
-    void persistCloud((repository) => repository.deleteScheduleBlock(id))
-  }, [persistCloud])
+    void persistCloud(dataOwnerUserId, (repository) => repository.deleteScheduleBlock(id))
+  }, [dataOwnerUserId, persistCloud])
 
   // --- Modules ---
   const setModules = useCallback((modules: TimeModule[]) => {
     const transition = transitionSetModules(data, modules)
     setData(transition.nextData)
-    void persistCloud((repository) => repository.replaceAll(transition.nextData))
-  }, [data, persistCloud])
+    void persistCloud(dataOwnerUserId, (repository) => repository.replaceAll(transition.nextData))
+  }, [data, dataOwnerUserId, persistCloud])
 
   const addModule = useCallback((module: Omit<TimeModule, "id">) => {
     const next: TimeModule = { ...module, id: uid() }
@@ -209,41 +267,41 @@ export function useScheduleStore() {
       ...d,
       modules: [...d.modules, next].sort((a, b) => a.start.localeCompare(b.start)),
     }))
-    void persistCloud((repository) => repository.updateSettings(data.settings, [...data.modules, next].sort((a, b) => a.start.localeCompare(b.start))))
+    void persistCloud(dataOwnerUserId, (repository) => repository.updateSettings(data.settings, [...data.modules, next].sort((a, b) => a.start.localeCompare(b.start))))
     return next
-  }, [data.modules, data.settings, persistCloud])
+  }, [data.modules, data.settings, dataOwnerUserId, persistCloud])
 
   const updateModule = useCallback((id: string, patch: Partial<TimeModule>) => {
     const modules = data.modules.map((m) => (m.id === id ? { ...m, ...patch } : m)).sort((a, b) => a.start.localeCompare(b.start))
     setData((d) => ({ ...d, modules }))
-    void persistCloud((repository) => repository.updateSettings(data.settings, modules))
-  }, [data.modules, data.settings, persistCloud])
+    void persistCloud(dataOwnerUserId, (repository) => repository.updateSettings(data.settings, modules))
+  }, [data.modules, data.settings, dataOwnerUserId, persistCloud])
 
   const deleteModule = useCallback((id: string) => {
     const transition = transitionDeleteModule(data, id)
     setData(transition.nextData)
-    void persistCloud((repository) => repository.replaceAll(transition.nextData))
-  }, [data, persistCloud])
+    void persistCloud(dataOwnerUserId, (repository) => repository.replaceAll(transition.nextData))
+  }, [data, dataOwnerUserId, persistCloud])
 
   // --- Study blocks ---
   const addStudyBlock = useCallback((sb: Omit<StudyBlock, "id">) => {
     const next: StudyBlock = { ...sb, semesterId: sb.semesterId ?? requireActiveSemesterId(data.activeSemesterId, "bloques de estudio"), id: uid() }
     setData((d) => ({ ...d, studyBlocks: [...d.studyBlocks, next] }))
-    void persistCloud((repository) => repository.saveStudyBlock(next))
+    void persistCloud(dataOwnerUserId, (repository) => repository.saveStudyBlock(next))
     return next
-  }, [data.activeSemesterId, persistCloud])
+  }, [data.activeSemesterId, dataOwnerUserId, persistCloud])
 
   const updateStudyBlock = useCallback((id: string, patch: Partial<StudyBlock>) => {
     const current = data.studyBlocks.find((sb) => sb.id === id)
     const next = current ? { ...current, ...patch } : undefined
     setData((d) => ({ ...d, studyBlocks: d.studyBlocks.map((sb) => (sb.id === id ? { ...sb, ...patch } : sb)) }))
-    if (next) void persistCloud((repository) => repository.saveStudyBlock(next))
-  }, [data.studyBlocks, persistCloud])
+    if (next) void persistCloud(dataOwnerUserId, (repository) => repository.saveStudyBlock(next))
+  }, [data.studyBlocks, dataOwnerUserId, persistCloud])
 
   const deleteStudyBlock = useCallback((id: string) => {
     setData((d) => ({ ...d, studyBlocks: d.studyBlocks.filter((sb) => sb.id !== id) }))
-    void persistCloud((repository) => repository.deleteStudyBlock(id))
-  }, [persistCloud])
+    void persistCloud(dataOwnerUserId, (repository) => repository.deleteStudyBlock(id))
+  }, [dataOwnerUserId, persistCloud])
 
   // --- Reminders ---
   const addReminder = useCallback(
@@ -256,67 +314,76 @@ export function useScheduleStore() {
         notifiedTriggerIndexes: [],
       }
       setData((d) => ({ ...d, reminders: [...d.reminders, next] }))
-      void persistCloud((repository) => repository.saveReminder(next))
+      void persistCloud(dataOwnerUserId, (repository) => repository.saveReminder(next))
       return next
     },
-    [data.activeSemesterId, persistCloud],
+    [data.activeSemesterId, dataOwnerUserId, persistCloud],
   )
 
   const updateReminder = useCallback((id: string, patch: Partial<Reminder>) => {
     const current = data.reminders.find((r) => r.id === id)
     const next = current ? { ...current, ...patch } : undefined
     setData((d) => ({ ...d, reminders: d.reminders.map((r) => (r.id === id ? { ...r, ...patch } : r)) }))
-    if (next) void persistCloud((repository) => repository.saveReminder(next))
-  }, [data.reminders, persistCloud])
+    if (next) void persistCloud(dataOwnerUserId, (repository) => repository.saveReminder(next))
+  }, [data.reminders, dataOwnerUserId, persistCloud])
 
   const deleteReminder = useCallback((id: string) => {
     setData((d) => ({ ...d, reminders: d.reminders.filter((r) => r.id !== id) }))
-    void persistCloud((repository) => repository.deleteReminder(id))
-  }, [persistCloud])
+    void persistCloud(dataOwnerUserId, (repository) => repository.deleteReminder(id))
+  }, [dataOwnerUserId, persistCloud])
 
   // --- Grades ---
   const addGrade = useCallback((grade: Omit<Grade, "id" | "createdAt">) => {
     const next: Grade = { ...grade, semesterId: grade.semesterId ?? requireActiveSemesterId(data.activeSemesterId, "notas"), id: uid(), createdAt: Date.now() }
     setData((d) => ({ ...d, grades: [...d.grades, next] }))
-    void persistCloud((repository) => repository.saveGrade(next))
+    void persistCloud(dataOwnerUserId, (repository) => repository.saveGrade(next))
     return next
-  }, [data.activeSemesterId, persistCloud])
+  }, [data.activeSemesterId, dataOwnerUserId, persistCloud])
 
   const updateGrade = useCallback((id: string, patch: Partial<Grade>) => {
     const current = data.grades.find((g) => g.id === id)
     const next = current ? { ...current, ...patch } : undefined
     setData((d) => ({ ...d, grades: d.grades.map((g) => (g.id === id ? { ...g, ...patch } : g)) }))
-    if (next) void persistCloud((repository) => repository.saveGrade(next))
-  }, [data.grades, persistCloud])
+    if (next) void persistCloud(dataOwnerUserId, (repository) => repository.saveGrade(next))
+  }, [data.grades, dataOwnerUserId, persistCloud])
 
   const deleteGrade = useCallback((id: string) => {
     setData((d) => ({ ...d, grades: d.grades.filter((g) => g.id !== id) }))
-    void persistCloud((repository) => repository.deleteGrade(id))
-  }, [persistCloud])
+    void persistCloud(dataOwnerUserId, (repository) => repository.deleteGrade(id))
+  }, [dataOwnerUserId, persistCloud])
 
   // --- Profile ---
-  const updateProfile = useCallback((patch: Partial<UserProfile>) => {
+  const updateProfileConfirmed = useCallback(async (patch: Partial<UserProfile>, context?: OperationIdentityContext) => {
+    const expectedUserId = context?.expectedUserId ?? dataOwnerUserId
+    if (authenticated && !expectedUserId) throw new SessionIdentityMismatchError()
     const nextProfile = { ...data.profile, ...patch }
-    setData((d) => ({ ...d, profile: { ...d.profile, ...patch } }))
-    void persistCloud((repository) => repository.updateProfile(nextProfile, user?.email))
-  }, [data.profile, persistCloud, user?.email])
+    const nextData = { ...data, profile: nextProfile }
+    if (authenticated) await persistCloud(expectedUserId, (repository) => repository.updateProfile(nextProfile, user?.email), { throwOnError: true, expectedAuthGeneration: context?.expectedAuthGeneration, operationName: "profile.updateConfirmed" })
+    setData(nextData)
+    if (authenticated && expectedUserId) saveCloudCache(expectedUserId, nextData)
+    else saveData(nextData)
+  }, [authenticated, data, dataOwnerUserId, persistCloud, user?.email])
+
+  const updateProfile = useCallback((patch: Partial<UserProfile>) => {
+    void updateProfileConfirmed(patch)
+  }, [updateProfileConfirmed])
 
   const resetProfile = useCallback(() => {
     setData((d) => ({ ...d, profile: DEFAULT_PROFILE }))
-    void persistCloud((repository) => repository.updateProfile(DEFAULT_PROFILE, user?.email))
-  }, [persistCloud, user?.email])
+    void persistCloud(dataOwnerUserId, (repository) => repository.updateProfile(DEFAULT_PROFILE, user?.email))
+  }, [dataOwnerUserId, persistCloud, user?.email])
 
   // --- Settings ---
   const updateSettings = useCallback((patch: Partial<AppSettings>) => {
     const nextSettings = { ...data.settings, ...patch }
     setData((d) => ({ ...d, settings: { ...d.settings, ...patch } }))
-    void persistCloud((repository) => repository.updateSettings(nextSettings, data.modules))
-  }, [data.modules, data.settings, persistCloud])
+    void persistCloud(dataOwnerUserId, (repository) => repository.updateSettings(nextSettings, data.modules))
+  }, [data.modules, data.settings, dataOwnerUserId, persistCloud])
 
   const resetSettings = useCallback(() => {
     setData((d) => ({ ...d, settings: DEFAULT_SETTINGS }))
-    void persistCloud((repository) => repository.updateSettings(DEFAULT_SETTINGS, data.modules))
-  }, [data.modules, persistCloud])
+    void persistCloud(dataOwnerUserId, (repository) => repository.updateSettings(DEFAULT_SETTINGS, data.modules))
+  }, [data.modules, dataOwnerUserId, persistCloud])
 
 
   // --- Semesters ---
@@ -325,17 +392,17 @@ export function useScheduleStore() {
     const semesters = next.status === "active" ? data.semesters.map((item) => item.status === "active" ? { ...item, status: "planned" as const } : item) : data.semesters
     const nextData = { ...data, semesters: [...semesters, next], activeSemesterId: next.status === "active" ? next.id : data.activeSemesterId }
     setData(nextData)
-    void persistCloud((repository) => repository.replaceAll(nextData))
+    void persistCloud(dataOwnerUserId, (repository) => repository.replaceAll(nextData))
     return next
-  }, [data, persistCloud])
+  }, [data, dataOwnerUserId, persistCloud])
 
   const updateSemester = useCallback((id: string, patch: Partial<Semester>) => {
     const nextSemesters = data.semesters.map((semester) => semester.id === id ? { ...semester, ...patch } : semester)
     const normalized = patch.status === "active" ? nextSemesters.map((semester) => semester.id === id ? { ...semester, status: "active" as const } : semester.status === "active" ? { ...semester, status: "planned" as const } : semester) : nextSemesters
     const nextData = { ...data, semesters: normalized, activeSemesterId: patch.status === "active" ? id : data.activeSemesterId }
     setData(nextData)
-    void persistCloud((repository) => repository.replaceAll(nextData))
-  }, [data, persistCloud])
+    void persistCloud(dataOwnerUserId, (repository) => repository.replaceAll(nextData))
+  }, [data, dataOwnerUserId, persistCloud])
 
   const archiveSemester = useCallback((id: string) => updateSemester(id, { status: "archived" }), [updateSemester])
   const selectActiveSemester = useCallback((id: string) => updateSemester(id, { status: "active" }), [updateSemester])
@@ -385,6 +452,10 @@ export function useScheduleStore() {
     syncStatus,
     syncMessage: syncStatus === "local" ? "Guardado local" : syncStatus === "loading" ? "Cargando" : syncStatus === "syncing" ? "Sincronizando" : syncStatus === "synced" ? "Sincronizado" : syncStatus === "offline" ? "Sin conexión" : "Error de sincronización",
     syncError,
+    identityReady,
+    dataOwnerUserId,
+    repositoryOwnerUserId,
+    authGeneration,
     retrySync,
     migrationSnapshot,
     storageRecovery,
@@ -415,6 +486,7 @@ export function useScheduleStore() {
     archiveSemester,
     selectActiveSemester,
     updateProfile,
+    updateProfileConfirmed,
     resetProfile,
     updateSettings,
     resetSettings,
