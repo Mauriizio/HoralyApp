@@ -8,6 +8,7 @@ import {
 } from "./types.ts"
 import { commandKeyForSubjectName, ensureUniqueCommandKey, normalizeCommandKey } from "./command-key.ts"
 import { validateModules } from "./time-modules.ts"
+import { defaultAssessmentGroupId, ensureDefaultAssessmentGroupsForSubjects, ensureGradeAssessmentGroup } from "./assessment-groups.ts"
 
 export const STORAGE_KEY = "horario-escolar:v1"
 
@@ -207,32 +208,16 @@ function normalizeSubjects(subjects: Subject[]): Subject[] {
   }, [])
 }
 
-function defaultGroupId(semesterId: string, subjectId: string): string {
-  return `legacy-continuous-${semesterId}-${subjectId}`
-}
-
 function normalizeAssessmentGroups(data: AppData): AppData["assessmentGroups"] {
-  const groups = Array.isArray(data.assessmentGroups) ? [...data.assessmentGroups] : []
-  const existing = new Set(groups.map((group) => `${group.semesterId}:${group.subjectId}:${group.id}`))
-  for (const grade of data.grades) {
-    const subject = data.subjects.find((item) => item.id === grade.subjectId)
-    const semesterId = grade.semesterId ?? subject?.semesterId ?? data.activeSemesterId
-    if (!semesterId) continue
-    const groupId = typeof grade.groupId === "string" && grade.groupId ? grade.groupId : defaultGroupId(semesterId, grade.subjectId)
-    const key = `${semesterId}:${grade.subjectId}:${groupId}`
-    if (!existing.has(key)) {
-      groups.push({ id: groupId, semesterId, subjectId: grade.subjectId, name: "Evaluación continua", kind: "continuous", courseWeight: 100, position: 1, createdAt: grade.createdAt ?? Date.now() })
-      existing.add(key)
-    }
-  }
-  return groups
+  return ensureDefaultAssessmentGroupsForSubjects(data).assessmentGroups
 }
 
 function normalizeGradeAssessment(grade: AppData["grades"][number], data: AppData): AppData["grades"][number] {
   const subject = data.subjects.find((item) => item.id === grade.subjectId)
   const semesterId = grade.semesterId ?? subject?.semesterId ?? data.activeSemesterId
-  const groupId = grade.groupId ?? (semesterId ? defaultGroupId(semesterId, grade.subjectId) : undefined)
-  return { ...grade, semesterId, groupId, status: grade.status ?? (grade.score === null ? "planned" : "graded"), weightWithinGroup: grade.weightWithinGroup ?? grade.weight }
+  const preferredGroupId = grade.groupId ?? (semesterId ? defaultAssessmentGroupId(semesterId, grade.subjectId) : undefined)
+  const normalized = { ...grade, semesterId, groupId: preferredGroupId, status: grade.status ?? (grade.score === null ? "planned" : "graded"), weightWithinGroup: grade.weightWithinGroup ?? grade.weight }
+  return semesterId ? ensureGradeAssessmentGroup(data, normalized).grade : normalized
 }
 
 export function migrateData(parsed: Partial<AppData> & Record<string, unknown>): AppData {
@@ -261,7 +246,11 @@ export function migrateData(parsed: Partial<AppData> & Record<string, unknown>):
     migrated.grades = migrated.grades.map((item) => ({ ...item, semesterId: item.semesterId ?? initial.id }))
   }
   migrated.assessmentGroups = normalizeAssessmentGroups(migrated)
-  migrated.grades = migrated.grades.map((grade) => normalizeGradeAssessment(grade, migrated))
+  migrated.grades = migrated.grades.map((grade) => {
+    const normalized = normalizeGradeAssessment(grade, migrated)
+    migrated.assessmentGroups = ensureGradeAssessmentGroup({ ...migrated, assessmentGroups: migrated.assessmentGroups }, normalized).nextData.assessmentGroups
+    return normalized
+  })
   return migrated
 }
 

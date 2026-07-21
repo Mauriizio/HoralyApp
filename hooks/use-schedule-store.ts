@@ -27,6 +27,7 @@ import { SupabaseAcademicRepository, selectAcademicRepository, type AcademicRepo
 import { loadCloudCache, saveCloudCache, saveMigrationBackup, loadMigrationBackup } from "@/lib/local-cloud-storage"
 import { transitionDeleteModule, transitionMoveBlock, transitionSetModules, transitionUpdateSubject, transitionUpsertBlock } from "@/lib/schedule-transitions"
 import { filterDataByActiveSemester } from "@/application/semesters"
+import { deleteAssessmentGroupTransition, ensureDefaultAssessmentGroup, ensureGradeAssessmentGroup } from "@/lib/assessment-groups"
 import { assertSameGeneration, assertSameIdentity, logIdentity, type OperationIdentityContext, SessionIdentityMismatchError } from "@/lib/session-identity"
 
 export { validateModules }
@@ -195,13 +196,15 @@ export function useScheduleStore() {
     const semesterId = subject.semesterId ?? requireActiveSemesterId(data.activeSemesterId, "materias")
     let createdSubject = normalizeSubjectForStorage({ ...subject, semesterId }, data.subjects, { id, createdAt })
 
-    setData((d) => {
-      const newSubject = normalizeSubjectForStorage({ ...subject, semesterId: subject.semesterId ?? requireActiveSemesterId(d.activeSemesterId, "materias") }, d.subjects, { id, createdAt })
-      createdSubject = newSubject
-      return { ...d, subjects: [...d.subjects, newSubject] }
-    })
+    const withSubject = { ...data, subjects: [...data.subjects, createdSubject] }
+    const ensured = ensureDefaultAssessmentGroup(withSubject, createdSubject.semesterId!, createdSubject.id, createdAt)
+    const createdGroup = ensured.created ? ensured.group : null
+    setData(ensured.nextData)
 
-    void persistCloud(dataOwnerUserId, (repository) => repository.saveSubject(createdSubject))
+    void persistCloud(dataOwnerUserId, async (repository) => {
+      await repository.saveSubject(createdSubject)
+      if (createdGroup) await repository.saveAssessmentGroup(createdGroup)
+    })
     return createdSubject
   }, [data.activeSemesterId, data.subjects, dataOwnerUserId, persistCloud])
 
@@ -350,13 +353,12 @@ export function useScheduleStore() {
     if (next) void persistCloud(dataOwnerUserId, (repository) => repository.saveAssessmentGroup(next))
   }, [data.assessmentGroups, dataOwnerUserId, persistCloud])
 
-  const deleteAssessmentGroup = useCallback((id: string, options: { confirm?: boolean } = {}) => {
-    const affectedGrades = data.grades.filter((grade) => grade.groupId === id)
-    if (affectedGrades.length > 0 && !options.confirm) return { ok: false as const, preview: affectedGrades }
-    const nextData = { ...data, assessmentGroups: data.assessmentGroups.filter((group) => group.id !== id), grades: data.grades.map((grade) => grade.groupId === id ? { ...grade, groupId: undefined } : grade) }
-    setData(nextData)
-    void persistCloud(dataOwnerUserId, (repository) => repository.replaceAll(nextData))
-    return { ok: true as const, preview: affectedGrades }
+  const deleteAssessmentGroup = useCallback((id: string, options: { reassignToGroupId?: string } = {}) => {
+    const transition = deleteAssessmentGroupTransition(data, id, options)
+    if (!transition.ok) return { ok: false as const, preview: transition.preview, error: transition.reason }
+    setData(transition.nextData)
+    void persistCloud(dataOwnerUserId, (repository) => repository.replaceAll(transition.nextData))
+    return { ok: true as const, preview: transition.reassignedGrades }
   }, [data, dataOwnerUserId, persistCloud])
 
   const reorderAssessmentGroups = useCallback((subjectId: string, orderedIds: string[]) => {
@@ -399,11 +401,17 @@ export function useScheduleStore() {
 
   // --- Grades ---
   const addGrade = useCallback((grade: Omit<Grade, "id" | "createdAt">) => {
-    const semesterId = grade.semesterId ?? requireActiveSemesterId(data.activeSemesterId, "notas")
-    const groupId = grade.groupId ?? data.assessmentGroups.find((group) => group.subjectId === grade.subjectId && group.semesterId === semesterId)?.id
-    const next: Grade = { ...grade, semesterId, groupId, status: grade.status ?? (grade.score === null ? "planned" : "graded"), weightWithinGroup: grade.weightWithinGroup ?? grade.weight, id: uid(), createdAt: Date.now() }
-    setData((d) => ({ ...d, grades: [...d.grades, next] }))
-    void persistCloud(dataOwnerUserId, (repository) => repository.saveGrade(next))
+    const createdAt = Date.now()
+    const draft: Grade = { ...grade, semesterId: grade.semesterId ?? requireActiveSemesterId(data.activeSemesterId, "notas"), status: grade.status ?? (grade.score === null ? "planned" : "graded"), weightWithinGroup: grade.weightWithinGroup ?? grade.weight, id: uid(), createdAt }
+    const ensured = ensureGradeAssessmentGroup(data, draft, createdAt)
+    const createdGroup = ensured.created ? ensured.group : null
+    const next = ensured.grade
+    const nextData = { ...ensured.nextData, grades: [...ensured.nextData.grades, next] }
+    setData(nextData)
+    void persistCloud(dataOwnerUserId, async (repository) => {
+      if (createdGroup) await repository.saveAssessmentGroup(createdGroup)
+      await repository.saveGrade(next)
+    })
     return next
   }, [data.activeSemesterId, dataOwnerUserId, persistCloud])
 

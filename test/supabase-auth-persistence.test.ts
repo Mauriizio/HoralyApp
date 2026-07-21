@@ -425,9 +425,10 @@ test("operaciones individuales persisten semester_id en cada entidad", async () 
   await repo.saveScheduleBlock({ id: "b1", semesterId: "sem1", subjectId: "s1", day: "lunes", moduleIds: ["m1"] })
   await repo.saveStudyBlock({ id: "sb1", semesterId: "sem1", subjectId: "s1", title: "Estudio", day: "martes", start: "10:00", end: "10:30" })
   await repo.saveReminder({ id: "r1", semesterId: "sem1", subjectId: "s1", title: "Entrega", priority: "media", triggers: [], targetDateTime: "2026-07-20T10:00:00.000Z", createdAt: 1, notifiedTriggerIndexes: [] })
-  await repo.saveGrade({ id: "g1", semesterId: "sem1", subjectId: "s1", title: "P1", score: 5, weight: 50, date: "2026-07-20", createdAt: 1 })
+  await repo.saveAssessmentGroup({ id: "ag1", semesterId: "sem1", subjectId: "s1", name: "Evaluación continua", kind: "continuous", courseWeight: 100, position: 1, createdAt: 1 })
+  await repo.saveGrade({ id: "g1", semesterId: "sem1", subjectId: "s1", groupId: "ag1", title: "P1", score: 5, weight: 50, date: "2026-07-20", createdAt: 1 })
   const upserts = calls.filter((call) => call.action === "upsert")
-  assert.equal(upserts.length, 5)
+  assert.equal(upserts.length, 6)
   for (const call of upserts) {
     const rows = call.args[0] as Array<{ semester_id?: string }>
     assert.equal(rows[0]?.semester_id, "sem1")
@@ -441,4 +442,5 @@ test("operaciones individuales rechazan entidades nuevas sin semester_id", async
   await assert.rejects(() => repo.saveStudyBlock({ id: "sb1", title: "Estudio", day: "lunes", start: "10:00", end: "10:30" }), /semestre activo/)
   await assert.rejects(() => repo.saveReminder({ id: "r1", title: "Entrega", priority: "media", triggers: [], targetDateTime: "2026-07-20T10:00:00.000Z", createdAt: 1, notifiedTriggerIndexes: [] }), /semestre activo/)
   await assert.rejects(() => repo.saveGrade({ id: "g1", subjectId: "s1", title: "P1", score: 5, weight: 50, date: "2026-07-20", createdAt: 1 }), /semestre activo/)
+  await assert.rejects(() => repo.saveGrade({ id: "g2", semesterId: "sem1", subjectId: "s1", title: "P2", score: 5, weight: 50, date: "2026-07-20", createdAt: 1 }), /grupo de evaluación/)
 })

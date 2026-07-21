@@ -1,6 +1,8 @@
 -- Advanced grading groups for hierarchical assessments.
 -- Rollback documentado:
 --   begin;
+--   drop trigger if exists grades_assessment_group_bridge on public.grades;
+--   drop function if exists public.ensure_grade_assessment_group_bridge();
 --   alter table public.grades drop constraint if exists grades_assessment_group_fk;
 --   alter table public.grades drop column if exists group_id;
 --   alter table public.grades drop column if exists status;
@@ -91,6 +93,42 @@ begin
     raise exception 'advanced_grading_legacy_group_backfill_failed: grades without group_id remain before not-null constraint';
   end if;
 end $$;
+
+-- Puente temporal de compatibilidad para clientes antiguos desplegados durante la ventana de release.
+-- Puede retirarse en una migración futura cuando no existan clientes capaces de insertar grades sin group_id.
+create or replace function public.ensure_grade_assessment_group_bridge()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if NEW.status is null then
+    NEW.status := case when NEW.score is null then 'planned' else 'graded' end;
+  end if;
+
+  if NEW.group_id is null then
+    NEW.group_id := 'legacy-continuous-' || NEW.semester_id || '-' || NEW.subject_id;
+
+    insert into public.assessment_groups (
+      id, user_id, semester_id, subject_id, name, kind, course_weight, position, created_at, updated_at
+    ) values (
+      NEW.group_id, NEW.user_id, NEW.semester_id, NEW.subject_id,
+      'Evaluación continua', 'continuous', 100, 1,
+      coalesce(NEW.created_at, pg_catalog.now()), pg_catalog.now()
+    )
+    on conflict (id, user_id) do nothing;
+  end if;
+
+  return NEW;
+end;
+$$;
+
+revoke execute on function public.ensure_grade_assessment_group_bridge() from public, anon, authenticated;
+
+drop trigger if exists grades_assessment_group_bridge on public.grades;
+create trigger grades_assessment_group_bridge
+before insert or update of group_id, user_id, semester_id, subject_id, score on public.grades
+for each row execute function public.ensure_grade_assessment_group_bridge();
 
 alter table public.grades alter column group_id set not null;
 
