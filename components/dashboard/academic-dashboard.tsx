@@ -35,10 +35,11 @@ import type { ScheduleStore } from "@/hooks/use-schedule-store"
 import { SemesterSwitcher } from "@/components/semesters/semester-switcher"
 import { AcademicAgendaPanel } from "@/components/academic-agenda-panel"
 import { generateAcademicRecommendations } from "@/domain/academic-advisor"
+import type { AppTab } from "@/components/app-shell/navigation"
 
 const confidenceLabel = { complete: "Datos completos", partial: "Datos parciales", none: "Sin datos" } as const
 
-export function AcademicDashboard({ store, onNavigate }: { store: ScheduleStore; onNavigate: (tab: string) => void }) {
+export function AcademicDashboard({ store, onNavigate }: { store: ScheduleStore; onNavigate: (tab: AppTab) => void }) {
   const { data } = store
   const now = new Date()
   const activeSemester = data.semesters.find((semester) => semester.id === data.activeSemesterId)

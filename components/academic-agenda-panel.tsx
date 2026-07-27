@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { buildAcademicAgenda, type AcademicAgendaItem } from "@/domain/academic-agenda"
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
+import type { AppTab } from "@/components/app-shell/navigation"
 
 const FILTERS = [
   { id: "7", label: "7 días" },
@@ -31,7 +32,7 @@ const kindMeta = {
   overdue_assessment: { label: "Vencida", icon: AlarmClock, className: "text-destructive bg-destructive/10" },
 } as const
 
-export function AcademicAgendaPanel({ store, onNavigate }: { store: ScheduleStore; onNavigate: (tab: string) => void }) {
+export function AcademicAgendaPanel({ store, onNavigate }: { store: ScheduleStore; onNavigate: (tab: AppTab) => void }) {
   const [filter, setFilter] = useState<FilterId>("7")
   const data = store.data
   const now = new Date()
