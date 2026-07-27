@@ -69,7 +69,6 @@ pnpm build
 pnpm check
 ```
 
-
 ## Supabase, autenticación y persistencia
 
 La app puede funcionar en modo invitado/local sin variables de Supabase. Para activar cuentas, configura `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`, ejecuta las migraciones en `supabase/migrations/` y revisa las guías:
@@ -93,7 +92,6 @@ Flujos manuales recomendados con dos usuarios:
 5. Solicitar recuperación de contraseña, verificar la vista “Revisa tu correo para continuar” y completar `/auth/update-password` antes de que expire el enlace.
 
 Si un enlace expira o ya fue usado, solicita uno nuevo desde recuperación o desde el reenvío de confirmación; la app muestra `/auth/status` con acciones seguras.
-
 
 ## Macrofase foundation onboarding dashboard
 
@@ -144,3 +142,5 @@ Las herramientas internas se integran como módulos bajo `plugins/{id}/` y el ho
 Horaly soporta un dominio jerárquico de notas con grupos (`AssessmentGroup`) y evaluaciones (`Assessment`). El peso dentro de una etapa se mantiene separado del peso final del ramo; el peso efectivo se calcula como `courseWeight × weightWithinGroup / 100`. El preset 60/40 calcula presentación y transversal necesario sin redondeos prematuros.
 
 La arquitectura incluye agenda académica, consejero determinista y modelo de PDF de horario A4 horizontal generado localmente, sin incluir correo por defecto ni enviar datos del estudiante a servicios remotos.
+
+> Nota de transferencia: este README contiene secciones históricas de la línea base que ya no representan el estado actual. `PROJECT_CONTEXT.md`, `main`, las migraciones remotas y Production tienen precedencia.

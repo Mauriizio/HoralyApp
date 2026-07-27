@@ -81,13 +81,12 @@ Dependencias permitidas: React, utilidades ya existentes del repo y componentes 
 
 ## G. Reglas prohibidas
 
-- no importar Supabase.
+- No importar Supabase.
 - No leer cookies/JWT/sesión.
 - No acceder al store completo ni a repositorios académicos.
 - No cargar JavaScript remoto.
 - No usar `eval`.
 - No usar iframes externos.
-- no modificar PluginsView.
 - No modificar `PluginsView` para una herramienta concreta.
 - No modificar `app/page.tsx` para registrar herramientas.
 - No cambiar otras herramientas al integrar una nueva.

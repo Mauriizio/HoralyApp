@@ -26,4 +26,5 @@ La gestión visible de semestres forma parte del núcleo académico. La UI no el
 Las herramientas de `lib/plugins` y `plugins/` son parte del build de HoralyApp. Deben declarar manifiesto, categoría, estado, capacidades, permisos y feature flag cuando aplique. No pueden cargar JavaScript remoto, usar `eval`, iframes externos, cookies, JWT, cliente Supabase ni datos académicos fuera del contexto mínimo autorizado.
 
 ## Enmienda 2026-07-21: planificación académica avanzada
+
 Las notas jerárquicas usan grupos por usuario, semestre y asignatura; `grades` conserva compatibilidad legacy como evaluaciones. Las proyecciones dependen de pesos válidos, el consejero académico es determinista sin servicios externos y el PDF de horario se genera localmente sin incluir correo por defecto.
