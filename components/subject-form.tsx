@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -53,8 +53,18 @@ export function SubjectForm({ open, onOpenChange, initial, onSubmit }: SubjectFo
   const [difficulty, setDifficulty] = useState<DifficultyLevel>(initial?.difficulty ?? 3)
   const selectedIcon = SUBJECT_ICON_OPTIONS.find((opt) => opt.value === icon)
 
-  // When dialog opens with a different subject, sync local state.
-  // useEffect avoided: we reset via `key` prop in parent if needed.
+  const resetForm = () => {
+    setName(initial?.name ?? "")
+    setColor(initial?.color ?? SUBJECT_COLORS[0])
+    setCommandKey(initial?.commandKey ?? "")
+    setIcon(initial?.icon ?? "")
+    setNotes(initial?.notes ?? "")
+    setDifficulty(initial?.difficulty ?? 3)
+  }
+
+  useEffect(() => {
+    if (open) resetForm()
+  }, [open, initial])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()

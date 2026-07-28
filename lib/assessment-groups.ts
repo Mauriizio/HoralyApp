@@ -1,6 +1,89 @@
 import type { AppData, AssessmentGroup, Grade } from "./types.ts"
 
 export const DEFAULT_ASSESSMENT_GROUP_NAME = "Evaluación continua"
+export const INACTIVE_ASSESSMENT_GROUP_PREFIX = "Fuera de estructura · "
+
+export function isActiveAssessmentGroup(group: Pick<AssessmentGroup, "name">): boolean {
+  return !group.name.startsWith(INACTIVE_ASSESSMENT_GROUP_PREFIX)
+}
+
+const WEIGHT_EPSILON = 0.000001
+
+export function getAssessmentInternalWeight(assessment: Pick<Grade, "weight" | "weightWithinGroup">): number {
+  return assessment.weightWithinGroup ?? assessment.weight
+}
+
+export function getAssessmentInternalWeightTotal(assessments: Grade[], excludedAssessmentId?: string): number {
+  return assessments.reduce((total, assessment) => {
+    if (assessment.id === excludedAssessmentId || assessment.status === "exempt") return total
+    return total + getAssessmentInternalWeight(assessment)
+  }, 0)
+}
+
+export function getMaximumAssessmentWeight(assessments: Grade[], excludedAssessmentId?: string): number {
+  return Math.max(0, 100 - getAssessmentInternalWeightTotal(assessments, excludedAssessmentId))
+}
+
+export function isStandardSingleAssessmentFinalGroup(
+  group: AssessmentGroup,
+  activeSubjectGroups: AssessmentGroup[],
+): boolean {
+  if (group.kind !== "final_exam" || Math.abs(group.courseWeight - 40) > WEIGHT_EPSILON) return false
+  if (activeSubjectGroups.length !== 2) return false
+  return activeSubjectGroups.some(
+    (candidate) => candidate.id !== group.id
+      && candidate.kind === "continuous"
+      && Math.abs(candidate.courseWeight - 60) <= WEIGHT_EPSILON,
+  )
+}
+
+export type SubjectStructureStatus = "missing" | "valid" | "invalid"
+
+export function getSubjectStructureStatus(
+  groups: AssessmentGroup[],
+  assessments: Grade[],
+  subjectId: string,
+): SubjectStructureStatus {
+  const activeGroups = groups.filter(
+    (group) => group.subjectId === subjectId && isActiveAssessmentGroup(group),
+  )
+  if (activeGroups.length === 0) return "missing"
+  const courseWeight = activeGroups.reduce((total, group) => total + group.courseWeight, 0)
+  if (
+    activeGroups.some((group) => group.courseWeight <= 0 || group.courseWeight > 100)
+    || Math.abs(courseWeight - 100) > WEIGHT_EPSILON
+  ) return "invalid"
+  const hasOverflow = activeGroups.some((group) =>
+    getAssessmentInternalWeightTotal(assessments.filter((assessment) => assessment.groupId === group.id)) - 100
+      > WEIGHT_EPSILON)
+  return hasOverflow ? "invalid" : "valid"
+}
+
+export function getAvailableAssessmentGroups(
+  groups: AssessmentGroup[],
+  assessments: Grade[],
+  subjectId: string,
+  editingAssessmentId?: string,
+): AssessmentGroup[] {
+  const activeGroups = groups.filter(
+    (group) => group.subjectId === subjectId && isActiveAssessmentGroup(group) && group.courseWeight > 0,
+  )
+  const editingAssessment = editingAssessmentId
+    ? assessments.find((assessment) => assessment.id === editingAssessmentId)
+    : undefined
+  return activeGroups.filter((group) => {
+    if (editingAssessment?.groupId === group.id) return true
+    const groupAssessments = assessments.filter((assessment) => assessment.groupId === group.id)
+    if (isStandardSingleAssessmentFinalGroup(group, activeGroups) && groupAssessments.length > 0) return false
+    return getMaximumAssessmentWeight(groupAssessments) > WEIGHT_EPSILON
+  })
+}
+
+export function inactiveAssessmentGroupName(name: string): string {
+  return name.startsWith(INACTIVE_ASSESSMENT_GROUP_PREFIX)
+    ? name
+    : `${INACTIVE_ASSESSMENT_GROUP_PREFIX}${name}`
+}
 
 export function defaultAssessmentGroupId(semesterId: string, subjectId: string): string {
   return `legacy-continuous-${semesterId}-${subjectId}`
@@ -31,6 +114,8 @@ export function findDefaultAssessmentGroup(data: AppData, semesterId: string, su
 export function ensureDefaultAssessmentGroup(data: AppData, semesterId: string, subjectId: string, createdAt = Date.now()): { nextData: AppData; group: AssessmentGroup; created: boolean } {
   const existing = findDefaultAssessmentGroup(data, semesterId, subjectId)
   if (existing) return { nextData: data, group: existing, created: false }
+  const active = data.assessmentGroups.find((group) => sameScope(group, semesterId, subjectId) && isActiveAssessmentGroup(group))
+  if (active) return { nextData: data, group: active, created: false }
   const group = createDefaultAssessmentGroup(semesterId, subjectId, createdAt)
   return { nextData: { ...data, assessmentGroups: [...data.assessmentGroups, group].sort((a, b) => a.position - b.position) }, group, created: true }
 }
@@ -56,6 +141,129 @@ export function ensureGradeAssessmentGroup(data: AppData, grade: Grade, createdA
 
   const ensured = ensureDefaultAssessmentGroup(data, semesterId, grade.subjectId, createdAt)
   return { nextData: ensured.nextData, grade: { ...grade, semesterId, groupId: ensured.group.id }, group: ensured.group, created: ensured.created }
+}
+
+export function addGradeTransition(
+  data: AppData,
+  grade: Omit<Grade, "id" | "createdAt">,
+  id: string,
+  createdAt = Date.now(),
+): { nextData: AppData; grade: Grade; createdGroup: AssessmentGroup | null } {
+  const draft: Grade = {
+    ...grade,
+    id,
+    createdAt,
+    semesterId: grade.semesterId ?? data.activeSemesterId,
+    status: grade.status ?? (grade.score === null ? "planned" : "graded"),
+    weightWithinGroup: grade.weightWithinGroup ?? grade.weight,
+  }
+  const ensured = ensureGradeAssessmentGroup(data, draft, createdAt)
+  const activeSubjectGroups = ensured.nextData.assessmentGroups.filter(
+    (group) => group.subjectId === ensured.grade.subjectId && isActiveAssessmentGroup(group),
+  )
+  const groupAssessments = ensured.nextData.grades.filter((item) => item.groupId === ensured.group.id)
+  const standardFinal = isStandardSingleAssessmentFinalGroup(ensured.group, activeSubjectGroups)
+  if (standardFinal && groupAssessments.length > 0) {
+    throw new Error("La ponderación de este grupo ya está completa.")
+  }
+  const normalizedGrade = standardFinal
+    ? { ...ensured.grade, weight: 100, weightWithinGroup: 100 }
+    : ensured.grade
+  const maximumWeight = getMaximumAssessmentWeight(groupAssessments)
+  if (getAssessmentInternalWeight(normalizedGrade) - maximumWeight > WEIGHT_EPSILON) {
+    throw new Error(`Solo queda ${maximumWeight}% disponible en ${ensured.group.name}.`)
+  }
+  return {
+    nextData: { ...ensured.nextData, grades: [...ensured.nextData.grades, normalizedGrade] },
+    grade: normalizedGrade,
+    createdGroup: ensured.created ? ensured.group : null,
+  }
+}
+
+export type GradingPresetId =
+  | "continuous100"
+  | "presentation60Transversal40"
+  | "laboratoryTheoryTransversal"
+  | "custom"
+
+export function applyGradingPresetTransition(
+  data: AppData,
+  subjectId: string,
+  preset: GradingPresetId,
+  createdAt = Date.now(),
+  options: { preservePopulatedObsoleteGroups?: boolean } = {},
+): {
+  nextData: AppData
+  groups: AssessmentGroup[]
+  obsoletePopulatedGroups: AssessmentGroup[]
+  requiresResolution: boolean
+} {
+  const subject = data.subjects.find((item) => item.id === subjectId)
+  const semesterId = subject?.semesterId ?? data.activeSemesterId
+  if (!semesterId) throw new Error("No se puede configurar una materia sin semestre.")
+  const current = data.assessmentGroups
+    .filter((group) => group.subjectId === subjectId && group.semesterId === semesterId && isActiveAssessmentGroup(group))
+    .sort((a, b) => a.position - b.position)
+  const specifications = {
+    continuous100: [{ name: "Evaluación continua", kind: "continuous" as const, courseWeight: 100 }],
+    presentation60Transversal40: [
+      { name: "Evaluaciones parciales", kind: "continuous" as const, courseWeight: 60 },
+      { name: "Evaluación transversal", kind: "final_exam" as const, courseWeight: 40 },
+    ],
+    laboratoryTheoryTransversal: [
+      { name: "Laboratorio", kind: "laboratory" as const, courseWeight: 30 },
+      { name: "Teoría", kind: "continuous" as const, courseWeight: 30 },
+      { name: "Evaluación transversal", kind: "final_exam" as const, courseWeight: 40 },
+    ],
+    custom: [],
+  }[preset]
+  let nextGroups = [...data.assessmentGroups]
+  const configured: AssessmentGroup[] = []
+  for (const [index, specification] of specifications.entries()) {
+    const available = current.filter((group) => !configured.some((item) => item.id === group.id))
+    const existing = available.find((group) => group.name === specification.name)
+      ?? available.find((group) => group.kind === specification.kind)
+    const next = existing
+      ? { ...existing, ...specification }
+      : {
+          ...specification,
+          id: `${subjectId}-${specification.kind}-${createdAt}-${index}`,
+          semesterId,
+          subjectId,
+          position: current.length + index + 1,
+          createdAt,
+        }
+    nextGroups = existing
+      ? nextGroups.map((group) => group.id === existing.id ? next : group)
+      : [...nextGroups, next]
+    configured.push(next)
+  }
+  const configuredIds = new Set(configured.map((group) => group.id))
+  const obsolete = current.filter((group) => !configuredIds.has(group.id))
+  const populatedIds = new Set(data.grades.map((grade) => grade.groupId).filter(Boolean))
+  const obsoletePopulatedGroups = obsolete.filter((group) => populatedIds.has(group.id))
+  if (obsoletePopulatedGroups.length > 0 && !options.preservePopulatedObsoleteGroups) {
+    return {
+      nextData: data,
+      groups: current,
+      obsoletePopulatedGroups,
+      requiresResolution: true,
+    }
+  }
+
+  const obsoleteIds = new Set(obsolete.map((group) => group.id))
+  const populatedObsoleteIds = new Set(obsoletePopulatedGroups.map((group) => group.id))
+  nextGroups = nextGroups
+    .filter((group) => !obsoleteIds.has(group.id) || populatedObsoleteIds.has(group.id))
+    .map((group) => populatedObsoleteIds.has(group.id)
+      ? { ...group, name: inactiveAssessmentGroupName(group.name), courseWeight: 0 }
+      : group)
+  return {
+    nextData: { ...data, assessmentGroups: nextGroups.sort((a, b) => a.position - b.position) },
+    groups: configured,
+    obsoletePopulatedGroups,
+    requiresResolution: false,
+  }
 }
 
 export type DeleteAssessmentGroupResult =

@@ -251,11 +251,11 @@ export interface AppSettings {
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: "system",
   language: "es",
-  accentColor: "#0d9488",
+  accentColor: "#7c3aed",
   fontFamily: "sans",
   fontScale: 1,
   timeFormat: "24h",
-  radius: 0.625,
+  radius: 0.875,
   blockOpacity: 0.9,
   focusMode: false,
   enableSaturday: false,

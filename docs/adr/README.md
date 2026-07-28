@@ -6,3 +6,4 @@
 - ADR-004: Sistema de plugins internos confiables.
 - ADR-005: Motor académico determinista antes de LLM.
 - ADR-006: Generación local de PDF con jsPDF.
+- ADR-007: Navegación adaptativa sobre pestañas internas.

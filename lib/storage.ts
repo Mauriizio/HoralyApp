@@ -8,7 +8,7 @@ import {
 } from "./types.ts"
 import { commandKeyForSubjectName, ensureUniqueCommandKey, normalizeCommandKey } from "./command-key.ts"
 import { validateModules } from "./time-modules.ts"
-import { defaultAssessmentGroupId, ensureDefaultAssessmentGroupsForSubjects, ensureGradeAssessmentGroup } from "./assessment-groups.ts"
+import { defaultAssessmentGroupId, ensureGradeAssessmentGroup } from "./assessment-groups.ts"
 
 export const STORAGE_KEY = "horario-escolar:v1"
 
@@ -209,7 +209,7 @@ function normalizeSubjects(subjects: Subject[]): Subject[] {
 }
 
 function normalizeAssessmentGroups(data: AppData): AppData["assessmentGroups"] {
-  return ensureDefaultAssessmentGroupsForSubjects(data).assessmentGroups
+  return data.assessmentGroups
 }
 
 function normalizeGradeAssessment(grade: AppData["grades"][number], data: AppData): AppData["grades"][number] {

@@ -25,6 +25,7 @@ import { GradeScaleEditor } from "@/components/grade-scale-editor"
 import { SemesterManager } from "@/components/semesters/semester-manager"
 
 const ACCENT_PRESETS = [
+  { hex: "#7c3aed", label: "Morado Horarily" },
   { hex: "#0d9488", label: "Teal" },
   { hex: "#2563eb", label: "Azul" },
   { hex: "#dc2626", label: "Rojo" },

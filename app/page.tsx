@@ -6,8 +6,6 @@ import {
   BookOpen,
   Bell,
   BookMarked,
-  BarChart3,
-  Settings2,
   Zap,
   Keyboard,
   Plus,
@@ -16,10 +14,9 @@ import {
   Settings,
   Cloud,
   HardDrive,
-  Wrench,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -55,6 +52,8 @@ import type { DayKey, Subject } from "@/lib/types"
 import { formatTime, parseTime } from "@/lib/time-format"
 import { AuthProvider, useAuth } from "@/lib/auth-context"
 import { GuestAuthActions } from "@/components/auth/guest-auth-actions"
+import { AppShell } from "@/components/app-shell/app-shell"
+import { getTabUrl, isAppTab, type AppTab } from "@/components/app-shell/navigation"
 
 const DAY_INDEX_TO_KEY: Record<number, DayKey | null> = {
   0: "domingo",
@@ -78,7 +77,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
     updateSettings,
   } = store
   const { t, day: tDay } = useI18n()
-  const [tab, setTab] = useState("dashboard")
+  const [tab, setTab] = useState<AppTab>("dashboard")
   const [quickOpen, setQuickOpen] = useState(false)
   const { authenticated, loading: authLoading, transitioning } = useAuth()
 
@@ -96,29 +95,32 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const requestedTab = params.get("tab")
-    const validTabs = new Set([
-      "dashboard",
-      "horario",
-      "materias",
-      "estudio",
-      "recordatorios",
-      "notas",
-      "herramientas",
-      "onboarding",
-      "analitica",
-      "preferencias",
-    ])
-    if (requestedTab && validTabs.has(requestedTab)) {
+    if (isAppTab(requestedTab)) {
       setTab(requestedTab)
     }
   }, [])
+
+  const navigateTo = (nextTab: AppTab) => {
+    setTab(nextTab)
+    window.history.replaceState(null, "", getTabUrl(nextTab, window.location.search))
+  }
+  const requiresAcademicSetup =
+    !data.activeSemesterId ||
+    (!data.settings.onboarding.completed && !data.profile.onboardingCompletedAt)
+  const openSubjectCreation = () => {
+    if (requiresAcademicSetup) {
+      navigateTo("onboarding")
+      return
+    }
+    setSubjectEditing(undefined)
+    setSubjectOpen(true)
+  }
 
   const handleQuickAction = (action: QuickAction) => {
     setQuickOpen(false)
     switch (action) {
       case "new-subject":
-        setSubjectEditing(undefined)
-        setSubjectOpen(true)
+        openSubjectCreation()
         break
       case "new-reminder":
         setReminderOpen(true)
@@ -151,9 +153,6 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
 
   const subjectCount = data.subjects.length
   const blockCount = data.blocks.length
-  const reminderCount = data.reminders.length
-  const studyBlockCount = data.studyBlocks.length
-  const gradeCount = data.grades.length
 
   const assistantMessage = useMemo(() => {
     const now = new Date()
@@ -282,11 +281,14 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
     <>
       <ThemeApplier settings={data.settings} />
 
-      <div className="min-h-screen w-full overflow-x-clip">
-        {/* Header */}
-        <header className="sticky top-0 z-30 bg-background/90 backdrop-blur border-b border-border">
-          <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 h-14 flex items-center gap-2 sm:gap-3">
-            <div className="flex items-center gap-2 font-semibold min-w-0 flex-1 sm:flex-initial">
+      <AppShell
+        activeTab={tab}
+        onNavigate={navigateTo}
+        syncMessage={store.syncMessage}
+        header={
+        <header className="sticky top-0 z-30 border-b border-border/80 bg-background/88 backdrop-blur-xl">
+          <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-2 px-3 sm:gap-3 sm:px-5 lg:px-8">
+            <div className="flex min-w-0 flex-1 items-center gap-2 font-semibold sm:flex-initial lg:hidden">
               <div
                 className="h-7 w-7 rounded-md flex items-center justify-center shrink-0"
                 style={{ backgroundColor: "var(--primary)", color: "var(--primary-foreground)" }}
@@ -304,7 +306,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
 
             <div className="hidden sm:block flex-1" />
 
-            <Badge variant="outline" className="hidden lg:inline-flex shrink-0" title={store.syncMessage}>
+            <Badge variant="outline" className="hidden shrink-0 xl:inline-flex" title={store.syncMessage}>
               {store.syncStatus === "synced" || store.syncStatus === "syncing" ? <Cloud className="h-3 w-3 mr-1" /> : <HardDrive className="h-3 w-3 mr-1" />}
               {store.syncMessage}
             </Badge>
@@ -318,7 +320,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
             <Button
               variant="outline"
               size="sm"
-              className="hidden md:inline-flex shrink-0"
+              className="hidden shrink-0 xl:inline-flex"
               onClick={() => setQuickOpen(true)}
             >
               <Keyboard className="h-3.5 w-3.5 mr-1.5" />
@@ -338,10 +340,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
-                  onClick={() => {
-                    setSubjectEditing(undefined)
-                    setSubjectOpen(true)
-                  }}
+                  onClick={openSubjectCreation}
                 >
                   <BookOpen className="h-4 w-4 mr-2" />
                   {t("header.newSubject")}
@@ -365,7 +364,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
               variant="ghost"
               size="icon"
               className="shrink-0"
-              onClick={() => setTab("preferencias")}
+              onClick={() => navigateTo("preferencias")}
               aria-label={t("tabs.settings")}
               title={t("tabs.settings")}
             >
@@ -375,9 +374,8 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
             {authenticated && <ProfileButton store={store} />}
           </div>
         </header>
-
-        {/* Content */}
-        <main className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 py-4 sm:py-6">
+        }
+      >
           {/* Greeting */}
           <div className="mb-4">
             <HorarilySpeakingCard
@@ -410,10 +408,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
                 addGrade: addGradeFromConsole,
                 updateProfileName: (name) => updateProfile({ displayName: name }),
                 resetProfileName: () => updateProfile({ displayName: "" }),
-                openSubjectForm: () => {
-                  setSubjectEditing(undefined)
-                  setSubjectOpen(true)
-                },
+                openSubjectForm: openSubjectCreation,
                 openGradeForm: () => setGradeOpen(true),
               }}
               grade={data.grades.length > 0 ? (data.grades[data.grades.length - 1]?.score ?? undefined) : undefined}
@@ -445,10 +440,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button
                       size="sm"
-                      onClick={() => {
-                        setSubjectEditing(undefined)
-                        setSubjectOpen(true)
-                      }}
+                      onClick={openSubjectCreation}
                     >
                       <BookOpen className="h-4 w-4 mr-1.5" />
                       {t("app.welcome.firstSubject")}
@@ -477,71 +469,14 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
               AND the app is installable. Auto-hides after install. */}
           {subjectCount > 0 && <InstallBanner />}
 
-          <Tabs value={tab} onValueChange={setTab} className="space-y-4">
-            {/* Tabs are horizontally scrollable on mobile (snap), wrap on md+. */}
-            <div className="-mx-3 sm:mx-0 overflow-x-auto no-scrollbar scroll-snap-x">
-              <TabsList className="h-auto w-max md:w-full md:flex-wrap px-3 sm:px-0">
-                <TabsTrigger value="dashboard" className="shrink-0">
-                  <BarChart3 className="h-4 w-4 mr-1.5" />
-                  Dashboard
-                </TabsTrigger>
-                <TabsTrigger value="horario" className="shrink-0">
-                  <CalendarDays className="h-4 w-4 mr-1.5" />
-                  {t("tabs.schedule")}
-                </TabsTrigger>
-                <TabsTrigger value="materias" className="shrink-0">
-                  <BookOpen className="h-4 w-4 mr-1.5" />
-                  {t("tabs.subjects")}
-                  {subjectCount > 0 && (
-                    <Badge variant="secondary" className="ml-1.5 h-4 px-1 text-[10px]">
-                      {subjectCount}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="estudio" className="shrink-0">
-                  <BookMarked className="h-4 w-4 mr-1.5" />
-                  {t("tabs.study")}
-                  {studyBlockCount > 0 && (
-                    <Badge variant="secondary" className="ml-1.5 h-4 px-1 text-[10px]">
-                      {studyBlockCount}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="recordatorios" className="shrink-0">
-                  <Bell className="h-4 w-4 mr-1.5" />
-                  {t("tabs.reminders")}
-                  {reminderCount > 0 && (
-                    <Badge variant="secondary" className="ml-1.5 h-4 px-1 text-[10px]">
-                      {reminderCount}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="notas" className="shrink-0">
-                  <GraduationCap className="h-4 w-4 mr-1.5" />
-                  {t("tabs.grades")}
-                  {gradeCount > 0 && (
-                    <Badge variant="secondary" className="ml-1.5 h-4 px-1 text-[10px]">
-                      {gradeCount}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="herramientas" className="shrink-0">
-                  <Wrench className="h-4 w-4 mr-1.5" />
-                  Herramientas
-                </TabsTrigger>
-                <TabsTrigger value="preferencias" className="shrink-0">
-                  <Settings2 className="h-4 w-4 mr-1.5" />
-                  {t("tabs.settings")}
-                </TabsTrigger>
-              </TabsList>
-            </div>
+          <Tabs value={tab} onValueChange={(value) => isAppTab(value) && navigateTo(value)} className="space-y-4">
 
             <TabsContent value="dashboard" className="space-y-4 mt-4">
-              <AcademicDashboard store={store} onNavigate={setTab} />
+              <AcademicDashboard store={store} onNavigate={navigateTo} />
             </TabsContent>
 
             <TabsContent value="onboarding" className="space-y-4 mt-4">
-              <OnboardingFlow store={store} onDone={() => setTab("dashboard")} />
+              <OnboardingFlow store={store} onDone={() => navigateTo("dashboard")} />
             </TabsContent>
 
             <TabsContent value="horario" className="space-y-4 mt-4">
@@ -582,21 +517,18 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
 
               <ScheduleGrid
                 store={store}
-                onNewSubject={() => {
-                  setSubjectEditing(undefined)
-                  setSubjectOpen(true)
-                }}
+                onNewSubject={openSubjectCreation}
                 onEditSubject={openEditSubject}
                 restrictedDay={showFocus ? focusDay! : undefined}
                 showSaturday={data.settings.enableSaturday}
                 timeFormat={data.settings.timeFormat}
                 reminders={data.reminders}
-                onOpenReminders={() => setTab("recordatorios")}
+                onOpenReminders={() => navigateTo("recordatorios")}
               />
             </TabsContent>
 
             <TabsContent value="materias" className="mt-4">
-              <SubjectsPanel store={store} />
+              <SubjectsPanel store={store} onRequireSetup={() => navigateTo("onboarding")} />
             </TabsContent>
 
             <TabsContent value="estudio" className="mt-4">
@@ -611,17 +543,19 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
               <GradesPanel store={store} />
             </TabsContent>
 
+            <TabsContent value="analitica" className="mt-4">
+              <AnalyticsView store={store} />
+            </TabsContent>
+
             <TabsContent value="herramientas" className="mt-4">
               <PluginsView />
             </TabsContent>
 
             <TabsContent value="preferencias" className="mt-4">
-              <SettingsView store={store} onOpenOnboarding={() => setTab("onboarding")} />
+              <SettingsView store={store} onOpenOnboarding={() => navigateTo("onboarding")} />
             </TabsContent>
           </Tabs>
-        </main>
-
-        <footer className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 py-6 text-xs text-muted-foreground">
+        <footer className="hidden py-6 text-xs text-muted-foreground lg:block">
           <div>{t("app.tagline")}</div>
           <div className="mt-1">
             App diseñada por{" "}
@@ -635,7 +569,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
             </a>
           </div>
         </footer>
-      </div>
+      </AppShell>
 
       {/* Global dialogs */}
       <SubjectForm
@@ -667,7 +601,10 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         open={gradeOpen}
         onOpenChange={setGradeOpen}
         subjects={data.subjects}
+        groups={data.assessmentGroups}
+        assessments={data.grades}
         scale={data.settings.gradeScale}
+        onApplyTwoGroupPreset={(subjectId) => store.applyGradingPreset(subjectId, "presentation60Transversal40")}
         onSubmit={(values) => addGrade(values)}
       />
       <MigrationModal store={store} />
