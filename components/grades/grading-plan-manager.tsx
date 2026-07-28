@@ -98,7 +98,13 @@ export function GradingPlanManager({
         </section>
       )}
       <GradeProjectionCard projection={projection} />
-      <GradeSimulator assessments={activeAssessments} onSimulate={store.simulateAssessmentScore} />
+      <GradeSimulator
+        subject={subject}
+        groups={groups}
+        assessments={activeAssessments}
+        scale={store.data.settings.gradeScale}
+        onSimulate={store.simulateAssessmentScore}
+      />
       <Dialog open={Boolean(pendingPreset)} onOpenChange={(open) => { if (!open) setPendingPreset(null) }}>
         <DialogContent>
           <DialogHeader>

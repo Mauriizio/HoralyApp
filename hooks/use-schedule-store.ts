@@ -27,7 +27,7 @@ import { SupabaseAcademicRepository, selectAcademicRepository, type AcademicRepo
 import { loadCloudCache, saveCloudCache, saveMigrationBackup, loadMigrationBackup } from "@/lib/local-cloud-storage"
 import { transitionDeleteModule, transitionMoveBlock, transitionSetModules, transitionUpdateSubject, transitionUpsertBlock } from "@/lib/schedule-transitions"
 import { filterDataByActiveSemester } from "@/application/semesters"
-import { addGradeTransition, applyGradingPresetTransition, deleteAssessmentGroupTransition, ensureDefaultAssessmentGroup, type GradingPresetId } from "@/lib/assessment-groups"
+import { addGradeTransition, applyGradingPresetTransition, deleteAssessmentGroupTransition, ensureDefaultAssessmentGroup, getAssessmentInternalWeight, getMaximumAssessmentWeight, isActiveAssessmentGroup, isStandardSingleAssessmentFinalGroup, type GradingPresetId } from "@/lib/assessment-groups"
 import { assertSameGeneration, assertSameIdentity, logIdentity, type OperationIdentityContext, SessionIdentityMismatchError } from "@/lib/session-identity"
 
 export { validateModules }
@@ -418,11 +418,26 @@ export function useScheduleStore() {
   const createAssessment = addGrade
 
   const updateGrade = useCallback((id: string, patch: Partial<Grade>) => {
-    const current = data.grades.find((g) => g.id === id)
-    const next = current ? { ...current, ...patch } : undefined
-    setData((d) => ({ ...d, grades: d.grades.map((g) => (g.id === id ? { ...g, ...patch } : g)) }))
+    const snapshot = dataRef.current
+    const current = snapshot.grades.find((grade) => grade.id === id)
+    let next = current ? { ...current, ...patch } : undefined
+    if (next?.groupId) {
+      const group = snapshot.assessmentGroups.find((item) => item.id === next?.groupId)
+      const activeGroups = snapshot.assessmentGroups.filter((item) => item.subjectId === next?.subjectId && isActiveAssessmentGroup(item))
+      const groupAssessments = snapshot.grades.filter((grade) => grade.groupId === next?.groupId)
+      if (group && isStandardSingleAssessmentFinalGroup(group, activeGroups)) {
+        next = { ...next, weight: 100, weightWithinGroup: 100 }
+      }
+      const maximumWeight = getMaximumAssessmentWeight(groupAssessments, id)
+      if (getAssessmentInternalWeight(next) - maximumWeight > 0.000001) {
+        throw new Error(`Solo queda ${maximumWeight}% disponible en ${group?.name ?? "este grupo"}.`)
+      }
+    }
+    if (!next) return
+    dataRef.current = { ...snapshot, grades: snapshot.grades.map((grade) => grade.id === id ? next : grade) }
+    setData(dataRef.current)
     if (next) void persistCloud(dataOwnerUserId, (repository) => repository.saveGrade(next))
-  }, [data.grades, dataOwnerUserId, persistCloud])
+  }, [dataOwnerUserId, persistCloud])
 
   const updateAssessment = updateGrade
 

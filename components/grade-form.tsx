@@ -21,15 +21,16 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useI18n } from "@/components/i18n-provider"
-import type { AssessmentGroup, AssessmentStatus, Grade, GradeScale, Subject } from "@/lib/types"
+import type { AssessmentGroup, Grade, GradeScale, Subject } from "@/lib/types"
 import { isScoreInScale, isValidWeight } from "@/lib/grade-utils"
-import { isActiveAssessmentGroup } from "@/lib/assessment-groups"
+import { getMaximumAssessmentWeight, isActiveAssessmentGroup, isStandardSingleAssessmentFinalGroup } from "@/lib/assessment-groups"
 
 interface GradeFormProps {
   open: boolean
   onOpenChange: (v: boolean) => void
   subjects: Subject[]
   groups?: AssessmentGroup[]
+  assessments?: Grade[]
   scale: GradeScale
   initial?: Grade
   defaultSubjectId?: string
@@ -51,6 +52,7 @@ export function GradeForm({
   onOpenChange,
   subjects,
   groups = [],
+  assessments = [],
   scale,
   initial,
   defaultSubjectId,
@@ -67,25 +69,34 @@ export function GradeForm({
   const [date, setDate] = useState(initial?.date ?? todayIso())
   const [notes, setNotes] = useState(initial?.notes ?? "")
   const [groupId, setGroupId] = useState(initial?.groupId ?? "")
-  const [status, setStatus] = useState<AssessmentStatus>(initial?.status ?? (initial?.score === null ? "planned" : "graded"))
   const availableGroups = groups.filter((group) => group.subjectId === subjectId && isActiveAssessmentGroup(group))
   const selectedSubject = subjects.find((subject) => subject.id === subjectId)
   const hasTransversalGroup = availableGroups.some((group) => group.kind === "final_exam")
+  const selectedGroup = availableGroups.find((group) => group.id === groupId)
+  const groupAssessments = assessments.filter((assessment) => assessment.groupId === groupId)
+  const isStandardFinal = Boolean(selectedGroup && isStandardSingleAssessmentFinalGroup(selectedGroup, availableGroups))
+  const maximumWeight = isStandardFinal ? 100 : getMaximumAssessmentWeight(groupAssessments, initial?.id)
+  const groupAlreadyComplete = !initial && (maximumWeight <= 0 || (isStandardFinal && groupAssessments.length > 0))
 
   useEffect(() => {
     if (open) {
       setSubjectId(initial?.subjectId ?? defaultSubjectId ?? subjects[0]?.id ?? "")
       setTitle(initial?.title ?? "")
       setScore(initial?.score?.toString() ?? "")
-      setWeight(initial?.weight?.toString() ?? "20")
       setDate(initial?.date ?? todayIso())
       setNotes(initial?.notes ?? "")
       const nextSubjectId = initial?.subjectId ?? defaultSubjectId ?? subjects[0]?.id ?? ""
       const subjectGroups = groups.filter((group) => group.subjectId === nextSubjectId && isActiveAssessmentGroup(group))
-      setGroupId(initial?.groupId ?? defaultGroupId ?? (subjectGroups.length === 1 ? subjectGroups[0].id : ""))
-      setStatus(initial?.status ?? (initial?.score === null ? "planned" : "graded"))
+      const nextGroupId = initial?.groupId ?? defaultGroupId ?? (subjectGroups.length === 1 ? subjectGroups[0].id : "")
+      const nextGroup = subjectGroups.find((group) => group.id === nextGroupId)
+      const nextAssessments = assessments.filter((assessment) => assessment.groupId === nextGroupId)
+      const suggestedWeight = nextGroup && isStandardSingleAssessmentFinalGroup(nextGroup, subjectGroups)
+        ? 100
+        : getMaximumAssessmentWeight(nextAssessments, initial?.id)
+      setGroupId(nextGroupId)
+      setWeight(initial?.weightWithinGroup?.toString() ?? initial?.weight?.toString() ?? (suggestedWeight > 0 ? suggestedWeight.toString() : ""))
     }
-  }, [open, initial, defaultSubjectId, defaultGroupId])
+  }, [open, initial, defaultSubjectId, defaultGroupId, subjects, groups, assessments])
 
   const scoreNum = parseFloat(score)
   const weightNum = parseFloat(weight)
@@ -95,11 +106,14 @@ export function GradeForm({
     if (!subjectId) errs.push(t("common.required"))
     if (!groupId) errs.push("Selecciona un grupo de evaluación.")
     if (!title.trim()) errs.push(t("common.required"))
-    if (status === "graded" && !isScoreInScale(scoreNum, scale))
+    if (!isScoreInScale(scoreNum, scale))
       errs.push(t("grade.scale", { min: scale.min, max: scale.max, passing: scale.passing }))
-    if (!isValidWeight(weightNum)) errs.push(`${t("grade.weight")} (1-100)`)
+    if (!isStandardFinal && !isValidWeight(weightNum)) errs.push(`${t("grade.weight")} (1-100)`)
+    if (!isStandardFinal && weightNum > maximumWeight)
+      errs.push(`Solo queda ${maximumWeight}% disponible en ${selectedGroup?.name ?? "este grupo"}.`)
+    if (groupAlreadyComplete) errs.push("La ponderación de este grupo ya está completa.")
     return errs
-  }, [subjectId, groupId, title, scoreNum, weightNum, scale, status, t])
+  }, [subjectId, groupId, title, scoreNum, weightNum, scale, isStandardFinal, maximumWeight, selectedGroup, groupAlreadyComplete, t])
 
   const valid = errors.length === 0
 
@@ -109,10 +123,10 @@ export function GradeForm({
       subjectId,
       groupId: groupId || undefined,
       title: title.trim(),
-      score: status === "graded" ? scoreNum : null,
-      weight: weightNum,
-      weightWithinGroup: weightNum,
-      status,
+      score: scoreNum,
+      weight: isStandardFinal ? 100 : weightNum,
+      weightWithinGroup: isStandardFinal ? 100 : weightNum,
+      status: "graded",
       date,
       notes: notes.trim() || undefined,
     })
@@ -139,7 +153,14 @@ export function GradeForm({
             ) : <Select value={subjectId} onValueChange={(nextSubjectId) => {
               setSubjectId(nextSubjectId)
               const nextGroups = groups.filter((group) => group.subjectId === nextSubjectId && isActiveAssessmentGroup(group))
-              setGroupId(nextGroups.length === 1 ? nextGroups[0].id : "")
+              const nextGroup = nextGroups.length === 1 ? nextGroups[0] : undefined
+              setGroupId(nextGroup?.id ?? "")
+              if (nextGroup) {
+                const nextAssessments = assessments.filter((assessment) => assessment.groupId === nextGroup.id)
+                setWeight(isStandardSingleAssessmentFinalGroup(nextGroup, nextGroups)
+                  ? "100"
+                  : getMaximumAssessmentWeight(nextAssessments).toString())
+              }
             }}>
               <SelectTrigger id="g-subject">
                 <SelectValue />
@@ -160,28 +181,23 @@ export function GradeForm({
             </Select>}
           </Field>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div>
             <Field>
               <FieldLabel htmlFor="g-group">Grupo de evaluación</FieldLabel>
-              <Select value={groupId} onValueChange={setGroupId}>
+              <Select value={groupId} onValueChange={(nextGroupId) => {
+                setGroupId(nextGroupId)
+                const nextGroup = availableGroups.find((group) => group.id === nextGroupId)
+                const nextAssessments = assessments.filter((assessment) => assessment.groupId === nextGroupId)
+                setWeight(nextGroup && isStandardSingleAssessmentFinalGroup(nextGroup, availableGroups)
+                  ? "100"
+                  : getMaximumAssessmentWeight(nextAssessments, initial?.id).toString())
+              }}>
                 <SelectTrigger id="g-group"><SelectValue placeholder="Selecciona un grupo" /></SelectTrigger>
                 <SelectContent>
                   {availableGroups.map((group) => <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>)}
                 </SelectContent>
               </Select>
               {availableGroups.length === 0 && <FieldDescription>Esta materia todavía no tiene grupos configurados.</FieldDescription>}
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="g-status">Estado</FieldLabel>
-              <Select value={status} onValueChange={(value) => setStatus(value as AssessmentStatus)}>
-                <SelectTrigger id="g-status"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="planned">Planificada</SelectItem>
-                  <SelectItem value="graded">Calificada</SelectItem>
-                  <SelectItem value="missing">Pendiente</SelectItem>
-                  <SelectItem value="exempt">Eximida</SelectItem>
-                </SelectContent>
-              </Select>
             </Field>
           </div>
 
@@ -213,25 +229,37 @@ export function GradeForm({
                 max={scale.max}
                 value={score}
                 onChange={(e) => setScore(e.target.value)}
-                disabled={status !== "graded"}
               />
               <FieldDescription>
                 {scale.min}–{scale.max}
               </FieldDescription>
             </Field>
-            <Field>
+            {isStandardFinal ? (
+              <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+                Esta evaluación representa el 100% del grupo transversal.
+              </div>
+            ) : <Field>
               <FieldLabel htmlFor="g-weight">Peso dentro del grupo (%)</FieldLabel>
               <Input
                 id="g-weight"
                 type="number"
-                step="1"
+                step="0.01"
                 min={1}
-                max={100}
+                max={maximumWeight}
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
               />
-            </Field>
+              <FieldDescription>
+                Disponible: {maximumWeight}% en {selectedGroup?.name ?? "el grupo seleccionado"}.
+              </FieldDescription>
+            </Field>}
           </div>
+
+          {errors.length > 0 && (
+            <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+              {errors.map((error) => <p key={error}>{error}</p>)}
+            </div>
+          )}
 
           <Field>
             <FieldLabel htmlFor="g-date">{t("grade.date")}</FieldLabel>

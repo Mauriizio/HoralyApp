@@ -2,7 +2,13 @@ import test from "node:test"
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { evaluateSubjectGradingPlan } from "../domain/grading/index.ts"
-import { addGradeTransition, applyGradingPresetTransition, isActiveAssessmentGroup } from "../lib/assessment-groups.ts"
+import {
+  addGradeTransition,
+  applyGradingPresetTransition,
+  getMaximumAssessmentWeight,
+  isActiveAssessmentGroup,
+  isStandardSingleAssessmentFinalGroup,
+} from "../lib/assessment-groups.ts"
 import { EMPTY_APP_DATA, type AppData, type AssessmentGroup, type Grade } from "../lib/types.ts"
 import { migrateData } from "../lib/storage.ts"
 
@@ -59,12 +65,13 @@ test("formularios reinician creación y conservan edición explícita", () => {
   assert.match(subjectsPanel, /setEditing\(s\)/)
 })
 
-test("evaluaciones exponen grupo, estado, edición y borrado", () => {
+test("evaluaciones exponen grupo, estado calificado implícito, edición y borrado", () => {
   const form = readFileSync("components/grade-form.tsx", "utf8")
   const editor = readFileSync("components/grades/assessment-editor.tsx", "utf8")
   assert.match(form, /groupId/)
   assert.match(form, /status/)
-  assert.match(form, /score: status === "graded"/)
+  assert.match(form, /score: scoreNum/)
+  assert.match(form, /status: "graded"/)
   assert.match(editor, /Editar/)
   assert.match(editor, /Eliminar/)
 })
@@ -204,4 +211,51 @@ test("Registrar nota filtra grupos fuera de la estructura activa", () => {
   const form = readFileSync("components/grade-form.tsx", "utf8")
   assert.match(form, /isActiveAssessmentGroup/)
   assert.match(form, /group\.subjectId === subjectId && isActiveAssessmentGroup\(group\)/)
+})
+
+test("limita creación y edición al peso interno realmente disponible", () => {
+  const existing = assessments(5).map((grade, index) => ({
+    ...grade,
+    weight: index === 4 ? 5 : 20,
+    weightWithinGroup: index === 4 ? 5 : 20,
+  }))
+  assert.equal(getMaximumAssessmentWeight(existing), 15)
+  assert.equal(getMaximumAssessmentWeight(assessments(5), "g-0"), 20)
+  assert.equal(getMaximumAssessmentWeight(assessments(5), "g-0") < 25, true)
+  assert.equal(getMaximumAssessmentWeight(assessments(5), "g-0") >= 15, true)
+
+  const invalidLegacy = [...existing, { ...existing[0], id: "legacy-extra", weight: 20, weightWithinGroup: 20 }]
+  assert.equal(getMaximumAssessmentWeight(invalidLegacy), 0)
+  assert.equal(getMaximumAssessmentWeight(invalidLegacy, "legacy-extra"), 15)
+})
+
+test("reconoce solo el transversal estándar por semántica de la estructura", () => {
+  const partials = group
+  const final = { ...group, id: "transversal", kind: "final_exam" as const, courseWeight: 40, position: 2 }
+  assert.equal(isStandardSingleAssessmentFinalGroup(final, [partials, final]), true)
+  assert.equal(isStandardSingleAssessmentFinalGroup({ ...final, name: "Nombre editable" }, [partials, final]), true)
+  assert.equal(isStandardSingleAssessmentFinalGroup(final, [{ ...partials, courseWeight: 30 }, final]), false)
+  assert.equal(isStandardSingleAssessmentFinalGroup(final, [partials, final, { ...partials, id: "lab", kind: "laboratory", courseWeight: 30 }]), false)
+})
+
+test("la UI de notas no expone estado, evita duplicados y presenta simulación contextual", () => {
+  const form = readFileSync("components/grade-form.tsx", "utf8")
+  const panel = readFileSync("components/grades-panel.tsx", "utf8")
+  const editor = readFileSync("components/grades/assessment-editor.tsx", "utf8")
+  const groupEditor = readFileSync("components/grades/assessment-group-editor.tsx", "utf8")
+  const simulator = readFileSync("components/grades/grade-simulator.tsx", "utf8")
+  assert.doesNotMatch(form, /g-status/)
+  assert.match(form, /status: "graded"/)
+  assert.match(form, /getMaximumAssessmentWeight/)
+  assert.match(form, /Esta evaluación representa el 100% del grupo transversal/)
+  assert.doesNotMatch(panel, /subjectGrades\.map/)
+  assert.match(panel, /CollapsibleTrigger/)
+  assert.match(panel, /aria-expanded/)
+  assert.match(editor, /assessment\.score/)
+  assert.match(editor, /formatWeight/)
+  assert.doesNotMatch(editor, /Peso final del grupo:/)
+  assert.match(groupEditor, /Math\.abs\(total - 100\) <= 0\.001/)
+  assert.match(simulator, /Simular nota de/)
+  assert.match(simulator, /Select/)
+  assert.match(simulator, /evaluateSubjectGradingPlan/)
 })

@@ -7,6 +7,36 @@ export function isActiveAssessmentGroup(group: Pick<AssessmentGroup, "name">): b
   return !group.name.startsWith(INACTIVE_ASSESSMENT_GROUP_PREFIX)
 }
 
+const WEIGHT_EPSILON = 0.000001
+
+export function getAssessmentInternalWeight(assessment: Pick<Grade, "weight" | "weightWithinGroup">): number {
+  return assessment.weightWithinGroup ?? assessment.weight
+}
+
+export function getAssessmentInternalWeightTotal(assessments: Grade[], excludedAssessmentId?: string): number {
+  return assessments.reduce((total, assessment) => {
+    if (assessment.id === excludedAssessmentId || assessment.status === "exempt") return total
+    return total + getAssessmentInternalWeight(assessment)
+  }, 0)
+}
+
+export function getMaximumAssessmentWeight(assessments: Grade[], excludedAssessmentId?: string): number {
+  return Math.max(0, 100 - getAssessmentInternalWeightTotal(assessments, excludedAssessmentId))
+}
+
+export function isStandardSingleAssessmentFinalGroup(
+  group: AssessmentGroup,
+  activeSubjectGroups: AssessmentGroup[],
+): boolean {
+  if (group.kind !== "final_exam" || Math.abs(group.courseWeight - 40) > WEIGHT_EPSILON) return false
+  if (activeSubjectGroups.length !== 2) return false
+  return activeSubjectGroups.some(
+    (candidate) => candidate.id !== group.id
+      && candidate.kind === "continuous"
+      && Math.abs(candidate.courseWeight - 60) <= WEIGHT_EPSILON,
+  )
+}
+
 export function inactiveAssessmentGroupName(name: string): string {
   return name.startsWith(INACTIVE_ASSESSMENT_GROUP_PREFIX)
     ? name
@@ -86,9 +116,24 @@ export function addGradeTransition(
     weightWithinGroup: grade.weightWithinGroup ?? grade.weight,
   }
   const ensured = ensureGradeAssessmentGroup(data, draft, createdAt)
+  const activeSubjectGroups = ensured.nextData.assessmentGroups.filter(
+    (group) => group.subjectId === ensured.grade.subjectId && isActiveAssessmentGroup(group),
+  )
+  const groupAssessments = ensured.nextData.grades.filter((item) => item.groupId === ensured.group.id)
+  const standardFinal = isStandardSingleAssessmentFinalGroup(ensured.group, activeSubjectGroups)
+  if (standardFinal && groupAssessments.length > 0) {
+    throw new Error("La ponderación de este grupo ya está completa.")
+  }
+  const normalizedGrade = standardFinal
+    ? { ...ensured.grade, weight: 100, weightWithinGroup: 100 }
+    : ensured.grade
+  const maximumWeight = getMaximumAssessmentWeight(groupAssessments)
+  if (getAssessmentInternalWeight(normalizedGrade) - maximumWeight > WEIGHT_EPSILON) {
+    throw new Error(`Solo queda ${maximumWeight}% disponible en ${ensured.group.name}.`)
+  }
   return {
-    nextData: { ...ensured.nextData, grades: [...ensured.nextData.grades, ensured.grade] },
-    grade: ensured.grade,
+    nextData: { ...ensured.nextData, grades: [...ensured.nextData.grades, normalizedGrade] },
+    grade: normalizedGrade,
     createdGroup: ensured.created ? ensured.group : null,
   }
 }

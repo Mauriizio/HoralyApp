@@ -602,6 +602,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         onOpenChange={setGradeOpen}
         subjects={data.subjects}
         groups={data.assessmentGroups}
+        assessments={data.grades}
         scale={data.settings.gradeScale}
         onApplyTwoGroupPreset={(subjectId) => store.applyGradingPreset(subjectId, "presentation60Transversal40")}
         onSubmit={(values) => addGrade(values)}
