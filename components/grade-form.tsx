@@ -23,6 +23,7 @@ import {
 import { useI18n } from "@/components/i18n-provider"
 import type { AssessmentGroup, AssessmentStatus, Grade, GradeScale, Subject } from "@/lib/types"
 import { isScoreInScale, isValidWeight } from "@/lib/grade-utils"
+import { isActiveAssessmentGroup } from "@/lib/assessment-groups"
 
 interface GradeFormProps {
   open: boolean
@@ -67,7 +68,7 @@ export function GradeForm({
   const [notes, setNotes] = useState(initial?.notes ?? "")
   const [groupId, setGroupId] = useState(initial?.groupId ?? "")
   const [status, setStatus] = useState<AssessmentStatus>(initial?.status ?? (initial?.score === null ? "planned" : "graded"))
-  const availableGroups = groups.filter((group) => group.subjectId === subjectId)
+  const availableGroups = groups.filter((group) => group.subjectId === subjectId && isActiveAssessmentGroup(group))
   const selectedSubject = subjects.find((subject) => subject.id === subjectId)
   const hasTransversalGroup = availableGroups.some((group) => group.kind === "final_exam")
 
@@ -80,7 +81,7 @@ export function GradeForm({
       setDate(initial?.date ?? todayIso())
       setNotes(initial?.notes ?? "")
       const nextSubjectId = initial?.subjectId ?? defaultSubjectId ?? subjects[0]?.id ?? ""
-      const subjectGroups = groups.filter((group) => group.subjectId === nextSubjectId)
+      const subjectGroups = groups.filter((group) => group.subjectId === nextSubjectId && isActiveAssessmentGroup(group))
       setGroupId(initial?.groupId ?? defaultGroupId ?? (subjectGroups.length === 1 ? subjectGroups[0].id : ""))
       setStatus(initial?.status ?? (initial?.score === null ? "planned" : "graded"))
     }
@@ -137,7 +138,7 @@ export function GradeForm({
               </div>
             ) : <Select value={subjectId} onValueChange={(nextSubjectId) => {
               setSubjectId(nextSubjectId)
-              const nextGroups = groups.filter((group) => group.subjectId === nextSubjectId)
+              const nextGroups = groups.filter((group) => group.subjectId === nextSubjectId && isActiveAssessmentGroup(group))
               setGroupId(nextGroups.length === 1 ? nextGroups[0].id : "")
             }}>
               <SelectTrigger id="g-subject">

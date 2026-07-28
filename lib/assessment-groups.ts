@@ -1,6 +1,17 @@
 import type { AppData, AssessmentGroup, Grade } from "./types.ts"
 
 export const DEFAULT_ASSESSMENT_GROUP_NAME = "Evaluación continua"
+export const INACTIVE_ASSESSMENT_GROUP_PREFIX = "Fuera de estructura · "
+
+export function isActiveAssessmentGroup(group: Pick<AssessmentGroup, "name">): boolean {
+  return !group.name.startsWith(INACTIVE_ASSESSMENT_GROUP_PREFIX)
+}
+
+export function inactiveAssessmentGroupName(name: string): string {
+  return name.startsWith(INACTIVE_ASSESSMENT_GROUP_PREFIX)
+    ? name
+    : `${INACTIVE_ASSESSMENT_GROUP_PREFIX}${name}`
+}
 
 export function defaultAssessmentGroupId(semesterId: string, subjectId: string): string {
   return `legacy-continuous-${semesterId}-${subjectId}`
@@ -31,6 +42,8 @@ export function findDefaultAssessmentGroup(data: AppData, semesterId: string, su
 export function ensureDefaultAssessmentGroup(data: AppData, semesterId: string, subjectId: string, createdAt = Date.now()): { nextData: AppData; group: AssessmentGroup; created: boolean } {
   const existing = findDefaultAssessmentGroup(data, semesterId, subjectId)
   if (existing) return { nextData: data, group: existing, created: false }
+  const active = data.assessmentGroups.find((group) => sameScope(group, semesterId, subjectId) && isActiveAssessmentGroup(group))
+  if (active) return { nextData: data, group: active, created: false }
   const group = createDefaultAssessmentGroup(semesterId, subjectId, createdAt)
   return { nextData: { ...data, assessmentGroups: [...data.assessmentGroups, group].sort((a, b) => a.position - b.position) }, group, created: true }
 }
@@ -91,12 +104,18 @@ export function applyGradingPresetTransition(
   subjectId: string,
   preset: GradingPresetId,
   createdAt = Date.now(),
-): { nextData: AppData; groups: AssessmentGroup[] } {
+  options: { preservePopulatedObsoleteGroups?: boolean } = {},
+): {
+  nextData: AppData
+  groups: AssessmentGroup[]
+  obsoletePopulatedGroups: AssessmentGroup[]
+  requiresResolution: boolean
+} {
   const subject = data.subjects.find((item) => item.id === subjectId)
   const semesterId = subject?.semesterId ?? data.activeSemesterId
   if (!semesterId) throw new Error("No se puede configurar una materia sin semestre.")
   const current = data.assessmentGroups
-    .filter((group) => group.subjectId === subjectId && group.semesterId === semesterId)
+    .filter((group) => group.subjectId === subjectId && group.semesterId === semesterId && isActiveAssessmentGroup(group))
     .sort((a, b) => a.position - b.position)
   const specifications = {
     continuous100: [{ name: "Evaluación continua", kind: "continuous" as const, courseWeight: 100 }],
@@ -114,9 +133,9 @@ export function applyGradingPresetTransition(
   let nextGroups = [...data.assessmentGroups]
   const configured: AssessmentGroup[] = []
   for (const [index, specification] of specifications.entries()) {
-    const existing = current.find((group) =>
-      !configured.some((item) => item.id === group.id) && group.kind === specification.kind,
-    )
+    const available = current.filter((group) => !configured.some((item) => item.id === group.id))
+    const existing = available.find((group) => group.name === specification.name)
+      ?? available.find((group) => group.kind === specification.kind)
     const next = existing
       ? { ...existing, ...specification }
       : {
@@ -132,7 +151,32 @@ export function applyGradingPresetTransition(
       : [...nextGroups, next]
     configured.push(next)
   }
-  return { nextData: { ...data, assessmentGroups: nextGroups.sort((a, b) => a.position - b.position) }, groups: configured }
+  const configuredIds = new Set(configured.map((group) => group.id))
+  const obsolete = current.filter((group) => !configuredIds.has(group.id))
+  const populatedIds = new Set(data.grades.map((grade) => grade.groupId).filter(Boolean))
+  const obsoletePopulatedGroups = obsolete.filter((group) => populatedIds.has(group.id))
+  if (obsoletePopulatedGroups.length > 0 && !options.preservePopulatedObsoleteGroups) {
+    return {
+      nextData: data,
+      groups: current,
+      obsoletePopulatedGroups,
+      requiresResolution: true,
+    }
+  }
+
+  const obsoleteIds = new Set(obsolete.map((group) => group.id))
+  const populatedObsoleteIds = new Set(obsoletePopulatedGroups.map((group) => group.id))
+  nextGroups = nextGroups
+    .filter((group) => !obsoleteIds.has(group.id) || populatedObsoleteIds.has(group.id))
+    .map((group) => populatedObsoleteIds.has(group.id)
+      ? { ...group, name: inactiveAssessmentGroupName(group.name), courseWeight: 0 }
+      : group)
+  return {
+    nextData: { ...data, assessmentGroups: nextGroups.sort((a, b) => a.position - b.position) },
+    groups: configured,
+    obsoletePopulatedGroups,
+    requiresResolution: false,
+  }
 }
 
 export type DeleteAssessmentGroupResult =

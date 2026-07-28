@@ -10,6 +10,7 @@ import { useI18n } from "@/components/i18n-provider"
 import { GradeForm } from "@/components/grade-form"
 import { GradingPlanManager } from "@/components/grades/grading-plan-manager"
 import { computeGlobalStats } from "@/lib/grade-utils"
+import { isActiveAssessmentGroup } from "@/lib/assessment-groups"
 import type { Grade } from "@/lib/types"
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
 
@@ -18,14 +19,22 @@ export function GradesPanel({ store }: { store: ScheduleStore }) {
   const { data, addGrade, updateGrade, deleteGrade, subjectsById } = store
   const { grades, subjects, settings } = data
   const scale = settings.gradeScale
+  const activeGroupIds = useMemo(
+    () => new Set(data.assessmentGroups.filter(isActiveAssessmentGroup).map((group) => group.id)),
+    [data.assessmentGroups],
+  )
+  const gradesInActiveStructure = useMemo(
+    () => grades.filter((grade) => !grade.groupId || activeGroupIds.has(grade.groupId)),
+    [grades, activeGroupIds],
+  )
 
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Grade | undefined>()
   const [defaultSubjectId, setDefaultSubjectId] = useState<string | undefined>()
 
   const { perSubject } = useMemo(
-    () => computeGlobalStats(subjects, grades, scale),
-    [subjects, grades, scale],
+    () => computeGlobalStats(subjects, gradesInActiveStructure, scale),
+    [subjects, gradesInActiveStructure, scale],
   )
 
   const onAddForSubject = (subjectId?: string) => {

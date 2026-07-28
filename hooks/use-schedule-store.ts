@@ -370,13 +370,14 @@ export function useScheduleStore() {
     void persistCloud(dataOwnerUserId, (repository) => repository.replaceAll(nextData))
   }, [data, dataOwnerUserId, persistCloud])
 
-  const applyGradingPreset = useCallback((subjectId: string, preset: GradingPresetId) => {
-    const transition = applyGradingPresetTransition(dataRef.current, subjectId, preset)
+  const applyGradingPreset = useCallback((subjectId: string, preset: GradingPresetId, options?: { preservePopulatedObsoleteGroups?: boolean }) => {
+    const transition = applyGradingPresetTransition(dataRef.current, subjectId, preset, Date.now(), options)
+    if (transition.requiresResolution) return transition
     dataRef.current = transition.nextData
     setData(transition.nextData)
     void persistCloud(dataOwnerUserId, (repository) => repository.replaceAll(transition.nextData))
-    return transition.groups
-  }, [data, dataOwnerUserId, persistCloud])
+    return transition
+  }, [dataOwnerUserId, persistCloud])
 
   const duplicateGradingPlan = useCallback((fromSubjectId: string, toSubjectId: string) => {
     const toSubject = data.subjects.find((subject) => subject.id === toSubjectId)
