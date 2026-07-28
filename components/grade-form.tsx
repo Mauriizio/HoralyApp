@@ -21,13 +21,14 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useI18n } from "@/components/i18n-provider"
-import type { Grade, GradeScale, Subject } from "@/lib/types"
+import type { AssessmentGroup, AssessmentStatus, Grade, GradeScale, Subject } from "@/lib/types"
 import { isScoreInScale, isValidWeight } from "@/lib/grade-utils"
 
 interface GradeFormProps {
   open: boolean
   onOpenChange: (v: boolean) => void
   subjects: Subject[]
+  groups?: AssessmentGroup[]
   scale: GradeScale
   initial?: Grade
   defaultSubjectId?: string
@@ -45,6 +46,7 @@ export function GradeForm({
   open,
   onOpenChange,
   subjects,
+  groups = [],
   scale,
   initial,
   defaultSubjectId,
@@ -57,6 +59,9 @@ export function GradeForm({
   const [weight, setWeight] = useState<string>(initial?.weight?.toString() ?? "20")
   const [date, setDate] = useState(initial?.date ?? todayIso())
   const [notes, setNotes] = useState(initial?.notes ?? "")
+  const [groupId, setGroupId] = useState(initial?.groupId ?? "")
+  const [status, setStatus] = useState<AssessmentStatus>(initial?.status ?? (initial?.score === null ? "planned" : "graded"))
+  const availableGroups = groups.filter((group) => group.subjectId === subjectId)
 
   useEffect(() => {
     if (open) {
@@ -66,8 +71,10 @@ export function GradeForm({
       setWeight(initial?.weight?.toString() ?? "20")
       setDate(initial?.date ?? todayIso())
       setNotes(initial?.notes ?? "")
+      setGroupId(initial?.groupId ?? groups.find((group) => group.subjectId === (initial?.subjectId ?? defaultSubjectId ?? subjects[0]?.id))?.id ?? "")
+      setStatus(initial?.status ?? (initial?.score === null ? "planned" : "graded"))
     }
-  }, [open, initial, defaultSubjectId, subjects])
+  }, [open, initial, defaultSubjectId, subjects, groups])
 
   const scoreNum = parseFloat(score)
   const weightNum = parseFloat(weight)
@@ -76,11 +83,11 @@ export function GradeForm({
     const errs: string[] = []
     if (!subjectId) errs.push(t("common.required"))
     if (!title.trim()) errs.push(t("common.required"))
-    if (!isScoreInScale(scoreNum, scale))
+    if (status === "graded" && !isScoreInScale(scoreNum, scale))
       errs.push(t("grade.scale", { min: scale.min, max: scale.max, passing: scale.passing }))
     if (!isValidWeight(weightNum)) errs.push(`${t("grade.weight")} (1-100)`)
     return errs
-  }, [subjectId, title, scoreNum, weightNum, scale, t])
+  }, [subjectId, title, scoreNum, weightNum, scale, status, t])
 
   const valid = errors.length === 0
 
@@ -88,9 +95,12 @@ export function GradeForm({
     if (!valid) return
     onSubmit({
       subjectId,
+      groupId: groupId || undefined,
       title: title.trim(),
-      score: scoreNum,
+      score: status === "graded" ? scoreNum : null,
       weight: weightNum,
+      weightWithinGroup: weightNum,
+      status,
       date,
       notes: notes.trim() || undefined,
     })
@@ -130,6 +140,30 @@ export function GradeForm({
             </Select>
           </Field>
 
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="g-group">Grupo de evaluación</FieldLabel>
+              <Select value={groupId} onValueChange={setGroupId}>
+                <SelectTrigger id="g-group"><SelectValue placeholder="Grupo predeterminado" /></SelectTrigger>
+                <SelectContent>
+                  {availableGroups.map((group) => <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="g-status">Estado</FieldLabel>
+              <Select value={status} onValueChange={(value) => setStatus(value as AssessmentStatus)}>
+                <SelectTrigger id="g-status"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="planned">Planificada</SelectItem>
+                  <SelectItem value="graded">Calificada</SelectItem>
+                  <SelectItem value="missing">Pendiente</SelectItem>
+                  <SelectItem value="exempt">Eximida</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+
           <Field>
             <FieldLabel htmlFor="g-title">{t("grade.title")}</FieldLabel>
             <Input id="g-title" value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -146,13 +180,14 @@ export function GradeForm({
                 max={scale.max}
                 value={score}
                 onChange={(e) => setScore(e.target.value)}
+                disabled={status !== "graded"}
               />
               <FieldDescription>
                 {scale.min}–{scale.max}
               </FieldDescription>
             </Field>
             <Field>
-              <FieldLabel htmlFor="g-weight">{t("grade.weight")}</FieldLabel>
+              <FieldLabel htmlFor="g-weight">Peso dentro del grupo (%)</FieldLabel>
               <Input
                 id="g-weight"
                 type="number"

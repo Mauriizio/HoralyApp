@@ -104,13 +104,23 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
     setTab(nextTab)
     window.history.replaceState(null, "", getTabUrl(nextTab, window.location.search))
   }
+  const requiresAcademicSetup =
+    !data.activeSemesterId ||
+    (!data.settings.onboarding.completed && !data.profile.onboardingCompletedAt)
+  const openSubjectCreation = () => {
+    if (requiresAcademicSetup) {
+      navigateTo("onboarding")
+      return
+    }
+    setSubjectEditing(undefined)
+    setSubjectOpen(true)
+  }
 
   const handleQuickAction = (action: QuickAction) => {
     setQuickOpen(false)
     switch (action) {
       case "new-subject":
-        setSubjectEditing(undefined)
-        setSubjectOpen(true)
+        openSubjectCreation()
         break
       case "new-reminder":
         setReminderOpen(true)
@@ -330,10 +340,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
-                  onClick={() => {
-                    setSubjectEditing(undefined)
-                    setSubjectOpen(true)
-                  }}
+                  onClick={openSubjectCreation}
                 >
                   <BookOpen className="h-4 w-4 mr-2" />
                   {t("header.newSubject")}
@@ -401,10 +408,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
                 addGrade: addGradeFromConsole,
                 updateProfileName: (name) => updateProfile({ displayName: name }),
                 resetProfileName: () => updateProfile({ displayName: "" }),
-                openSubjectForm: () => {
-                  setSubjectEditing(undefined)
-                  setSubjectOpen(true)
-                },
+                openSubjectForm: openSubjectCreation,
                 openGradeForm: () => setGradeOpen(true),
               }}
               grade={data.grades.length > 0 ? (data.grades[data.grades.length - 1]?.score ?? undefined) : undefined}
@@ -436,10 +440,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button
                       size="sm"
-                      onClick={() => {
-                        setSubjectEditing(undefined)
-                        setSubjectOpen(true)
-                      }}
+                      onClick={openSubjectCreation}
                     >
                       <BookOpen className="h-4 w-4 mr-1.5" />
                       {t("app.welcome.firstSubject")}
@@ -516,10 +517,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
 
               <ScheduleGrid
                 store={store}
-                onNewSubject={() => {
-                  setSubjectEditing(undefined)
-                  setSubjectOpen(true)
-                }}
+                onNewSubject={openSubjectCreation}
                 onEditSubject={openEditSubject}
                 restrictedDay={showFocus ? focusDay! : undefined}
                 showSaturday={data.settings.enableSaturday}
@@ -530,7 +528,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
             </TabsContent>
 
             <TabsContent value="materias" className="mt-4">
-              <SubjectsPanel store={store} />
+              <SubjectsPanel store={store} onRequireSetup={() => navigateTo("onboarding")} />
             </TabsContent>
 
             <TabsContent value="estudio" className="mt-4">
@@ -603,6 +601,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         open={gradeOpen}
         onOpenChange={setGradeOpen}
         subjects={data.subjects}
+        groups={data.assessmentGroups}
         scale={data.settings.gradeScale}
         onSubmit={(values) => addGrade(values)}
       />

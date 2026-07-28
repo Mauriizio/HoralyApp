@@ -96,7 +96,7 @@ export function AcademicDashboard({ store, onNavigate }: { store: ScheduleStore;
     return <StateCard icon={<AlertCircle className="size-5" />} title="No pudimos sincronizar" body={store.syncError ?? "Tus datos locales siguen disponibles."} action={<Button onClick={store.retrySync}>Reintentar</Button>} />
   }
   if (isNew) {
-    return <StateCard icon={<Sparkles className="size-5" />} title="Prepara tu espacio académico" body="Completa el onboarding para crear tu semestre, materias y horario." action={<Button onClick={() => onNavigate("onboarding")}>Empezar onboarding</Button>} />
+    return <StateCard icon={<Sparkles className="size-5" />} title="Configura tu espacio académico" body="Completa la configuración inicial como invitado o con tu cuenta. En modo invitado, tus datos quedan en este dispositivo." action={<Button onClick={() => onNavigate("onboarding")}>Configurar mi espacio</Button>} />
   }
   if (!activeSemester) {
     return <StateCard icon={<CalendarDays className="size-5" />} title="Sin semestre activo" body="Crea o selecciona un semestre para filtrar correctamente tu información." action={<Button onClick={() => onNavigate("preferencias")}>Configurar semestre</Button>} />

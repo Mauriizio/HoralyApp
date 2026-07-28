@@ -26,6 +26,23 @@ export const SUBJECT_ICON_OPTIONS: { value: string; label: string }[] = [
   { value: "Scale", label: "Derecho" },
   { value: "Leaf", label: "Naturaleza" },
   { value: "Wrench", label: "Taller" },
+  { value: "Bolt", label: "Electricidad" },
+  { value: "Zap", label: "Rayo" },
+  { value: "CircuitBoard", label: "Circuito" },
+  { value: "Activity", label: "Resistencia" },
+  { value: "PlugZap", label: "Enchufe" },
+  { value: "Lightbulb", label: "Bombilla" },
+  { value: "Workflow", label: "Automatización" },
+  { value: "Cpu", label: "Microchip" },
+  { value: "Cog", label: "Engranaje" },
+  { value: "Hammer", label: "Herramientas" },
+  { value: "Map", label: "Planos" },
+  { value: "Ruler", label: "Regla" },
+  { value: "Orbit", label: "Física" },
+  { value: "TestTubeDiagonal", label: "Química" },
+  { value: "Presentation", label: "Presentación" },
+  { value: "FolderKanban", label: "Proyecto" },
+  { value: "DraftingCompass", label: "Dibujo técnico" },
 ]
 
 function normalizeIconKey(icon: string) {

@@ -12,7 +12,7 @@ import { DIFFICULTY_LABELS, type Subject } from "@/lib/types"
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
 import { SubjectForm } from "@/components/subject-form"
 
-export function SubjectsPanel({ store }: { store: ScheduleStore }) {
+export function SubjectsPanel({ store, onRequireSetup }: { store: ScheduleStore; onRequireSetup?: () => void }) {
   const { t } = useI18n()
   const { data, addSubject, updateSubject, deleteSubject } = store
 
@@ -29,6 +29,10 @@ export function SubjectsPanel({ store }: { store: ScheduleStore }) {
   )
 
   const openNew = () => {
+    if (!data.activeSemesterId || (!data.settings.onboarding.completed && !data.profile.onboardingCompletedAt)) {
+      onRequireSetup?.()
+      return
+    }
     setEditing(undefined)
     setOpen(true)
   }

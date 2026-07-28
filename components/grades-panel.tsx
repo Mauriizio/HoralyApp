@@ -144,7 +144,7 @@ export function GradesPanel({ store }: { store: ScheduleStore }) {
                 )}
               </CardHeader>
               <CardContent className="pt-0 space-y-4">
-                <GradingPlanManager store={store} subject={subject} />
+                <GradingPlanManager store={store} subject={subject} onEditAssessment={onEdit} />
                 {subjectGrades.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-4 text-center">
                     {t("grade.empty")}
@@ -208,6 +208,7 @@ export function GradesPanel({ store }: { store: ScheduleStore }) {
         open={open}
         onOpenChange={setOpen}
         subjects={subjects}
+        groups={data.assessmentGroups}
         scale={scale}
         initial={editing}
         defaultSubjectId={defaultSubjectId}
