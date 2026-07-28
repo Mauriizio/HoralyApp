@@ -603,6 +603,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         subjects={data.subjects}
         groups={data.assessmentGroups}
         scale={data.settings.gradeScale}
+        onApplyTwoGroupPreset={(subjectId) => store.applyGradingPreset(subjectId, "presentation60Transversal40")}
         onSubmit={(values) => addGrade(values)}
       />
       <MigrationModal store={store} />

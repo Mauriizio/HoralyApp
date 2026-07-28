@@ -27,7 +27,7 @@ import { SupabaseAcademicRepository, selectAcademicRepository, type AcademicRepo
 import { loadCloudCache, saveCloudCache, saveMigrationBackup, loadMigrationBackup } from "@/lib/local-cloud-storage"
 import { transitionDeleteModule, transitionMoveBlock, transitionSetModules, transitionUpdateSubject, transitionUpsertBlock } from "@/lib/schedule-transitions"
 import { filterDataByActiveSemester } from "@/application/semesters"
-import { deleteAssessmentGroupTransition, ensureDefaultAssessmentGroup, ensureGradeAssessmentGroup } from "@/lib/assessment-groups"
+import { addGradeTransition, applyGradingPresetTransition, deleteAssessmentGroupTransition, ensureDefaultAssessmentGroup, type GradingPresetId } from "@/lib/assessment-groups"
 import { assertSameGeneration, assertSameIdentity, logIdentity, type OperationIdentityContext, SessionIdentityMismatchError } from "@/lib/session-identity"
 
 export { validateModules }
@@ -43,6 +43,8 @@ function requireActiveSemesterId(activeSemesterId: string | undefined, entity: s
 
 export function useScheduleStore() {
   const [data, setData] = useState<AppData>(EMPTY_APP_DATA)
+  const dataRef = useRef<AppData>(data)
+  dataRef.current = data
   const [hydrated, setHydrated] = useState(false)
   const [storageRecovery, setStorageRecovery] = useState<{ raw: string; errors: string[] } | null>(null)
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading")
@@ -368,21 +370,12 @@ export function useScheduleStore() {
     void persistCloud(dataOwnerUserId, (repository) => repository.replaceAll(nextData))
   }, [data, dataOwnerUserId, persistCloud])
 
-  const applyGradingPreset = useCallback((subjectId: string, preset: "continuous100" | "presentation60Transversal40" | "laboratoryTheoryTransversal" | "custom") => {
-    const subject = data.subjects.find((item) => item.id === subjectId)
-    const semesterId = subject?.semesterId ?? data.activeSemesterId
-    if (!semesterId) throw new Error("No se puede configurar una materia sin semestre.")
-    const presets = {
-      continuous100: [{ name: "Evaluación continua", kind: "continuous" as const, courseWeight: 100 }],
-      presentation60Transversal40: [{ name: "Presentación", kind: "continuous" as const, courseWeight: 60 }, { name: "Examen transversal", kind: "final_exam" as const, courseWeight: 40 }],
-      laboratoryTheoryTransversal: [{ name: "Laboratorio", kind: "laboratory" as const, courseWeight: 30 }, { name: "Teoría", kind: "continuous" as const, courseWeight: 30 }, { name: "Examen transversal", kind: "final_exam" as const, courseWeight: 40 }],
-      custom: [],
-    }[preset]
-    const newGroups = presets.map((group, index): AssessmentGroup => ({ ...group, id: `${subjectId}-${group.kind}-${index + 1}-${uid()}`, semesterId, subjectId, position: index + 1, createdAt: Date.now() }))
-    const nextData = { ...data, assessmentGroups: [...data.assessmentGroups.filter((group) => group.subjectId !== subjectId), ...newGroups] }
-    setData(nextData)
-    void persistCloud(dataOwnerUserId, (repository) => repository.replaceAll(nextData))
-    return newGroups
+  const applyGradingPreset = useCallback((subjectId: string, preset: GradingPresetId) => {
+    const transition = applyGradingPresetTransition(dataRef.current, subjectId, preset)
+    dataRef.current = transition.nextData
+    setData(transition.nextData)
+    void persistCloud(dataOwnerUserId, (repository) => repository.replaceAll(transition.nextData))
+    return transition.groups
   }, [data, dataOwnerUserId, persistCloud])
 
   const duplicateGradingPlan = useCallback((fromSubjectId: string, toSubjectId: string) => {
@@ -402,18 +395,24 @@ export function useScheduleStore() {
   // --- Grades ---
   const addGrade = useCallback((grade: Omit<Grade, "id" | "createdAt">) => {
     const createdAt = Date.now()
-    const draft: Grade = { ...grade, semesterId: grade.semesterId ?? requireActiveSemesterId(data.activeSemesterId, "notas"), status: grade.status ?? (grade.score === null ? "planned" : "graded"), weightWithinGroup: grade.weightWithinGroup ?? grade.weight, id: uid(), createdAt }
-    const ensured = ensureGradeAssessmentGroup(data, draft, createdAt)
-    const createdGroup = ensured.created ? ensured.group : null
-    const next = ensured.grade
-    const nextData = { ...ensured.nextData, grades: [...ensured.nextData.grades, next] }
-    setData(nextData)
+    requireActiveSemesterId(dataRef.current.activeSemesterId, "notas")
+    const transition = addGradeTransition(dataRef.current, grade, uid(), createdAt)
+    dataRef.current = transition.nextData
+    setData(transition.nextData)
     void persistCloud(dataOwnerUserId, async (repository) => {
-      if (createdGroup) await repository.saveAssessmentGroup(createdGroup)
-      await repository.saveGrade(next)
+      if (transition.createdGroup) await repository.saveAssessmentGroup(transition.createdGroup)
+      await repository.saveGrade(transition.grade)
+    }, { throwOnError: true, operationName: "grade.create" }).catch(() => {
+      setData((current) => ({
+        ...current,
+        grades: current.grades.filter((item) => item.id !== transition.grade.id),
+        assessmentGroups: transition.createdGroup
+          ? current.assessmentGroups.filter((group) => group.id !== transition.createdGroup?.id)
+          : current.assessmentGroups,
+      }))
     })
-    return next
-  }, [data.activeSemesterId, dataOwnerUserId, persistCloud])
+    return transition.grade
+  }, [data, dataOwnerUserId, persistCloud])
 
   const createAssessment = addGrade
 

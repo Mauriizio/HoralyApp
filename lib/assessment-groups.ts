@@ -58,6 +58,83 @@ export function ensureGradeAssessmentGroup(data: AppData, grade: Grade, createdA
   return { nextData: ensured.nextData, grade: { ...grade, semesterId, groupId: ensured.group.id }, group: ensured.group, created: ensured.created }
 }
 
+export function addGradeTransition(
+  data: AppData,
+  grade: Omit<Grade, "id" | "createdAt">,
+  id: string,
+  createdAt = Date.now(),
+): { nextData: AppData; grade: Grade; createdGroup: AssessmentGroup | null } {
+  const draft: Grade = {
+    ...grade,
+    id,
+    createdAt,
+    semesterId: grade.semesterId ?? data.activeSemesterId,
+    status: grade.status ?? (grade.score === null ? "planned" : "graded"),
+    weightWithinGroup: grade.weightWithinGroup ?? grade.weight,
+  }
+  const ensured = ensureGradeAssessmentGroup(data, draft, createdAt)
+  return {
+    nextData: { ...ensured.nextData, grades: [...ensured.nextData.grades, ensured.grade] },
+    grade: ensured.grade,
+    createdGroup: ensured.created ? ensured.group : null,
+  }
+}
+
+export type GradingPresetId =
+  | "continuous100"
+  | "presentation60Transversal40"
+  | "laboratoryTheoryTransversal"
+  | "custom"
+
+export function applyGradingPresetTransition(
+  data: AppData,
+  subjectId: string,
+  preset: GradingPresetId,
+  createdAt = Date.now(),
+): { nextData: AppData; groups: AssessmentGroup[] } {
+  const subject = data.subjects.find((item) => item.id === subjectId)
+  const semesterId = subject?.semesterId ?? data.activeSemesterId
+  if (!semesterId) throw new Error("No se puede configurar una materia sin semestre.")
+  const current = data.assessmentGroups
+    .filter((group) => group.subjectId === subjectId && group.semesterId === semesterId)
+    .sort((a, b) => a.position - b.position)
+  const specifications = {
+    continuous100: [{ name: "Evaluación continua", kind: "continuous" as const, courseWeight: 100 }],
+    presentation60Transversal40: [
+      { name: "Evaluaciones parciales", kind: "continuous" as const, courseWeight: 60 },
+      { name: "Evaluación transversal", kind: "final_exam" as const, courseWeight: 40 },
+    ],
+    laboratoryTheoryTransversal: [
+      { name: "Laboratorio", kind: "laboratory" as const, courseWeight: 30 },
+      { name: "Teoría", kind: "continuous" as const, courseWeight: 30 },
+      { name: "Evaluación transversal", kind: "final_exam" as const, courseWeight: 40 },
+    ],
+    custom: [],
+  }[preset]
+  let nextGroups = [...data.assessmentGroups]
+  const configured: AssessmentGroup[] = []
+  for (const [index, specification] of specifications.entries()) {
+    const existing = current.find((group) =>
+      !configured.some((item) => item.id === group.id) && group.kind === specification.kind,
+    )
+    const next = existing
+      ? { ...existing, ...specification }
+      : {
+          ...specification,
+          id: `${subjectId}-${specification.kind}-${createdAt}-${index}`,
+          semesterId,
+          subjectId,
+          position: current.length + index + 1,
+          createdAt,
+        }
+    nextGroups = existing
+      ? nextGroups.map((group) => group.id === existing.id ? next : group)
+      : [...nextGroups, next]
+    configured.push(next)
+  }
+  return { nextData: { ...data, assessmentGroups: nextGroups.sort((a, b) => a.position - b.position) }, groups: configured }
+}
+
 export type DeleteAssessmentGroupResult =
   | { ok: true; nextData: AppData; reassignedGrades: Grade[]; deletedGroup: AssessmentGroup }
   | { ok: false; reason: string; preview: Grade[] }

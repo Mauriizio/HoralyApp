@@ -32,6 +32,9 @@ interface GradeFormProps {
   scale: GradeScale
   initial?: Grade
   defaultSubjectId?: string
+  defaultGroupId?: string
+  lockSubject?: boolean
+  onApplyTwoGroupPreset?: (subjectId: string) => void
   onSubmit: (values: Omit<Grade, "id" | "createdAt">) => void
 }
 
@@ -50,6 +53,9 @@ export function GradeForm({
   scale,
   initial,
   defaultSubjectId,
+  defaultGroupId,
+  lockSubject = false,
+  onApplyTwoGroupPreset,
   onSubmit,
 }: GradeFormProps) {
   const { t } = useI18n()
@@ -62,6 +68,8 @@ export function GradeForm({
   const [groupId, setGroupId] = useState(initial?.groupId ?? "")
   const [status, setStatus] = useState<AssessmentStatus>(initial?.status ?? (initial?.score === null ? "planned" : "graded"))
   const availableGroups = groups.filter((group) => group.subjectId === subjectId)
+  const selectedSubject = subjects.find((subject) => subject.id === subjectId)
+  const hasTransversalGroup = availableGroups.some((group) => group.kind === "final_exam")
 
   useEffect(() => {
     if (open) {
@@ -71,10 +79,12 @@ export function GradeForm({
       setWeight(initial?.weight?.toString() ?? "20")
       setDate(initial?.date ?? todayIso())
       setNotes(initial?.notes ?? "")
-      setGroupId(initial?.groupId ?? groups.find((group) => group.subjectId === (initial?.subjectId ?? defaultSubjectId ?? subjects[0]?.id))?.id ?? "")
+      const nextSubjectId = initial?.subjectId ?? defaultSubjectId ?? subjects[0]?.id ?? ""
+      const subjectGroups = groups.filter((group) => group.subjectId === nextSubjectId)
+      setGroupId(initial?.groupId ?? defaultGroupId ?? (subjectGroups.length === 1 ? subjectGroups[0].id : ""))
       setStatus(initial?.status ?? (initial?.score === null ? "planned" : "graded"))
     }
-  }, [open, initial, defaultSubjectId, subjects, groups])
+  }, [open, initial, defaultSubjectId, defaultGroupId])
 
   const scoreNum = parseFloat(score)
   const weightNum = parseFloat(weight)
@@ -82,12 +92,13 @@ export function GradeForm({
   const errors = useMemo(() => {
     const errs: string[] = []
     if (!subjectId) errs.push(t("common.required"))
+    if (!groupId) errs.push("Selecciona un grupo de evaluación.")
     if (!title.trim()) errs.push(t("common.required"))
     if (status === "graded" && !isScoreInScale(scoreNum, scale))
       errs.push(t("grade.scale", { min: scale.min, max: scale.max, passing: scale.passing }))
     if (!isValidWeight(weightNum)) errs.push(`${t("grade.weight")} (1-100)`)
     return errs
-  }, [subjectId, title, scoreNum, weightNum, scale, status, t])
+  }, [subjectId, groupId, title, scoreNum, weightNum, scale, status, t])
 
   const valid = errors.length === 0
 
@@ -120,7 +131,15 @@ export function GradeForm({
         <FieldGroup>
           <Field>
             <FieldLabel htmlFor="g-subject">{t("grade.subject")}</FieldLabel>
-            <Select value={subjectId} onValueChange={setSubjectId}>
+            {lockSubject || initial ? (
+              <div id="g-subject" className="rounded-md border bg-muted/40 px-3 py-2 text-sm font-medium">
+                {selectedSubject?.name ?? "Materia no disponible"}
+              </div>
+            ) : <Select value={subjectId} onValueChange={(nextSubjectId) => {
+              setSubjectId(nextSubjectId)
+              const nextGroups = groups.filter((group) => group.subjectId === nextSubjectId)
+              setGroupId(nextGroups.length === 1 ? nextGroups[0].id : "")
+            }}>
               <SelectTrigger id="g-subject">
                 <SelectValue />
               </SelectTrigger>
@@ -137,18 +156,19 @@ export function GradeForm({
                   </SelectItem>
                 ))}
               </SelectContent>
-            </Select>
+            </Select>}
           </Field>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="g-group">Grupo de evaluación</FieldLabel>
               <Select value={groupId} onValueChange={setGroupId}>
-                <SelectTrigger id="g-group"><SelectValue placeholder="Grupo predeterminado" /></SelectTrigger>
+                <SelectTrigger id="g-group"><SelectValue placeholder="Selecciona un grupo" /></SelectTrigger>
                 <SelectContent>
                   {availableGroups.map((group) => <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>)}
                 </SelectContent>
               </Select>
+              {availableGroups.length === 0 && <FieldDescription>Esta materia todavía no tiene grupos configurados.</FieldDescription>}
             </Field>
             <Field>
               <FieldLabel htmlFor="g-status">Estado</FieldLabel>
@@ -163,6 +183,18 @@ export function GradeForm({
               </Select>
             </Field>
           </div>
+
+          {!hasTransversalGroup && subjectId && onApplyTwoGroupPreset && (
+            <div className="rounded-md border border-dashed p-3 text-sm">
+              <p className="text-muted-foreground">No existe un grupo transversal para esta materia.</p>
+              <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => {
+                const confirmed = window.confirm("Se configurarán grupos Parciales 60% y Transversal 40%. Las evaluaciones existentes se conservarán en su grupo actual.")
+                if (confirmed) onApplyTwoGroupPreset(subjectId)
+              }}>
+                Configurar Parciales + Transversal
+              </Button>
+            </div>
+          )}
 
           <Field>
             <FieldLabel htmlFor="g-title">{t("grade.title")}</FieldLabel>

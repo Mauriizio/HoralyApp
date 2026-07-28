@@ -2,7 +2,8 @@ import test from "node:test"
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { evaluateSubjectGradingPlan } from "../domain/grading/index.ts"
-import type { AssessmentGroup, Grade } from "../lib/types.ts"
+import { addGradeTransition, applyGradingPresetTransition } from "../lib/assessment-groups.ts"
+import { EMPTY_APP_DATA, type AppData, type AssessmentGroup, type Grade } from "../lib/types.ts"
 
 const group: AssessmentGroup = {
   id: "partials",
@@ -72,4 +73,51 @@ test("crear materia sin configuración conduce al onboarding", () => {
   assert.match(page, /requiresAcademicSetup/)
   assert.match(page, /openSubjectCreation/)
   assert.match(page, /navigateTo\("onboarding"\)/)
+})
+
+test("crear evaluaciones actualiza inmediatamente el estado expuesto sin reconstruirlo", () => {
+  let state: AppData = {
+    ...EMPTY_APP_DATA,
+    activeSemesterId: "sem",
+    semesters: [{ id: "sem", name: "2026", status: "active", createdAt: 1 }],
+    subjects: [{ id: "course", semesterId: "sem", name: "Planos", color: "#000", difficulty: 3, createdAt: 1 }],
+  }
+  for (let index = 1; index <= 6; index += 1) {
+    state = addGradeTransition(state, {
+      semesterId: "sem", subjectId: "course", title: `Parcial ${index}`, score: 5,
+      weight: 100 / 6, weightWithinGroup: 100 / 6, status: "graded", date: "2026-05-01",
+    }, `g-${index}`, index).nextData
+    assert.equal(state.grades.length, index)
+  }
+})
+
+test("preset 60/40 preserva seis parciales y separa transversal", () => {
+  let state: AppData = {
+    ...EMPTY_APP_DATA,
+    activeSemesterId: "sem",
+    semesters: [{ id: "sem", name: "2026", status: "active", createdAt: 1 }],
+    subjects: [{ id: "course", semesterId: "sem", name: "Planos", color: "#000", difficulty: 3, createdAt: 1 }],
+  }
+  for (let index = 1; index <= 6; index += 1) {
+    state = addGradeTransition(state, {
+      semesterId: "sem", subjectId: "course", title: `Parcial ${index}`, score: 5,
+      weight: 100 / 6, weightWithinGroup: 100 / 6, status: "graded", date: "2026-05-01",
+    }, `g-${index}`, index).nextData
+  }
+  const partialGroupId = state.grades[0].groupId
+  const preset = applyGradingPresetTransition(state, "course", "presentation60Transversal40", 20)
+  assert.equal(preset.nextData.grades.length, 6)
+  assert.ok(preset.nextData.grades.every((grade) => grade.groupId === partialGroupId))
+  const partials = preset.groups.find((item) => item.id === partialGroupId)
+  const transversal = preset.groups.find((item) => item.kind === "final_exam")
+  assert.equal(partials?.courseWeight, 60)
+  assert.equal(transversal?.courseWeight, 40)
+
+  const withTransversal = addGradeTransition(preset.nextData, {
+    semesterId: "sem", subjectId: "course", groupId: transversal!.id, title: "ET",
+    score: 6, weight: 100, weightWithinGroup: 100, status: "graded", date: "2026-06-01",
+  }, "et", 21).nextData
+  assert.equal(withTransversal.grades.filter((grade) => grade.groupId === partialGroupId).length, 6)
+  assert.equal(withTransversal.grades.filter((grade) => grade.groupId === transversal!.id).length, 1)
+  assert.equal((transversal!.courseWeight * withTransversal.grades.at(-1)!.weightWithinGroup!) / 100, 40)
 })

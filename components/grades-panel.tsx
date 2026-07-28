@@ -212,6 +212,8 @@ export function GradesPanel({ store }: { store: ScheduleStore }) {
         scale={scale}
         initial={editing}
         defaultSubjectId={defaultSubjectId}
+        lockSubject={Boolean(defaultSubjectId)}
+        onApplyTwoGroupPreset={(subjectId) => store.applyGradingPreset(subjectId, "presentation60Transversal40")}
         onSubmit={(values) => {
           if (editing) updateGrade(editing.id, values)
           else addGrade(values)
