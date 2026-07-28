@@ -5,7 +5,9 @@ import { evaluateSubjectGradingPlan } from "../domain/grading/index.ts"
 import {
   addGradeTransition,
   applyGradingPresetTransition,
+  getAvailableAssessmentGroups,
   getMaximumAssessmentWeight,
+  getSubjectStructureStatus,
   isActiveAssessmentGroup,
   isStandardSingleAssessmentFinalGroup,
 } from "../lib/assessment-groups.ts"
@@ -229,6 +231,40 @@ test("limita creación y edición al peso interno realmente disponible", () => {
   assert.equal(getMaximumAssessmentWeight(invalidLegacy, "legacy-extra"), 15)
 })
 
+test("creación excluye grupos completos y edición conserva el grupo actual", () => {
+  const partials = assessments(5)
+  const final = { ...group, id: "transversal", kind: "final_exam" as const, courseWeight: 40, position: 2 }
+  assert.deepEqual(
+    getAvailableAssessmentGroups([group, final], partials, "course").map((item) => item.id),
+    ["transversal"],
+  )
+  const completed = [...partials, { ...partials[0], id: "et", groupId: "transversal", weight: 100, weightWithinGroup: 100 }]
+  assert.deepEqual(getAvailableAssessmentGroups([group, final], completed, "course"), [])
+  assert.deepEqual(
+    getAvailableAssessmentGroups([group, final], completed, "course", "g-2").map((item) => item.id),
+    ["partials"],
+  )
+  assert.equal(getMaximumAssessmentWeight(partials, "g-2"), 20)
+})
+
+test("distingue estructura pendiente, válida y heredada incompatible", () => {
+  assert.equal(getSubjectStructureStatus([], [], "course"), "missing")
+  assert.equal(getSubjectStructureStatus([group, { ...group, id: "transversal", kind: "final_exam", courseWeight: 40 }], [], "course"), "valid")
+  assert.equal(getSubjectStructureStatus([{ ...group, courseWeight: 70 }], [], "course"), "invalid")
+  assert.equal(getSubjectStructureStatus([group], [...assessments(5), { ...assessments(1)[0], id: "extra" }], "course"), "invalid")
+})
+
+test("la escala chilena es predeterminada y una escala existente se conserva", () => {
+  assert.deepEqual(EMPTY_APP_DATA.settings.gradeScale, { min: 1, max: 7, passing: 4 })
+  const fresh = migrateData({ ...EMPTY_APP_DATA, settings: undefined })
+  assert.deepEqual(fresh.settings.gradeScale, { min: 1, max: 7, passing: 4 })
+  const custom = migrateData({
+    ...EMPTY_APP_DATA,
+    settings: { ...EMPTY_APP_DATA.settings, gradeScale: { min: 1, max: 20, passing: 11 } },
+  })
+  assert.deepEqual(custom.settings.gradeScale, { min: 1, max: 20, passing: 11 })
+})
+
 test("reconoce solo el transversal estándar por semántica de la estructura", () => {
   const partials = group
   const final = { ...group, id: "transversal", kind: "final_exam" as const, courseWeight: 40, position: 2 }
@@ -258,4 +294,25 @@ test("la UI de notas no expone estado, evita duplicados y presenta simulación c
   assert.match(simulator, /Simular nota de/)
   assert.match(simulator, /Select/)
   assert.match(simulator, /evaluateSubjectGradingPlan/)
+})
+
+test("el registro es secuencial, muestra errores locales y mantiene acciones móviles accesibles", () => {
+  const form = readFileSync("components/grade-form.tsx", "utf8")
+  const panel = readFileSync("components/grades-panel.tsx", "utf8")
+  const manager = readFileSync("components/grades/grading-plan-manager.tsx", "utf8")
+  assert.match(form, /disabled=\{!groupId\}/)
+  assert.match(form, /Selecciona primero un grupo|Selecciona un grupo de evaluación/)
+  assert.match(form, /errors\.title/)
+  assert.match(form, /errors\.score/)
+  assert.match(form, /errors\.weight/)
+  assert.doesNotMatch(form, /errors\.map/)
+  assert.match(form, /100dvh/)
+  assert.match(form, /overflow-y-auto/)
+  assert.match(form, /safe-area-inset-bottom/)
+  assert.match(form, /cambios sin guardar/)
+  assert.match(panel, /Configura cómo se calculará esta asignatura/)
+  assert.match(panel, /Estructura requiere revisión/)
+  assert.match(panel, /getAvailableAssessmentGroups/)
+  assert.match(manager, /Detalles y estadísticas/)
+  assert.match(manager, /useState\(false\)/)
 })

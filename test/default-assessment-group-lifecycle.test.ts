@@ -18,7 +18,7 @@ function group(patch: Partial<AssessmentGroup> = {}): AssessmentGroup {
   return { id: "group-a", semesterId: "sem-a", subjectId: "fis", name: "Evaluación continua", kind: "continuous", courseWeight: 100, position: 1, createdAt: 1, ...patch }
 }
 
-test("materia nueva y legacy local garantizan grupo predeterminado sin duplicarlo", () => {
+test("una materia sin notas permanece pendiente y el bridge legacy sigue disponible", () => {
   const ensured = ensureDefaultAssessmentGroup(baseData, "sem-a", "fis", 10)
   assert.equal(ensured.group.name, "Evaluación continua")
   assert.equal(ensured.group.courseWeight, 100)
@@ -27,8 +27,7 @@ test("materia nueva y legacy local garantizan grupo predeterminado sin duplicarl
   assert.equal(repeated.nextData.assessmentGroups.length, 1)
 
   const migrated = migrateData({ ...baseData, assessmentGroups: [], grades: [] })
-  assert.equal(migrated.assessmentGroups.length, 1)
-  assert.equal(migrated.assessmentGroups[0].subjectId, "fis")
+  assert.equal(migrated.assessmentGroups.length, 0)
 })
 
 test("creación tradicional o avanzada de nota asigna groupId aunque la materia antigua no tenga grupos", () => {

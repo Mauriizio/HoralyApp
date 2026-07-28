@@ -37,6 +37,48 @@ export function isStandardSingleAssessmentFinalGroup(
   )
 }
 
+export type SubjectStructureStatus = "missing" | "valid" | "invalid"
+
+export function getSubjectStructureStatus(
+  groups: AssessmentGroup[],
+  assessments: Grade[],
+  subjectId: string,
+): SubjectStructureStatus {
+  const activeGroups = groups.filter(
+    (group) => group.subjectId === subjectId && isActiveAssessmentGroup(group),
+  )
+  if (activeGroups.length === 0) return "missing"
+  const courseWeight = activeGroups.reduce((total, group) => total + group.courseWeight, 0)
+  if (
+    activeGroups.some((group) => group.courseWeight <= 0 || group.courseWeight > 100)
+    || Math.abs(courseWeight - 100) > WEIGHT_EPSILON
+  ) return "invalid"
+  const hasOverflow = activeGroups.some((group) =>
+    getAssessmentInternalWeightTotal(assessments.filter((assessment) => assessment.groupId === group.id)) - 100
+      > WEIGHT_EPSILON)
+  return hasOverflow ? "invalid" : "valid"
+}
+
+export function getAvailableAssessmentGroups(
+  groups: AssessmentGroup[],
+  assessments: Grade[],
+  subjectId: string,
+  editingAssessmentId?: string,
+): AssessmentGroup[] {
+  const activeGroups = groups.filter(
+    (group) => group.subjectId === subjectId && isActiveAssessmentGroup(group) && group.courseWeight > 0,
+  )
+  const editingAssessment = editingAssessmentId
+    ? assessments.find((assessment) => assessment.id === editingAssessmentId)
+    : undefined
+  return activeGroups.filter((group) => {
+    if (editingAssessment?.groupId === group.id) return true
+    const groupAssessments = assessments.filter((assessment) => assessment.groupId === group.id)
+    if (isStandardSingleAssessmentFinalGroup(group, activeGroups) && groupAssessments.length > 0) return false
+    return getMaximumAssessmentWeight(groupAssessments) > WEIGHT_EPSILON
+  })
+}
+
 export function inactiveAssessmentGroupName(name: string): string {
   return name.startsWith(INACTIVE_ASSESSMENT_GROUP_PREFIX)
     ? name

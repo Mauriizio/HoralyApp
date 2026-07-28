@@ -1,5 +1,5 @@
 import { EMPTY_APP_DATA, type AppData, type DayKey, type DifficultyLevel, type ReminderPriority } from "@/lib/types"
-import { ensureDefaultAssessmentGroupsForSubjects, ensureGradeAssessmentGroup } from "@/lib/assessment-groups"
+import { ensureGradeAssessmentGroup } from "@/lib/assessment-groups"
 
 export type SupabaseRow = Record<string, unknown>
 export type SupabaseDataset = {
@@ -97,7 +97,7 @@ function dataWithRequiredSemesters(data: AppData): AppData {
 }
 
 export function appDataToSupabaseRows(data: AppData, userId: string, email?: string): SupabaseDataset {
-  const normalizedData = ensureDefaultAssessmentGroupsForSubjects(dataWithRequiredSemesters(data))
+  const normalizedData = dataWithRequiredSemesters(data)
   const dataWithGradeGroups = normalizedData.grades.reduce((current, grade, index) => {
     const ensured = ensureGradeAssessmentGroup(current, grade)
     current = ensured.nextData
@@ -123,7 +123,7 @@ export function supabaseRowsToAppData(rows: Partial<SupabaseDataset>): AppData {
   const settings = settingsRow ? { ...EMPTY_APP_DATA.settings, ...settingsRow } : EMPTY_APP_DATA.settings
   const modules = Array.isArray(settingsRow?.modules) ? settingsRow.modules : EMPTY_APP_DATA.modules
   const profileRow = rows.profiles?.[0]
-  const restored = {
+  const restored: AppData = {
     ...EMPTY_APP_DATA,
     semesters: (rows.semesters ?? []).map((m) => ({ id: str(m.id), name: str(m.name), startsOn: optStr(m.starts_on), endsOn: optStr(m.ends_on), status: str(m.status, "planned") as AppData["semesters"][number]["status"], createdAt: ms(m.created_at) })),
     activeSemesterId: typeof settingsRow?.activeSemesterId === "string" ? settingsRow.activeSemesterId : optStr((rows.semesters ?? []).find((m) => m.status === "active")?.id),
@@ -138,11 +138,10 @@ export function supabaseRowsToAppData(rows: Partial<SupabaseDataset>): AppData {
     profile: { displayName: str(profileRow?.display_name), avatar: optStr(profileRow?.avatar_url), institution: optStr(profileRow?.institution), career: optStr(profileRow?.career), timezone: optStr(profileRow?.timezone), onboardingCompletedAt: optStr(profileRow?.onboarding_completed_at) },
     version: 4 as const,
   }
-  const withSubjectGroups = ensureDefaultAssessmentGroupsForSubjects(restored)
-  return withSubjectGroups.grades.reduce((current, grade, index) => {
+  return restored.grades.reduce((current, grade, index) => {
     const ensured = ensureGradeAssessmentGroup(current, grade)
     current = ensured.nextData
     current.grades = current.grades.map((item, itemIndex) => itemIndex === index ? ensured.grade : item)
     return current
-  }, withSubjectGroups)
+  }, restored)
 }

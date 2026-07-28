@@ -1,8 +1,10 @@
 "use client"
 
 import { useState } from "react"
+import { ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
 import type { Grade, Subject } from "@/lib/types"
 import { evaluateSubjectGradingPlan } from "@/domain/grading"
@@ -21,6 +23,7 @@ export function GradingPlanManager({
   onEditAssessment?: (assessment: Grade) => void
 }) {
   const [pendingPreset, setPendingPreset] = useState<{ id: GradingPresetId; groupNames: string[] } | null>(null)
+  const [detailsOpen, setDetailsOpen] = useState(false)
   const allGroups = store.data.assessmentGroups.filter((group) => group.subjectId === subject.id).sort((a, b) => a.position - b.position)
   const groups = allGroups.filter(isActiveAssessmentGroup)
   const inactiveGroups = allGroups.filter((group) => !isActiveAssessmentGroup(group))
@@ -97,16 +100,28 @@ export function GradingPlanManager({
           ))}
         </section>
       )}
-      <GradeProjectionCard projection={projection} />
-      <GradeSimulator
-        subject={subject}
-        groups={groups}
-        assessments={activeAssessments}
-        scale={store.data.settings.gradeScale}
-        onSimulate={store.simulateAssessmentScore}
-      />
+      <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen} className="rounded-lg border bg-muted/20">
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" className="w-full justify-between" aria-expanded={detailsOpen}>
+            Detalles y estadísticas
+            <ChevronDown className={`size-4 transition-transform ${detailsOpen ? "rotate-180" : ""}`} />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-3 border-t p-3">
+          <GradeProjectionCard projection={projection} />
+          {projection.definitiveFinalGrade === null && (
+            <GradeSimulator
+              subject={subject}
+              groups={groups}
+              assessments={activeAssessments}
+              scale={store.data.settings.gradeScale}
+              onSimulate={store.simulateAssessmentScore}
+            />
+          )}
+        </CollapsibleContent>
+      </Collapsible>
       <Dialog open={Boolean(pendingPreset)} onOpenChange={(open) => { if (!open) setPendingPreset(null) }}>
-        <DialogContent>
+        <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Este cambio afecta grupos con evaluaciones</DialogTitle>
             <DialogDescription>

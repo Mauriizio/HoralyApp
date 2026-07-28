@@ -27,7 +27,7 @@ import { SupabaseAcademicRepository, selectAcademicRepository, type AcademicRepo
 import { loadCloudCache, saveCloudCache, saveMigrationBackup, loadMigrationBackup } from "@/lib/local-cloud-storage"
 import { transitionDeleteModule, transitionMoveBlock, transitionSetModules, transitionUpdateSubject, transitionUpsertBlock } from "@/lib/schedule-transitions"
 import { filterDataByActiveSemester } from "@/application/semesters"
-import { addGradeTransition, applyGradingPresetTransition, deleteAssessmentGroupTransition, ensureDefaultAssessmentGroup, getAssessmentInternalWeight, getMaximumAssessmentWeight, isActiveAssessmentGroup, isStandardSingleAssessmentFinalGroup, type GradingPresetId } from "@/lib/assessment-groups"
+import { addGradeTransition, applyGradingPresetTransition, deleteAssessmentGroupTransition, getAssessmentInternalWeight, getMaximumAssessmentWeight, isActiveAssessmentGroup, isStandardSingleAssessmentFinalGroup, type GradingPresetId } from "@/lib/assessment-groups"
 import { assertSameGeneration, assertSameIdentity, logIdentity, type OperationIdentityContext, SessionIdentityMismatchError } from "@/lib/session-identity"
 
 export { validateModules }
@@ -199,13 +199,10 @@ export function useScheduleStore() {
     let createdSubject = normalizeSubjectForStorage({ ...subject, semesterId }, data.subjects, { id, createdAt })
 
     const withSubject = { ...data, subjects: [...data.subjects, createdSubject] }
-    const ensured = ensureDefaultAssessmentGroup(withSubject, createdSubject.semesterId!, createdSubject.id, createdAt)
-    const createdGroup = ensured.created ? ensured.group : null
-    setData(ensured.nextData)
+    setData(withSubject)
 
     void persistCloud(dataOwnerUserId, async (repository) => {
       await repository.saveSubject(createdSubject)
-      if (createdGroup) await repository.saveAssessmentGroup(createdGroup)
     })
     return createdSubject
   }, [data.activeSemesterId, data.subjects, dataOwnerUserId, persistCloud])
