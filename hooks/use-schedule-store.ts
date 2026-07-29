@@ -29,6 +29,8 @@ import { transitionDeleteModule, transitionMoveBlock, transitionSetModules, tran
 import { filterDataByActiveSemester } from "@/application/semesters"
 import { addGradeTransition, applyGradingPresetTransition, deleteAssessmentGroupTransition, getAssessmentInternalWeight, getMaximumAssessmentWeight, isActiveAssessmentGroup, isStandardSingleAssessmentFinalGroup, type GradingPresetId } from "@/lib/assessment-groups"
 import { assertSameGeneration, assertSameIdentity, logIdentity, type OperationIdentityContext, SessionIdentityMismatchError } from "@/lib/session-identity"
+import { evaluateSubjectCreation, type SubjectCreationGate } from "@/application/subject-creation"
+import { backfillLegacyActivationMarker } from "@/application/activation"
 
 export { validateModules }
 
@@ -111,10 +113,20 @@ export function useScheduleStore() {
           logIdentity({ authUserId: userId, repositoryOwnerUserId: repository.kind === "supabase" ? repository.userIdForCache : null, authGeneration: expectedGeneration, operation: "store.hydrate", mismatch: "stale_load_discarded" })
           return
         }
-        setData(result.data)
+        const hydratedData = backfillLegacyActivationMarker(result.data, new Date().toISOString())
+        if (hydratedData !== result.data) {
+          if (repository.kind === "local") saveData(hydratedData)
+          else {
+            if (!expectedUserId) throw new SessionIdentityMismatchError()
+            repository.assertRepositoryOwner(expectedUserId)
+            await repository.updateSettings(hydratedData.settings, hydratedData.modules)
+            if (cancelled || authGenerationRef.current !== expectedGeneration || userId !== expectedUserId) return
+          }
+        }
+        setData(hydratedData)
         if (!result.ok) setStorageRecovery({ raw: result.raw, errors: result.errors })
         else setStorageRecovery(null)
-        if (repository.kind === "supabase" && expectedUserId) saveCloudCache(expectedUserId, result.data)
+        if (repository.kind === "supabase" && expectedUserId) saveCloudCache(expectedUserId, hydratedData)
         loadedForRef.current = key
         setDataOwnerUserId(repository.kind === "supabase" ? expectedUserId : null)
         setRepositoryOwnerUserId(repository.kind === "supabase" ? expectedUserId : null)
@@ -206,6 +218,21 @@ export function useScheduleStore() {
     })
     return createdSubject
   }, [data.activeSemesterId, data.subjects, dataOwnerUserId, persistCloud])
+
+  const createSubject = useCallback((
+    input: { name: string; color?: string; difficulty?: Subject["difficulty"]; commandKey?: string },
+  ): SubjectCreationGate | { kind: "created"; subject: Subject } => {
+    const gate = evaluateSubjectCreation(data, { identityReady, transitioning }, input.name)
+    if (gate.kind !== "allowed") return gate
+    const subject = addSubject({
+      name: gate.normalizedName,
+      semesterId: gate.semesterId,
+      color: input.color ?? "#2563EB",
+      difficulty: input.difficulty ?? 3,
+      commandKey: input.commandKey,
+    })
+    return { kind: "created", subject }
+  }, [addSubject, data, identityReady, transitioning])
 
   const updateSubject = useCallback((id: string, patch: Partial<Subject>) => {
     const transition = transitionUpdateSubject(data, id, patch)
@@ -449,13 +476,14 @@ export function useScheduleStore() {
   const updateProfileConfirmed = useCallback(async (patch: Partial<UserProfile>, context?: OperationIdentityContext) => {
     const expectedUserId = context?.expectedUserId ?? dataOwnerUserId
     if (authenticated && !expectedUserId) throw new SessionIdentityMismatchError()
-    const nextProfile = { ...data.profile, ...patch }
-    const nextData = { ...data, profile: nextProfile }
+    const nextProfile = { ...dataRef.current.profile, ...patch }
     if (authenticated) await persistCloud(expectedUserId, (repository) => repository.updateProfile(nextProfile, user?.email), { throwOnError: true, expectedAuthGeneration: context?.expectedAuthGeneration, operationName: "profile.updateConfirmed" })
+    const nextData = { ...dataRef.current, profile: nextProfile }
+    dataRef.current = nextData
     setData(nextData)
     if (authenticated && expectedUserId) saveCloudCache(expectedUserId, nextData)
     else saveData(nextData)
-  }, [authenticated, data, dataOwnerUserId, persistCloud, user?.email])
+  }, [authenticated, dataOwnerUserId, persistCloud, user?.email])
 
   const updateProfile = useCallback((patch: Partial<UserProfile>) => {
     void updateProfileConfirmed(patch)
@@ -472,6 +500,24 @@ export function useScheduleStore() {
     setData((d) => ({ ...d, settings: { ...d.settings, ...patch } }))
     void persistCloud(dataOwnerUserId, (repository) => repository.updateSettings(nextSettings, data.modules))
   }, [data.modules, data.settings, dataOwnerUserId, persistCloud])
+
+  const updateSettingsConfirmed = useCallback(async (patch: Partial<AppSettings>, context?: OperationIdentityContext) => {
+    const expectedUserId = context?.expectedUserId ?? dataOwnerUserId
+    if (authenticated && !expectedUserId) throw new SessionIdentityMismatchError()
+    const nextSettings = { ...dataRef.current.settings, ...patch }
+    if (authenticated) {
+      await persistCloud(
+        expectedUserId,
+        (repository) => repository.updateSettings(nextSettings, dataRef.current.modules),
+        { throwOnError: true, expectedAuthGeneration: context?.expectedAuthGeneration, operationName: "settings.updateConfirmed" },
+      )
+    }
+    const nextData = { ...dataRef.current, settings: nextSettings }
+    dataRef.current = nextData
+    setData(nextData)
+    if (authenticated && expectedUserId) saveCloudCache(expectedUserId, nextData)
+    else saveData(nextData)
+  }, [authenticated, dataOwnerUserId, persistCloud])
 
   const resetSettings = useCallback(() => {
     setData((d) => ({ ...d, settings: DEFAULT_SETTINGS }))
@@ -556,6 +602,7 @@ export function useScheduleStore() {
     subjectsById,
     replaceAll,
     addSubject,
+    createSubject,
     updateSubject,
     deleteSubject,
     upsertBlock,
@@ -592,6 +639,7 @@ export function useScheduleStore() {
     updateProfileConfirmed,
     resetProfile,
     updateSettings,
+    updateSettingsConfirmed,
     resetSettings,
   }
 }

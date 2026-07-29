@@ -1,25 +1,13 @@
 "use client"
 
 import { useEffect, useRef, useState, type FormEvent } from "react"
-import { useHorarlyState } from "@/hooks/useHorarily"
+import { loadHorarilyMasterSvg, useHorarlyState } from "@/hooks/useHorarily"
 import "@/styles/horarily-animations.css"
-
-const REQUIRED_MASTER_IDS = [
-  "cuerpo",
-  "pies",
-  "brazo-izq",
-  "brazo-der",
-  "ojos",
-  "ojos-cerrados",
-  "ojos-triste",
-  "cejas",
-  "cejas-riendo",
-  "cejas-triste",
-  "boca",
-  "boca-riendo",
-  "boca-triste",
-  "lapiz",
-] as const
+import {
+  createConversationState,
+  transitionConversation,
+  type ConversationState,
+} from "@/application/horarily-conversation"
 
 const calculateAverage = (list: Array<{ score: number; weight?: number }>) => {
   const totalWeight = list.reduce((acc, g) => acc + (g.weight ?? 0), 0)
@@ -49,7 +37,7 @@ interface HorarilySpeakingCardProps {
     language?: "es" | "en"
   }
   commandActions?: {
-    addSubject?: (payload: { name: string; commandKey: string }) => { name: string; commandKey: string } | null
+    addSubject?: (payload: { name: string; commandKey?: string }) => { name: string; commandKey: string } | null
     addGrade?: (payload: { commandKey: string; score: number; title: string; weight: number }) => boolean
     updateProfileName?: (name: string) => void
     openSubjectForm?: () => void
@@ -84,6 +72,8 @@ export function HorarilySpeakingCard({
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [awaitingResetConfirm, setAwaitingResetConfirm] = useState(false)
   const [helpMenuMode, setHelpMenuMode] = useState<"idle" | "es" | "en">("idle")
+  const [conversationState, setConversationState] = useState<ConversationState>(createConversationState)
+  const [pendingSubjectName, setPendingSubjectName] = useState<string | null>(null)
   const consoleRef = useRef<HTMLDivElement>(null)
   const { displayText, isSpeaking, speak, setContext } = useHorarlyState(svgRef)
 
@@ -91,30 +81,9 @@ export function HorarilySpeakingCard({
     let isMounted = true
 
     const loadMasterSvg = async () => {
-      try {
-        const response = await fetch("/logo/horarily-master.svg")
-        if (!response.ok || !svgRef.current) return
-
-        const sourceText = await response.text()
-        const parser = new DOMParser()
-        const doc = parser.parseFromString(sourceText, "image/svg+xml")
-        const sourceSvg = doc.querySelector("svg")
-        if (!sourceSvg) return
-
-        const hasAllRequiredIds = REQUIRED_MASTER_IDS.every((id) => sourceSvg.querySelector(`#${id}`))
-        if (!hasAllRequiredIds) {
-          console.warn("[Horarily] horarily-master.svg no tiene todos los IDs requeridos. Se mantiene el placeholder animado.")
-          return
-        }
-
-        svgRef.current.innerHTML = sourceSvg.innerHTML
-        const viewBox = sourceSvg.getAttribute("viewBox")
-        if (viewBox) svgRef.current.setAttribute("viewBox", viewBox)
-
-        if (isMounted) setUsingMasterSvg(true)
-      } catch {
-        // fallback
-      }
+      if (!svgRef.current) return
+      const loaded = await loadHorarilyMasterSvg(svgRef.current)
+      if (isMounted) setUsingMasterSvg(loaded)
     }
 
     loadMasterSvg()
@@ -159,7 +128,7 @@ export function HorarilySpeakingCard({
         ]
       }
       const greeting = userName.trim() ? `> HOLA, ${userName.toUpperCase()}` : "> HOLA"
-      return [greeting, `> ${message.toUpperCase()}`, "> ESCRIBE /AYUDA PARA VER COMANDOS"]
+      return [greeting, `> ${message.toUpperCase()}`, "> CUÉNTAME QUÉ NECESITAS O ABRE COMANDOS AVANZADOS"]
     })
   }, [booting, userName, commandContext?.hasAnyData, message])
 
@@ -230,9 +199,7 @@ export function HorarilySpeakingCard({
       return "PERSONALIZAR APP:\n1. ABRE PREFERENCIAS.\n2. AJUSTA TEMA, COLORES, ESTILO VISUAL Y TIPOGRAFÍA DISPONIBLE.\n3. REVISA LOS CAMBIOS EN TIEMPO REAL Y GUARDA TU CONFIGURACIÓN."
     }
 
-    if (!normalized.startsWith("/")) {
-      return "ERROR: EL COMANDO DEBE INICIAR CON /"
-    }
+    if (!normalized.startsWith("/")) return "No entendí del todo. Puedo ayudarte a agregar una materia, revisar tu horario o ver tus notas."
 
     if (normalized === "/NEXTCLASS") {
       return commandContext?.nextClassText?.toUpperCase() ?? "NO HAY CLASES PENDIENTES HOY."
@@ -467,6 +434,41 @@ export function HorarilySpeakingCard({
     setSuggestions([])
   }
 
+  const executeNaturalInput = (value: string) => {
+    const transition = transitionConversation(conversationState, value)
+    setConversationState(transition.state)
+    setCommandHistory((previous) => [...previous, value])
+    setHistory((previous) => [...previous, `> ${value}`])
+    setCommandInput("")
+    setSuggestions([])
+
+    if (transition.intent.kind === "legacyCommand") return executeCommand(transition.intent.command)
+    if (transition.intent.kind === "listSubjects") return executeCommand("/MATERIAS")
+    if (transition.intent.kind === "nextClass") return executeCommand("/PROXIMACLASE")
+    if (transition.intent.kind === "showGrades") return executeCommand("/NOTAS")
+    if (transition.intent.kind === "help") {
+      const response = "Puedo ayudarte a agregar una materia, revisar tu próxima clase, ver tus materias o consultar tus notas."
+      setPendingResponse(response)
+      speak(response)
+      return
+    }
+    if (transition.state.kind === "confirmingSubject") setPendingSubjectName(transition.state.subjectName)
+    setPendingResponse(transition.message)
+    speak(transition.message)
+  }
+
+  const confirmNaturalSubject = () => {
+    if (!pendingSubjectName) return
+    const created = commandActions?.addSubject?.({ name: pendingSubjectName })
+    const response = created
+      ? `Materia creada: ${created.name}. Su clave automática es ${created.commandKey}.`
+      : `No pude crear ${pendingSubjectName}. Revisa si ya existe o vuelve a intentarlo.`
+    setConversationState(created ? { kind: "completed" } : { kind: "error", message: response })
+    setPendingSubjectName(null)
+    setPendingResponse(response)
+    speak(response)
+  }
+
   const restartOnboarding = () => {
     commandActions?.resetProfileName?.()
     setInteractiveMode(false)
@@ -545,7 +547,8 @@ export function HorarilySpeakingCard({
       return
     }
 
-    executeCommand(value)
+    if (value.startsWith("/")) executeCommand(value)
+    else executeNaturalInput(value)
   }
 
   return (
@@ -584,7 +587,7 @@ export function HorarilySpeakingCard({
         {!booting && (
           <>
             <form className="horarily-console-input-wrap" onSubmit={onSubmitCommand}>
-              <span className="horarily-console-prompt">/</span>
+              <span className="horarily-console-prompt" aria-hidden="true">&gt;</span>
               <input
                 value={commandInput}
                 onChange={(e) => setCommandInput(e.target.value)}
@@ -621,7 +624,7 @@ export function HorarilySpeakingCard({
                   }
                 }}
                 className="horarily-console-input"
-                placeholder="AYUDA, PROXIMACLASE, MATERIAS, NOTAMAXIMA/MATEMATICA"
+                placeholder="Escribe qué necesitas…"
                 autoComplete="off"
               />
             </form>
@@ -635,14 +638,23 @@ export function HorarilySpeakingCard({
                 ))}
               </div>
             )}
+
+            {pendingSubjectName && (
+              <div className="horarily-console-input-wrap" style={{ gap: 8, flexWrap: "wrap" }}>
+                <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={confirmNaturalSubject}>Crear materia</button>
+                <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => { setConversationState({ kind: "awaitingSubjectName" }); setPendingSubjectName(null); setPendingResponse("Claro. Escribe el nombre correcto."); }}>Corregir nombre</button>
+                <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => { setConversationState({ kind: "idle" }); setPendingSubjectName(null); setPendingResponse("Cancelado. ¿En qué más puedo ayudarte?"); }}>Cancelar</button>
+              </div>
+            )}
           </>
         )}
 
         {!booting && (
           <div className="horarily-console-input-wrap" style={{ gap: 8, justifyContent: "flex-start", flexWrap: "wrap" }}>
-            <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => executeCommand("/AYUDA")} style={{ maxWidth: 220 }}>
-              /AYUDA
-            </button>
+            <details>
+              <summary className="horarily-console-input horarily-console-action-btn">Comandos avanzados</summary>
+              <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => executeCommand("/AYUDA")} style={{ maxWidth: 220 }}>/AYUDA</button>
+            </details>
             {interactiveMode && (
               <>
                 {!awaitingResetConfirm ? (

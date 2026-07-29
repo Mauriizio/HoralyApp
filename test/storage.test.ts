@@ -20,6 +20,24 @@ function validData(patch: Partial<AppData> = {}): AppData {
 }
 
 describe("storage", () => {
+  it("conserva el progreso y marcador de activación durante el round-trip", () => {
+    const source = validData({
+      settings: {
+        ...EMPTY_APP_DATA.settings,
+        onboarding: {
+          currentStep: 3,
+          completed: false,
+          draftSubjectName: "Electrotecnia 1",
+          activationCompletedAt: "2026-07-28T12:00:00.000Z",
+        },
+      },
+    })
+    const result = validateImportedData(source)
+    assert.equal(result.ok, true)
+    assert.equal(result.data?.settings.onboarding.draftSubjectName, "Electrotecnia 1")
+    assert.equal(result.data?.settings.onboarding.activationCompletedAt, "2026-07-28T12:00:00.000Z")
+  })
+
   it("migra materias antiguas generando commandKey estable y único", () => {
     const data = migrateData({
       ...EMPTY_APP_DATA,

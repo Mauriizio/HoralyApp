@@ -6,6 +6,28 @@ import {
   resolveHorarlyState,
 } from "@/hooks/horarilySpriteConfig"
 
+export const REQUIRED_HORARILY_MASTER_IDS = [
+  "cuerpo", "pies", "brazo-izq", "brazo-der", "ojos", "ojos-cerrados", "ojos-triste",
+  "cejas", "cejas-riendo", "cejas-triste", "boca", "boca-riendo", "boca-triste", "lapiz",
+] as const
+
+export async function loadHorarilyMasterSvg(target: SVGSVGElement): Promise<boolean> {
+  try {
+    const response = await fetch("/logo/horarily-master.svg")
+    if (!response.ok) return false
+    const sourceText = await response.text()
+    const documentNode = new DOMParser().parseFromString(sourceText, "image/svg+xml")
+    const sourceSvg = documentNode.querySelector("svg")
+    if (!sourceSvg || !REQUIRED_HORARILY_MASTER_IDS.every((id) => sourceSvg.querySelector(`#${id}`))) return false
+    target.innerHTML = sourceSvg.innerHTML
+    const viewBox = sourceSvg.getAttribute("viewBox")
+    if (viewBox) target.setAttribute("viewBox", viewBox)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function useHorarlyBlink(svgRef: RefObject<SVGSVGElement | null>, intervalMs: number) {
   useEffect(() => {
     if (intervalMs === 0 || !svgRef.current) return

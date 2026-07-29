@@ -219,6 +219,42 @@ html[data-font="tech"] body {
   }
 }
 
+.horarily-guide-mascot {
+  animation: horarily-guide-breathe 3.2s ease-in-out infinite;
+}
+
+.horarily-guide-writing {
+  animation: horarily-guide-write 700ms ease-in-out 1;
+}
+
+.horarily-guide-success {
+  animation: horarily-guide-celebrate 650ms ease-out 1;
+}
+
+@keyframes horarily-guide-breathe {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes horarily-guide-write {
+  0%, 100% { transform: rotate(0); }
+  45% { transform: rotate(-2deg); }
+}
+
+@keyframes horarily-guide-celebrate {
+  0% { transform: scale(.96); }
+  65% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .horarily-guide-mascot,
+  .horarily-guide-writing,
+  .horarily-guide-success {
+    animation: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

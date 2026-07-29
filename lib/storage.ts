@@ -120,7 +120,13 @@ const settingsSchema = z.object({
   enableSaturday: z.boolean(),
   googleCalendarConnected: z.boolean(),
   gradeScale: gradeScaleSchema,
-  onboarding: z.object({ currentStep: z.number().int().nonnegative(), completed: z.boolean(), updatedAt: z.string().optional() }),
+  onboarding: z.object({
+    currentStep: z.number().int().nonnegative(),
+    completed: z.boolean(),
+    updatedAt: z.string().optional(),
+    activationCompletedAt: z.string().optional(),
+    draftSubjectName: z.string().optional(),
+  }),
 })
 
 const semesterSchema = z.object({ id: z.string().min(1), name: z.string().min(1), startsOn: z.string().optional(), endsOn: z.string().optional(), status: z.enum(["planned", "active", "archived"]), createdAt: z.number().finite() })

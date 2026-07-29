@@ -212,6 +212,8 @@ export interface OnboardingState {
   currentStep: number
   completed: boolean
   updatedAt?: string
+  activationCompletedAt?: string
+  draftSubjectName?: string
 }
 
 export const DEFAULT_PROFILE: UserProfile = {

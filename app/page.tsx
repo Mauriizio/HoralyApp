@@ -53,6 +53,7 @@ import { formatTime, parseTime } from "@/lib/time-format"
 import { AuthProvider, useAuth } from "@/lib/auth-context"
 import { GuestAuthActions } from "@/components/auth/guest-auth-actions"
 import { AppShell } from "@/components/app-shell/app-shell"
+import { evaluateActivation } from "@/application/activation"
 import { getTabUrl, isAppTab, type AppTab } from "@/components/app-shell/navigation"
 
 const DAY_INDEX_TO_KEY: Record<number, DayKey | null> = {
@@ -68,7 +69,7 @@ const DAY_INDEX_TO_KEY: Record<number, DayKey | null> = {
 function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }) {
   const {
     data,
-    addSubject,
+    createSubject,
     updateSubject,
     addReminder,
     addStudyBlock,
@@ -104,10 +105,12 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
     setTab(nextTab)
     window.history.replaceState(null, "", getTabUrl(nextTab, window.location.search))
   }
-  const requiresAcademicSetup =
-    !data.activeSemesterId ||
-    (!data.settings.onboarding.completed && !data.profile.onboardingCompletedAt)
   const openSubjectCreation = () => {
+    const requiresAcademicSetup = evaluateActivation(store.allData, {
+      hydrated: store.hydrated,
+      identityReady: store.identityReady,
+      transitioning,
+    }).kind !== "ready"
     if (requiresAcademicSetup) {
       navigateTo("onboarding")
       return
@@ -227,15 +230,10 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
     data.studyBlocks.length > 0 ||
     data.grades.length > 0
 
-  const addSubjectFromConsole = ({ name, commandKey }: { name: string; commandKey: string }) => {
-    if (data.subjects.some((s) => (s.commandKey ?? "").toUpperCase() === commandKey.toUpperCase())) return null
-    const created = addSubject({
-      name: name.trim(),
-      color: "#2563EB",
-      difficulty: 3,
-      commandKey: commandKey.toUpperCase(),
-    })
-    return { name: created.name, commandKey: created.commandKey ?? commandKey.toUpperCase() }
+  const addSubjectFromConsole = ({ name, commandKey }: { name: string; commandKey?: string }) => {
+    const result = store.createSubject({ name, commandKey })
+    if (result.kind !== "created") return null
+    return { name: result.subject.name, commandKey: result.subject.commandKey ?? "" }
   }
 
   const addGradeFromConsole = ({
@@ -274,6 +272,25 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
       <div className="min-h-screen flex items-center justify-center text-muted-foreground">
         {t("app.loading")}
       </div>
+    )
+  }
+
+  const activation = evaluateActivation(store.allData, {
+    hydrated: store.hydrated,
+    identityReady: store.identityReady,
+    transitioning,
+  })
+
+  if (activation.kind !== "ready") {
+    return (
+      <>
+        <ThemeApplier settings={data.settings} />
+        <OnboardingFlow
+          store={store}
+          initialStep={"resumeStep" in activation ? activation.resumeStep : undefined}
+          onDone={() => navigateTo("dashboard")}
+        />
+      </>
     )
   }
 
@@ -579,7 +596,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         initial={subjectEditing}
         onSubmit={(values) => {
           if (subjectEditing) updateSubject(subjectEditing.id, values)
-          else addSubject(values)
+          else createSubject(values)
         }}
       />
       <ReminderForm

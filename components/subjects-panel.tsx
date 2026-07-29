@@ -14,7 +14,7 @@ import { SubjectForm } from "@/components/subject-form"
 
 export function SubjectsPanel({ store, onRequireSetup }: { store: ScheduleStore; onRequireSetup?: () => void }) {
   const { t } = useI18n()
-  const { data, addSubject, updateSubject, deleteSubject } = store
+  const { data, createSubject, updateSubject, deleteSubject } = store
 
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Subject | undefined>()
@@ -29,10 +29,7 @@ export function SubjectsPanel({ store, onRequireSetup }: { store: ScheduleStore;
   )
 
   const openNew = () => {
-    if (!data.activeSemesterId || (!data.settings.onboarding.completed && !data.profile.onboardingCompletedAt)) {
-      onRequireSetup?.()
-      return
-    }
+    if (!store.identityReady || !data.activeSemesterId) return onRequireSetup?.()
     setEditing(undefined)
     setOpen(true)
   }
@@ -125,7 +122,7 @@ export function SubjectsPanel({ store, onRequireSetup }: { store: ScheduleStore;
         initial={editing}
         onSubmit={(values) => {
           if (editing) updateSubject(editing.id, values)
-          else addSubject(values)
+          else createSubject(values)
         }}
       />
     </div>
