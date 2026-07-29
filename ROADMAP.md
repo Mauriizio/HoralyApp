@@ -1,5 +1,8 @@
 # ROADMAP.md — HoralyApp
 
+> Actualización Fase B: Cuaderno por materia y calculadora científica segura
+> implementados en una PR independiente posterior a #19.
+
 > Roadmap operativo posterior a la fusión de la PR #14.
 
 ## Estado general
