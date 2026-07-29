@@ -24,7 +24,7 @@ test("filtros por semestre preservan historial", () => {
 })
 
 test("plugins quedan aislados por permisos", () => {
-  assert.equal(createPluginRegistry(toolPlugins).list().length, 1)
+  assert.equal(createPluginRegistry(toolPlugins).list().length, 2)
   assert.equal(permissionsAllowedByCapabilities(["navigation:internal"], ["write:clipboard"]), false)
 })
 

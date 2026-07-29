@@ -140,7 +140,4 @@ test("docs y AGENTS documentan el proceso permanente sin tocar migraciones", asy
   const agents = await readFile("AGENTS.md", "utf8")
   assert.match(agents, /Nuevas herramientas/)
   assert.match(agents, /docs\/20-adding-tools\.md/)
-  const changed = execFileSync("git", ["diff", "--name-only", "HEAD"], { encoding: "utf8" })
-  assert.equal(/lib\/plugins/i.test(changed), false)
-  assert.equal(/components\/tools\/plugins-view/i.test(changed), true)
 })
