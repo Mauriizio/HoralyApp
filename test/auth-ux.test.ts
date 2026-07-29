@@ -45,6 +45,15 @@ test("reset exitoso produce vista de revisar correo", async () => {
   assert.match(source, /resetPasswordForEmail/)
 })
 
+test("auth no configurado deshabilita acciones y siempre explica la contingencia", async () => {
+  const source = await readFile("components/auth-form.tsx", "utf8")
+  assert.match(source, /El inicio de sesión no está disponible temporalmente por un problema de configuración\. Tus datos locales permanecen seguros\./)
+  assert.match(source, /disabled=\{loading \|\| !configured \|\| cooldown > 0\}/)
+  assert.match(source, /disabled=\{loading \|\| !configured\}/)
+  assert.match(source, /process\.env\.NODE_ENV === "development"/)
+  assert.match(source, /Volver a HORARILY/)
+})
+
 test("safeInternalRedirect acepta paths internos", () => {
   assert.equal(safeInternalRedirect("/auth/login?x=1"), "/auth/login?x=1")
 })

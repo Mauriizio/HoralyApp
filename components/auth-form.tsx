@@ -116,7 +116,17 @@ export function AuthForm({ mode }: { mode: Mode }) {
     if (error) setNotice(mapAuthError(error))
   }
 
-  const noticeBox = notice && <div ref={noticeRef} tabIndex={-1} role={notice.type === "error" ? "alert" : "status"} aria-live={notice.type === "error" ? "assertive" : "polite"} className={`rounded-md border p-3 text-sm outline-none ${noticeClasses[notice.type]}`}><p className="font-medium">{notice.title}</p>{notice.description && <p className="mt-1">{notice.description}</p>}</div>
+  const configurationNotice = !configured && (
+    <div role="status" className="mb-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+      <p>El inicio de sesión no está disponible temporalmente por un problema de configuración. Tus datos locales permanecen seguros.</p>
+      {process.env.NODE_ENV === "development" && (
+        <p className="mt-1">Detalle técnico: completa NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY para activar autenticación.</p>
+      )}
+      <Link href="/" className="mt-2 inline-flex font-medium underline underline-offset-4">Volver a HORARILY</Link>
+    </div>
+  )
+
+  const noticeBox = <>{configurationNotice}{notice && <div ref={noticeRef} tabIndex={-1} role={notice.type === "error" ? "alert" : "status"} aria-live={notice.type === "error" ? "assertive" : "polite"} className={`rounded-md border p-3 text-sm outline-none ${noticeClasses[notice.type]}`}><p className="font-medium">{notice.title}</p>{notice.description && <p className="mt-1">{notice.description}</p>}</div>}</>
 
   if (successView) return <main className="min-h-screen grid place-items-center bg-muted/30 p-4"><Card className="w-full max-w-md"><CardHeader className="relative pr-12"><Button variant="ghost" size="icon" className="absolute right-3 top-3" aria-label="Volver a Horaly" asChild><Link href="/"><X className="h-4 w-4" aria-hidden /></Link></Button><CardTitle>{successView === "signup" ? "Cuenta creada. Te enviamos un enlace de confirmación" : "Revisa tu correo para continuar"}</CardTitle><CardDescription>{successView === "signup" ? "La cuenta todavía no está lista para iniciar sesión hasta confirmar el correo." : "Si Supabase acepta la solicitud, recibirás un enlace para crear una nueva contraseña."}</CardDescription></CardHeader><CardContent className="space-y-4">{noticeBox}<p className="text-sm text-muted-foreground">Correo: <span className="font-medium text-foreground">{maskEmail(email)}</span>. Revisa spam. Los enlaces pueden expirar o quedar inválidos si los usas más de una vez.</p><Button className="w-full" onClick={resendConfirmation} disabled={resending || cooldown > 0}>{resending ? "Reenviando..." : cooldown > 0 ? `Reenviar en ${cooldown}s` : "Reenviar correo"}</Button><div className="grid gap-2"><Button variant="outline" onClick={() => { setSuccessView(null); setNotice(null) }}>Cambiar correo</Button><Button variant="ghost" asChild><Link href="/auth/login">Ir a iniciar sesión</Link></Button><Button variant="ghost" asChild><Link href="/">Volver a Horaly</Link></Button></div></CardContent></Card></main>
 
