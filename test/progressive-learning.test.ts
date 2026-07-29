@@ -74,6 +74,7 @@ test("tour usa portal y spotlight pasivo sin elevar el target real", async () =>
   assert.match(guidedTour, /TOUR_LAYERS/)
   assert.match(guidedTour, /ResizeObserver/)
   assert.match(guidedTour, /pointer-events-none/)
+  assert.match(guidedTour, /step\.type === "information"[\s\S]*?panelRef\.current\?\.focus/)
   assert.doesNotMatch(styles, /\[data-tour-active="true"\][\s\S]*?z-index:\s*51/)
 })
 

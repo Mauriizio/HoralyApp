@@ -108,7 +108,7 @@ export function GuidedTour({
         observer.observe(target)
       }
       requestAnimationFrame(updateRect)
-      panelRef.current?.focus()
+      if (step.type === "information") panelRef.current?.focus()
     })()
     window.addEventListener("resize", updateRect)
     window.addEventListener("scroll", updateRect, true)
