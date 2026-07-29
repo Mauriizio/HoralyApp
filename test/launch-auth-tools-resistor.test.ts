@@ -23,7 +23,7 @@ test("pantallas auth tienen salida accesible y registro confirma contraseña", a
   const status = await readFile("app/auth/status/page.tsx", "utf8")
   assert.match(form, /aria-label="Volver a Horaly"/)
   assert.match(update, /aria-label="Volver a Horaly"/)
-  assert.match(status, /Volver a Horaly/)
+  assert.match(status, /Volver a HORARILY/)
   assert.match(form, /confirmPassword/)
   assert.match(form, /Las contraseñas no coinciden/)
   assert.match(form, /if \(loading\) return/)
