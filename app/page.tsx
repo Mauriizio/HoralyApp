@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   CalendarDays,
   BookOpen,
@@ -49,11 +49,18 @@ import { PluginsView } from "@/components/tools/plugins-view"
 import { usePwaInstall } from "@/hooks/use-pwa-install"
 import { I18nProvider, useI18n } from "@/components/i18n-provider"
 import type { DayKey, Subject } from "@/lib/types"
-import { formatTime, parseTime } from "@/lib/time-format"
+import { formatRelativeDuration, formatTime, parseTime } from "@/lib/time-format"
 import { AuthProvider, useAuth } from "@/lib/auth-context"
 import { GuestAuthActions } from "@/components/auth/guest-auth-actions"
 import { AppShell } from "@/components/app-shell/app-shell"
+import { evaluateActivation } from "@/application/activation"
 import { getTabUrl, isAppTab, type AppTab } from "@/components/app-shell/navigation"
+import { GuidedTour } from "@/components/tutorials/guided-tour"
+import { FirstStepsChecklist } from "@/components/tutorials/first-steps-checklist"
+import { useTutorialProgress } from "@/hooks/use-tutorial-progress"
+import { TUTORIAL_REGISTRY, type TutorialId } from "@/lib/tutorials"
+
+type TutorialStartMode = "manual" | "automatic" | "resume"
 
 const DAY_INDEX_TO_KEY: Record<number, DayKey | null> = {
   0: "domingo",
@@ -68,7 +75,7 @@ const DAY_INDEX_TO_KEY: Record<number, DayKey | null> = {
 function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }) {
   const {
     data,
-    addSubject,
+    createSubject,
     updateSubject,
     addReminder,
     addStudyBlock,
@@ -80,6 +87,8 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
   const [tab, setTab] = useState<AppTab>("dashboard")
   const [quickOpen, setQuickOpen] = useState(false)
   const { authenticated, loading: authLoading, transitioning } = useAuth()
+  const tutorials = useTutorialProgress()
+  const [activeTutorial, setActiveTutorial] = useState<TutorialId | null>(null)
 
   const [subjectOpen, setSubjectOpen] = useState(false)
   const [subjectEditing, setSubjectEditing] = useState<Subject | undefined>()
@@ -100,14 +109,59 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
     }
   }, [])
 
-  const navigateTo = (nextTab: AppTab) => {
+  const navigateTo = useCallback((nextTab: AppTab) => {
     setTab(nextTab)
     window.history.replaceState(null, "", getTabUrl(nextTab, window.location.search))
-  }
-  const requiresAcademicSetup =
-    !data.activeSemesterId ||
-    (!data.settings.onboarding.completed && !data.profile.onboardingCompletedAt)
+  }, [])
+  const tutorialIdentityRef = useRef(tutorials.identity)
+  const startLockRef = useRef(false)
+  const startTutorial = useCallback(({ id, mode }: { id: TutorialId; mode: TutorialStartMode }) => {
+    if (!tutorials.ready || startLockRef.current) return
+    const definition = TUTORIAL_REGISTRY[id]
+    const current = tutorials.get(id)
+    if (mode === "automatic" && current.status !== "not-started") return
+    startLockRef.current = true
+    setActiveTutorial(null)
+    navigateTo(definition.entryTab)
+    const currentStep = mode === "resume" && current.status === "in-progress"
+      ? current.currentStep
+      : 0
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        tutorials.update(id, { status: "in-progress", currentStep })
+        setActiveTutorial(id)
+        startLockRef.current = false
+      })
+    })
+  }, [navigateTo, tutorials])
+
+  useEffect(() => {
+    if (!tutorials.ready || activeTutorial) return
+    const contextual: Partial<Record<AppTab, TutorialId>> = {
+      horario: "schedule-tour",
+      notas: "grades-tour",
+      recordatorios: "reminders-tour",
+      herramientas: "tools-tour",
+      preferencias: "preferences-tour",
+    }
+    const id = contextual[tab]
+    if (id && tutorials.get(id).status === "not-started") startTutorial({ id, mode: "automatic" })
+    if (tab === "analitica" && data.grades.length > 0 && tutorials.get("analytics-tour").status === "not-started") {
+      startTutorial({ id: "analytics-tour", mode: "automatic" })
+    }
+  }, [activeTutorial, data.grades.length, startTutorial, tab, tutorials])
+
+  useEffect(() => {
+    if (tutorialIdentityRef.current === tutorials.identity) return
+    tutorialIdentityRef.current = tutorials.identity
+    setActiveTutorial(null)
+  }, [tutorials.identity])
   const openSubjectCreation = () => {
+    const requiresAcademicSetup = evaluateActivation(store.allData, {
+      hydrated: store.hydrated,
+      identityReady: store.identityReady,
+      transitioning,
+    }).kind !== "ready"
     if (requiresAcademicSetup) {
       navigateTo("onboarding")
       return
@@ -209,10 +263,11 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         .sort((a, b) => a.startMinutes - b.startMinutes)[0]
 
       if (nextBlock) {
+        const minutesUntilClass = nextBlock.startMinutes - nowMinutes
         return t("profile.assistant.nextClass", {
           subject: nextBlock.subject.name,
           time: nextBlock.module.start,
-          minutes: nextBlock.startMinutes - nowMinutes,
+          duration: formatRelativeDuration(minutesUntilClass, data.settings.language),
         })
       }
     }
@@ -227,15 +282,10 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
     data.studyBlocks.length > 0 ||
     data.grades.length > 0
 
-  const addSubjectFromConsole = ({ name, commandKey }: { name: string; commandKey: string }) => {
-    if (data.subjects.some((s) => (s.commandKey ?? "").toUpperCase() === commandKey.toUpperCase())) return null
-    const created = addSubject({
-      name: name.trim(),
-      color: "#2563EB",
-      difficulty: 3,
-      commandKey: commandKey.toUpperCase(),
-    })
-    return { name: created.name, commandKey: created.commandKey ?? commandKey.toUpperCase() }
+  const addSubjectFromConsole = ({ name, commandKey }: { name: string; commandKey?: string }) => {
+    const result = store.createSubject({ name, commandKey })
+    if (result.kind !== "created") return null
+    return { name: result.subject.name, commandKey: result.subject.commandKey ?? "" }
   }
 
   const addGradeFromConsole = ({
@@ -274,6 +324,28 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
       <div className="min-h-screen flex items-center justify-center text-muted-foreground">
         {t("app.loading")}
       </div>
+    )
+  }
+
+  const activation = evaluateActivation(store.allData, {
+    hydrated: store.hydrated,
+    identityReady: store.identityReady,
+    transitioning,
+  })
+
+  if (activation.kind !== "ready") {
+    return (
+      <>
+        <ThemeApplier settings={data.settings} />
+        <OnboardingFlow
+          store={store}
+          initialStep={"resumeStep" in activation ? activation.resumeStep : undefined}
+          onDone={(startBasic) => {
+            navigateTo("dashboard")
+            if (startBasic) startTutorial({ id: "basic-tour", mode: "manual" })
+          }}
+        />
+      </>
     )
   }
 
@@ -379,6 +451,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
           {/* Greeting */}
           <div className="mb-4">
             <HorarilySpeakingCard
+              suspended={Boolean(activeTutorial)}
               userName={data.profile.displayName}
               message={`${t("profile.assistant.hello")} ${assistantMessage}`}
               commandContext={{
@@ -407,9 +480,18 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
                 addSubject: addSubjectFromConsole,
                 addGrade: addGradeFromConsole,
                 updateProfileName: (name) => updateProfile({ displayName: name }),
-                resetProfileName: () => updateProfile({ displayName: "" }),
                 openSubjectForm: openSubjectCreation,
-                openGradeForm: () => setGradeOpen(true),
+                openGradeForm: () => {
+                  if (data.assessmentGroups.length === 0) {
+                    navigateTo("notas")
+                    return
+                  }
+                  setGradeOpen(true)
+                },
+                openSchedule: () => navigateTo("horario"),
+                openReminderForm: () => setReminderOpen(true),
+                openTools: () => navigateTo("herramientas"),
+                openPreferences: () => navigateTo("preferencias"),
               }}
               grade={data.grades.length > 0 ? (data.grades[data.grades.length - 1]?.score ?? undefined) : undefined}
               isTyping={subjectOpen || reminderOpen || studyOpen || gradeOpen}
@@ -472,14 +554,29 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
           <Tabs value={tab} onValueChange={(value) => isAppTab(value) && navigateTo(value)} className="space-y-4">
 
             <TabsContent value="dashboard" className="space-y-4 mt-4">
-              <AcademicDashboard store={store} onNavigate={navigateTo} />
+              {!activeTutorial && tutorials.pending.map((id) => (
+                <div key={id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium">Tienes un tutorial pendiente</p>
+                    <p className="text-xs text-muted-foreground">{TUTORIAL_REGISTRY[id].title}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => tutorials.update(id, { status: "skipped" })}>Descartar</Button>
+                    <Button size="sm" onClick={() => startTutorial({ id, mode: "resume" })}>Continuar</Button>
+                  </div>
+                </div>
+              ))}
+              <div data-tour="dashboard-overview"><FirstStepsChecklist store={store} onNavigate={navigateTo} /><AcademicDashboard store={store} onNavigate={navigateTo} /></div>
             </TabsContent>
 
             <TabsContent value="onboarding" className="space-y-4 mt-4">
-              <OnboardingFlow store={store} onDone={() => navigateTo("dashboard")} />
+              <OnboardingFlow store={store} onDone={(startBasic) => {
+                navigateTo("dashboard")
+                if (startBasic) startTutorial({ id: "basic-tour", mode: "manual" })
+              }} />
             </TabsContent>
 
-            <TabsContent value="horario" className="space-y-4 mt-4">
+            <TabsContent value="horario" className="space-y-4 mt-4" data-tour="schedule-grid">
               <div className="flex items-start sm:items-center justify-between flex-wrap gap-2">
                 <div className="min-w-0">
                   <h2 className="text-lg font-semibold truncate">
@@ -494,7 +591,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-xs text-muted-foreground hidden md:inline">
+                  <span data-tour="schedule-modules-summary" className="text-xs text-muted-foreground hidden md:inline">
                     {blockCount === 1
                       ? t("schedule.blockCount.one", { n: blockCount })
                       : t("schedule.blockCount.other", { n: blockCount })}
@@ -535,24 +632,29 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
               <StudyBlocksPanel store={store} />
             </TabsContent>
 
-            <TabsContent value="recordatorios" className="mt-4">
+            <TabsContent value="recordatorios" className="mt-4" data-tour="reminders-overview">
               <RemindersPanel store={store} />
             </TabsContent>
 
-            <TabsContent value="notas" className="mt-4">
+            <TabsContent value="notas" className="mt-4" data-tour="grades-overview">
               <GradesPanel store={store} />
             </TabsContent>
 
-            <TabsContent value="analitica" className="mt-4">
+            <TabsContent value="analitica" className="mt-4" data-tour="analytics-overview">
               <AnalyticsView store={store} />
             </TabsContent>
 
             <TabsContent value="herramientas" className="mt-4">
-              <PluginsView />
+              <div data-tour="tools-catalog"><PluginsView /></div>
             </TabsContent>
 
             <TabsContent value="preferencias" className="mt-4">
-              <SettingsView store={store} onOpenOnboarding={() => navigateTo("onboarding")} />
+              <div data-tour="preferences-overview">
+                <SettingsView
+                  store={store}
+                  onRestartTutorial={(id) => startTutorial({ id, mode: "manual" })}
+                />
+              </div>
             </TabsContent>
           </Tabs>
         <footer className="hidden py-6 text-xs text-muted-foreground lg:block">
@@ -579,7 +681,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         initial={subjectEditing}
         onSubmit={(values) => {
           if (subjectEditing) updateSubject(subjectEditing.id, values)
-          else addSubject(values)
+          else createSubject(values)
         }}
       />
       <ReminderForm
@@ -614,6 +716,17 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         onAction={handleQuickAction}
         store={store}
       />
+      {activeTutorial && <GuidedTour
+        definition={TUTORIAL_REGISTRY[activeTutorial]}
+        currentStep={tutorials.get(activeTutorial).currentStep}
+        onStepChange={(currentStep) => {
+          const step = TUTORIAL_REGISTRY[activeTutorial].steps[currentStep]
+          if (step?.tab && isAppTab(step.tab)) navigateTo(step.tab)
+          requestAnimationFrame(() => tutorials.update(activeTutorial, { status: "in-progress", currentStep }))
+        }}
+        onSkip={() => { tutorials.update(activeTutorial, { status: "skipped" }); setActiveTutorial(null) }}
+        onFinish={() => { tutorials.update(activeTutorial, { status: "completed" }); setActiveTutorial(null) }}
+      />}
     </>
   )
 }

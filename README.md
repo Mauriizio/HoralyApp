@@ -2,6 +2,11 @@
 
 HoralyApp es una aplicación web académica para organizar materias, horario semanal, bloques de estudio, recordatorios, notas y analítica básica con el asistente local Horarily.
 
+La primera entrada usa una activación guiada breve: la cuenta es opcional, pero
+se requiere un nombre, un semestre activo y una primera materia antes de abrir
+el workspace. Horarily acepta frases simples mediante intents deterministas; no
+es una IA generativa y conserva los comandos slash como opción avanzada.
+
 ## Stack
 
 - Next.js App Router

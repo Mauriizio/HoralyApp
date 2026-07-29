@@ -3,7 +3,7 @@ import assert from "node:assert/strict"
 import { execFileSync } from "node:child_process"
 import { readFile } from "node:fs/promises"
 import { classifyCallbackError, classifySignUpResult, mapAuthError, maskEmail } from "../lib/auth-flow.ts"
-import { buildAuthRedirectUrl, buildClientAuthRedirectUrl, getClientAuthOrigin, getMetadataBase, getServerSiteUrl, safeInternalRedirect } from "../lib/auth-url.ts"
+import { buildAuthRedirectUrl, buildClientAuthRedirectUrl, getClientAuthOrigin, getMetadataBase, getPublicAuthCallbackUrl, getServerSiteUrl, safeInternalRedirect } from "../lib/auth-url.ts"
 
 test("registro con session null produce confirmación pendiente", () => {
   assert.equal(classifySignUpResult({ user: { id: "u1" } as never, session: null }), "confirmation-pending")
@@ -30,7 +30,7 @@ test("credenciales inválidas no revelan existencia de usuario", () => {
 test("resend usa type signup y redirect correcto", async () => {
   const source = await readFile("components/auth-form.tsx", "utf8")
   assert.match(source, /auth\.resend\(\{ type: "signup", email, options: \{ emailRedirectTo:/)
-  assert.match(source, /build(Client)?AuthRedirectUrl\("\/auth\/callback\?next=\/auth\/status\?code=email-confirmed"\)/)
+  assert.match(source, /getPublicAuthCallbackUrl\("\?next=\/auth\/status\?code=email-confirmed"\)/)
 })
 
 test("cooldown impide doble envío", async () => {
@@ -100,25 +100,42 @@ function withWindowOrigin(origin: string, fn: () => void) {
 }
 
 test("localhost vuelve a localhost en operaciones cliente", () => {
+  const previous = process.env.NODE_ENV
+  Reflect.set(process.env, "NODE_ENV", "development")
   withWindowOrigin("http://localhost:3000", () => {
     assert.equal(getClientAuthOrigin(), "http://localhost:3000")
     assert.equal(buildClientAuthRedirectUrl("/auth/callback"), "http://localhost:3000/auth/callback")
   })
+  Reflect.set(process.env, "NODE_ENV", previous)
 })
 
-test("preview de Vercel vuelve al mismo preview", () => {
+test("preview de Vercel usa el callback público estable", () => {
   withWindowOrigin("https://horaly-git-feature-mauriizio.vercel.app", () => {
-    assert.equal(buildClientAuthRedirectUrl("/auth/callback?next=/auth/update-password"), "https://horaly-git-feature-mauriizio.vercel.app/auth/callback?next=/auth/update-password")
+    assert.equal(getPublicAuthCallbackUrl("?next=/auth/update-password"), "https://horaly-app.vercel.app/auth/callback?next=%2Fauth%2Fupdate-password")
   })
 })
 
-test("NEXT_PUBLIC_SITE_URL no reemplaza window.location.origin en cliente", () => {
+test("NEXT_PUBLIC_SITE_URL reemplaza una preview en enlaces Auth", () => {
   const previous = process.env.NEXT_PUBLIC_SITE_URL
   process.env.NEXT_PUBLIC_SITE_URL = "https://horaly.app"
   withWindowOrigin("https://preview.vercel.app", () => {
-    assert.equal(getClientAuthOrigin(), "https://preview.vercel.app")
+    assert.equal(getPublicAuthCallbackUrl(), "https://horaly.app/auth/callback")
   })
   process.env.NEXT_PUBLIC_SITE_URL = previous
+})
+
+test("variable Auth explícita tiene prioridad", () => {
+  const previousAuth = process.env.NEXT_PUBLIC_AUTH_SITE_URL
+  const previousSite = process.env.NEXT_PUBLIC_SITE_URL
+  process.env.NEXT_PUBLIC_AUTH_SITE_URL = "https://cuentas.horarily.example"
+  process.env.NEXT_PUBLIC_SITE_URL = "https://horaly.app"
+  assert.equal(getPublicAuthCallbackUrl(), "https://cuentas.horarily.example/auth/callback")
+  process.env.NEXT_PUBLIC_AUTH_SITE_URL = previousAuth
+  process.env.NEXT_PUBLIC_SITE_URL = previousSite
+})
+
+test("callback conserva solo destinos internos", () => {
+  assert.equal(getPublicAuthCallbackUrl("?next=https://evil.example"), "https://horaly-app.vercel.app/auth/callback?next=%2F")
 })
 
 test("metadataBase sí puede usar NEXT_PUBLIC_SITE_URL", () => {
@@ -127,6 +144,16 @@ test("metadataBase sí puede usar NEXT_PUBLIC_SITE_URL", () => {
   assert.equal(getServerSiteUrl(), "https://horaly.app")
   assert.equal(getMetadataBase().origin, "https://horaly.app")
   process.env.NEXT_PUBLIC_SITE_URL = previous
+})
+
+test("template de confirmación queda versionado en español y usa ConfirmationURL", async () => {
+  const html = await readFile("docs/operations/email-templates/confirm-signup.html", "utf8")
+  assert.match(html, /Confirma tu cuenta en HORARILY/)
+  assert.match(html, /\{\{ \.ConfirmationURL \}\}/)
+  assert.match(html, /Confirmar mi correo/)
+  assert.match(html, /copia y pega este enlace/)
+  assert.match(html, /horarily_simbolo_transparente_1024\.png/)
+  assert.equal(/service_role|access[_ -]?token|SUPABASE_/i.test(html), false)
 })
 
 

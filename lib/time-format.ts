@@ -30,3 +30,24 @@ export function formatTime(value: string, format: "12h" | "24h") {
   const normalized = parsed.hour % 12 || 12
   return `${normalized}:${String(parsed.minute).padStart(2, "0")} ${suffix}`
 }
+
+export function formatRelativeDuration(totalMinutes: number, locale: string = "es"): string {
+  const minutes = Math.max(0, Math.floor(Number.isFinite(totalMinutes) ? totalMinutes : 0))
+  if (minutes === 0) return locale.toLowerCase().startsWith("es") ? "ahora" : "now"
+
+  const days = Math.floor(minutes / 1440)
+  const hours = Math.floor((minutes % 1440) / 60)
+  const remainingMinutes = minutes % 60
+  const spanish = locale.toLowerCase().startsWith("es")
+  const units = [
+    days > 0 ? `${days} ${spanish ? (days === 1 ? "día" : "días") : (days === 1 ? "day" : "days")}` : "",
+    hours > 0 ? `${hours} ${spanish ? (hours === 1 ? "hora" : "horas") : (hours === 1 ? "hour" : "hours")}` : "",
+    remainingMinutes > 0
+      ? `${remainingMinutes} ${spanish ? (remainingMinutes === 1 ? "minuto" : "minutos") : (remainingMinutes === 1 ? "minute" : "minutes")}`
+      : "",
+  ].filter(Boolean)
+
+  if (units.length === 1) return units[0]
+  const last = units.pop()
+  return `${units.join(", ")} ${spanish ? "y" : "and"} ${last}`
+}

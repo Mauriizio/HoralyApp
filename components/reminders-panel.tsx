@@ -45,9 +45,11 @@ export function RemindersPanel({ store }: { store: ScheduleStore }) {
           </p>
         </div>
         <Button
+          data-tour="reminder-create"
           onClick={() => {
             setEditing(undefined)
             setOpen(true)
+            window.dispatchEvent(new CustomEvent("horarily:tutorial-action", { detail: { type: "reminder-dialog-opened" } }))
           }}
           size="sm"
         >
@@ -63,7 +65,7 @@ export function RemindersPanel({ store }: { store: ScheduleStore }) {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
+        <div data-tour="reminders-list" className="space-y-2">
           {sorted.map((r) => {
             const subject = r.subjectId ? subjectsById.get(r.subjectId) : undefined
             const highPriority = r.priority === "alta"

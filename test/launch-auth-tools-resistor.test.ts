@@ -23,7 +23,7 @@ test("pantallas auth tienen salida accesible y registro confirma contraseña", a
   const status = await readFile("app/auth/status/page.tsx", "utf8")
   assert.match(form, /aria-label="Volver a Horaly"/)
   assert.match(update, /aria-label="Volver a Horaly"/)
-  assert.match(status, /Volver a Horaly/)
+  assert.match(status, /Volver a HORARILY/)
   assert.match(form, /confirmPassword/)
   assert.match(form, /Las contraseñas no coinciden/)
   assert.match(form, /if \(loading\) return/)
@@ -33,7 +33,7 @@ test("Google OAuth queda tras feature flag sin secretos", async () => {
   const form = await readFile("components/auth-form.tsx", "utf8")
   assert.match(form, /NEXT_PUBLIC_GOOGLE_AUTH_ENABLED/)
   assert.match(form, /signInWithOAuth\(\{[\s\S]*provider: "google"/)
-  assert.match(form, /redirectTo: buildClientAuthRedirectUrl/)
+  assert.match(form, /redirectTo: getPublicAuthCallbackUrl/)
   assert.equal(/CLIENT_SECRET|GOOGLE_SECRET|service_role/i.test(form), false)
 })
 

@@ -157,11 +157,13 @@ test("invitado persiste localmente y autenticado persiste en Supabase", () => {
   assert.match(storeSource, /repository\.replaceAll/)
 })
 
-test("onboarding completado puede abrirse nuevamente sin duplicar semestres", () => {
+test("configuración inicial completada se edita sin reiniciar onboarding ni duplicar semestres", () => {
   const settings = readFileSync("components/settings-view.tsx", "utf8")
   const onboarding = readFileSync("components/onboarding/onboarding-flow.tsx", "utf8")
   assert.match(settings, /Revisar configuración inicial/)
-  assert.match(settings, /Continuar onboarding/)
+  assert.match(settings, /updateProfile/)
+  assert.doesNotMatch(settings, /Continuar onboarding/)
+  assert.doesNotMatch(settings, /onOpenOnboarding/)
   assert.match(onboarding, /if \(current\) \{/)
   assert.match(onboarding, /store\.updateSemester\(current\.id/)
 })

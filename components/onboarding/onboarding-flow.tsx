@@ -1,81 +1,243 @@
 "use client"
 
+import Link from "next/link"
 import { useMemo, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import type { DayKey, Subject } from "@/lib/types"
+import { ArrowLeft, Check, Cloud, HardDrive, Loader2 } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Progress } from "@/components/ui/progress"
+import { commandKeyForSubjectName } from "@/lib/command-key"
+import { HorarilyGuide } from "@/components/horarily/horarily-guide"
+import { displayGivenName } from "@/lib/onboarding-copy"
 
-const STEPS = ["Bienvenida", "Nombre", "Institución", "Carrera o área", "Sistema de calificaciones", "Zona horaria", "Semestre", "Materias", "Horario", "Resumen"]
-const DEFAULT_DAY: DayKey = "lunes"
-
-export function OnboardingFlow({ store, onDone }: { store: ScheduleStore; onDone: () => void }) {
-  const start = Math.min(store.data.settings.onboarding.currentStep, STEPS.length - 1)
-  const [step, setStep] = useState(start)
+const STEP_LABELS = ["Bienvenida", "Tu nombre", "Semestre", "Primera materia", "Listo"] as const
+export function OnboardingFlow({
+  store,
+  onDone,
+  initialStep,
+}: {
+  store: ScheduleStore
+  onDone: (startBasicTour?: boolean) => void
+  initialStep?: number
+}) {
+  const { authenticated } = useAuth()
+  const suggestedStep = initialStep ?? store.data.settings.onboarding.currentStep
+  const [step, setStep] = useState(Math.min(Math.max(authenticated ? Math.max(1, suggestedStep) : suggestedStep, 0), 4))
   const [name, setName] = useState(store.data.profile.displayName)
-  const [institution, setInstitution] = useState(store.data.profile.institution ?? "")
-  const [career, setCareer] = useState(store.data.profile.career ?? "")
-  const [timezone, setTimezone] = useState(store.data.profile.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone)
-  const [semesterName, setSemesterName] = useState(store.data.semesters.find((s) => s.id === store.data.activeSemesterId)?.name ?? "Semestre actual")
-  const [subjectName, setSubjectName] = useState(store.data.subjects[0]?.name ?? "")
-  const [selectedSubjectId, setSelectedSubjectId] = useState(store.data.subjects[0]?.id ?? "")
-  const [subjectSkipped, setSubjectSkipped] = useState(false)
-  const [scheduleSkipped, setScheduleSkipped] = useState(false)
+  const [semesterName, setSemesterName] = useState(
+    store.data.settings.onboarding.draftSemesterName
+      ?? store.data.semesters.find((semester) => semester.id === store.data.activeSemesterId)?.name
+      ?? "Primer semestre",
+  )
+  const [subjectName, setSubjectName] = useState(store.data.settings.onboarding.draftSubjectName ?? "")
   const [notice, setNotice] = useState<string | null>(null)
-  const progress = useMemo(() => Math.round(((step + 1) / STEPS.length) * 100), [step])
+  const [busy, setBusy] = useState(false)
+  const activeSemester = store.data.semesters.find(
+    (semester) => semester.id === store.data.activeSemesterId && semester.status === "active",
+  )
+  const activeSubject = store.data.subjects.find((subject) => subject.semesterId === store.data.activeSemesterId)
+  const commandKey = useMemo(
+    () => commandKeyForSubjectName(subjectName || "Materia", store.allData.subjects),
+    [store.allData.subjects, subjectName],
+  )
+  const givenName = displayGivenName(store.data.profile.displayName || name)
+  const messages = [
+    "Hola, soy Horarily. Voy a preparar tu espacio académico. Tardaremos menos de dos minutos.",
+    "¿Cómo quieres que te llame?",
+    givenName ? `${givenName}, organicemos tu semestre` : "Organicemos tu semestre",
+    givenName ? `Muy bien, ${givenName}. Organicemos dónde vivirán tus materias.` : "Organicemos dónde vivirán tus materias.",
+    "Tu espacio está listo",
+  ] as const
 
-  const saveProgress = (nextStep = step) => store.updateSettings({ onboarding: { currentStep: nextStep, completed: false, updatedAt: new Date().toISOString() } })
-  const saveProfileDraft = () => store.updateProfile({ displayName: name.trim(), institution: institution.trim() || undefined, career: career.trim() || undefined, timezone: timezone.trim() || undefined })
-  const ensureSemester = () => {
-    const name = semesterName.trim() || "Semestre actual"
-    const current = store.data.semesters.find((semester) => semester.id === store.data.activeSemesterId)
+  const persistStep = (nextStep: number, draft = subjectName, semesterDraft = semesterName) => {
+    store.updateSettings({
+      onboarding: {
+        ...store.allData.settings.onboarding,
+        currentStep: nextStep,
+        completed: false,
+        draftSubjectName: draft || undefined,
+        draftSemesterName: semesterDraft || undefined,
+        updatedAt: new Date().toISOString(),
+      },
+    })
+  }
+
+  const advanceWelcome = () => {
+    persistStep(1)
+    setStep(1)
+  }
+
+  const saveName = () => {
+    const value = name.trim().replace(/\s+/g, " ")
+    if (!value) return setNotice("Escribe tu nombre o un alias para continuar.")
+    if (value.length > 60) return setNotice("Usa un nombre de hasta 60 caracteres.")
+    setNotice(null)
+    store.updateProfile({ displayName: value })
+    persistStep(2)
+    setStep(2)
+  }
+
+  const saveSemester = () => {
+    const value = semesterName.trim() || "Primer semestre"
+    setNotice(null)
+    const current = activeSemester
     if (current) {
-      if (current.name !== name) store.updateSemester(current.id, { name })
-      return current.id
+      store.updateSemester(current.id, { name: value, status: "active" })
+    } else {
+      store.createSemester({ name: value, status: "active" })
     }
-    return store.createSemester({ name, status: "active" }).id
+    persistStep(3)
+    setStep(3)
   }
-  const continueTo = (nextStep: number) => { setStep(nextStep); saveProgress(nextStep); setNotice(null) }
 
-  const next = () => {
-    if (step === 1 && !name.trim()) return setNotice("Escribe tu nombre para continuar o vuelve atrás.")
-    saveProfileDraft()
-    if (step === 6) ensureSemester()
-    continueTo(Math.min(step + 1, STEPS.length - 1))
+  const createFirstSubject = () => {
+    const value = subjectName.trim().replace(/\s+/g, " ")
+    if (!value) return setNotice("Escribe el nombre de tu primera materia.")
+    if (value.length > 80) return setNotice("Usa un nombre de hasta 80 caracteres.")
+    setBusy(true)
+    setNotice(null)
+    const result = store.createSubject({ name: value, commandKey })
+    setBusy(false)
+    if (result.kind === "duplicateSubject") {
+      persistStep(4, "")
+      setStep(4)
+      return
+    }
+    if (result.kind !== "created") {
+      return setNotice(result.kind === "allowed" ? "No se pudo completar la creación." : result.reason)
+    }
+    persistStep(4, "")
+    setStep(4)
   }
-  const createBasicSubject = () => {
-    if (!subjectName.trim()) return setNotice("Escribe el nombre de una materia o usa Saltar materias.")
-    const semesterId = ensureSemester()
-    const created = store.addSubject({ name: subjectName.trim(), color: "#2563EB", difficulty: 3, semesterId })
-    setSelectedSubjectId(created.id)
-    setSubjectSkipped(false)
-    continueTo(8)
-  }
-  const createBasicScheduleBlock = () => {
-    const semesterId = ensureSemester()
-    const subject = store.data.subjects.find((item) => item.id === selectedSubjectId) ?? store.data.subjects[0]
-    const module = store.data.modules[0]
-    if (!subject || !module) return setNotice("Necesitas una materia y un módulo horario para crear el bloque.")
-    const result = store.upsertBlock({ id: Math.random().toString(36).slice(2), semesterId, subjectId: subject.id, day: DEFAULT_DAY, moduleIds: [module.id] })
-    if (!result.ok) return setNotice("Ya existe un bloque en ese módulo. Puedes saltar este paso y ajustarlo en Horario.")
-    setScheduleSkipped(false)
-    continueTo(9)
-  }
-  const finish = () => { saveProfileDraft(); store.updateSettings({ onboarding: { currentStep: STEPS.length - 1, completed: true, updatedAt: new Date().toISOString() } }); store.updateProfile({ displayName: name.trim(), institution: institution.trim() || undefined, career: career.trim() || undefined, timezone: timezone.trim() || undefined, onboardingCompletedAt: new Date().toISOString() }); onDone() }
 
-  return <Card className="mx-auto max-w-3xl"><CardHeader><CardTitle>Onboarding académico</CardTitle><CardDescription>Paso {step + 1} de {STEPS.length}: {STEPS[step]} · {progress}%</CardDescription></CardHeader><CardContent className="space-y-4"><StepContent step={step} name={name} setName={setName} institution={institution} setInstitution={setInstitution} career={career} setCareer={setCareer} timezone={timezone} setTimezone={setTimezone} semesterName={semesterName} setSemesterName={setSemesterName} subjectName={subjectName} setSubjectName={setSubjectName} subjects={store.data.subjects} selectedSubjectId={selectedSubjectId} setSelectedSubjectId={setSelectedSubjectId} subjectSkipped={subjectSkipped} scheduleSkipped={scheduleSkipped} />{notice && <p className="text-sm text-destructive" role="alert">{notice}</p>}<div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => { saveProgress(); onDone() }}>Pausar y continuar luego</Button>{step > 0 && <Button variant="ghost" onClick={() => setStep(step - 1)}>Atrás</Button>}{step === 7 && <><Button onClick={createBasicSubject}>Crear materia</Button><Button variant="secondary" onClick={() => { setSubjectSkipped(true); continueTo(8) }}>Saltar materias</Button></>}{step === 8 && <><Button onClick={createBasicScheduleBlock}>Agregar bloque básico</Button><Button variant="secondary" onClick={() => { setScheduleSkipped(true); continueTo(9) }}>Saltar horario</Button></>}{step !== 7 && step !== 8 && (step < STEPS.length - 1 ? <Button onClick={next}>Continuar</Button> : <Button onClick={finish}>Finalizar</Button>)}</div></CardContent></Card>
-}
+  const finish = async () => {
+    if (!store.data.profile.displayName.trim() || !store.data.activeSemesterId || store.data.subjects.length === 0) {
+      setNotice("Falta confirmar tu nombre, semestre o primera materia.")
+      return
+    }
+    const completedAt = new Date().toISOString()
+    setBusy(true)
+    setNotice(null)
+    try {
+      await store.updateProfileConfirmed({ onboardingCompletedAt: completedAt })
+      await store.updateSettingsConfirmed({
+        onboarding: {
+          currentStep: 4,
+          completed: true,
+          activationCompletedAt: completedAt,
+          updatedAt: completedAt,
+        },
+      })
+      return true
+    } catch {
+      setNotice("No pudimos confirmar el guardado. Tus datos actuales permanecen seguros; inténtalo nuevamente.")
+    } finally {
+      setBusy(false)
+    }
+    return false
+  }
 
-function StepContent(props: { step: number; name: string; setName(v: string): void; institution: string; setInstitution(v: string): void; career: string; setCareer(v: string): void; timezone: string; setTimezone(v: string): void; semesterName: string; setSemesterName(v: string): void; subjectName: string; setSubjectName(v: string): void; subjects: Subject[]; selectedSubjectId: string; setSelectedSubjectId(v: string): void; subjectSkipped: boolean; scheduleSkipped: boolean }) {
-  if (props.step === 0) return <p className="text-sm text-muted-foreground">Configuraremos tu perfil, semestre, materias y horario sin borrar datos actuales. Puedes omitir campos no esenciales.</p>
-  if (props.step === 1) return <Input aria-label="Nombre" value={props.name} onChange={(e) => props.setName(e.target.value)} placeholder="Tu nombre" />
-  if (props.step === 2) return <Input aria-label="Institución" value={props.institution} onChange={(e) => props.setInstitution(e.target.value)} placeholder="Institución (opcional)" />
-  if (props.step === 3) return <Input aria-label="Carrera o área" value={props.career} onChange={(e) => props.setCareer(e.target.value)} placeholder="Carrera o área (opcional)" />
-  if (props.step === 4) return <p className="text-sm text-muted-foreground">Usaremos la escala configurada en Preferencias. Puedes cambiarla después.</p>
-  if (props.step === 5) return <Input aria-label="Zona horaria" value={props.timezone} onChange={(e) => props.setTimezone(e.target.value)} />
-  if (props.step === 6) return <Input aria-label="Nombre del semestre" value={props.semesterName} onChange={(e) => props.setSemesterName(e.target.value)} />
-  if (props.step === 7) return <div className="space-y-2"><Input aria-label="Nombre de materia" value={props.subjectName} onChange={(e) => props.setSubjectName(e.target.value)} placeholder="Ej: Matemática" /><p className="text-sm text-muted-foreground">Crea una materia básica ahora o sáltalo explícitamente para configurarla luego.</p></div>
-  if (props.step === 8) return <div className="space-y-2"><p className="text-sm text-muted-foreground">Agrega un bloque básico el lunes en el primer módulo con una materia existente.</p>{props.subjects.length > 0 && <select aria-label="Materia para horario" className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={props.selectedSubjectId} onChange={(e) => props.setSelectedSubjectId(e.target.value)}>{props.subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select>}</div>
-  return <p className="text-sm text-muted-foreground">Todo listo. Materias: {props.subjectSkipped ? "omitidas" : "revisadas"}. Horario: {props.scheduleSkipped ? "omitido" : "revisado"}. El dashboard usará datos reales y estados vacíos cuando falte información.</p>
+  const goBack = () => {
+    const next = authenticated && step === 1 ? 1 : Math.max(0, step - 1)
+    persistStep(next)
+    setNotice(null)
+    setStep(next)
+  }
+
+  return (
+    <main className="min-h-[100dvh] overflow-y-auto bg-gradient-to-br from-background via-background to-primary/5 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
+      <div className="mx-auto flex min-h-[calc(100dvh-2.5rem)] w-full max-w-5xl flex-col">
+        <header className="mb-4 space-y-2">
+          <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
+            <span>Configuración inicial</span>
+            <span>Paso {step + 1} de 5</span>
+          </div>
+          <Progress value={(step + 1) * 20} aria-label={`Progreso: ${step + 1} de 5`} />
+        </header>
+
+        <section className="grid flex-1 items-center gap-6 rounded-3xl border bg-card/95 p-5 shadow-sm md:grid-cols-[minmax(220px,0.8fr)_minmax(0,1.2fr)] md:p-10">
+          {/* HorarilyGuide reutiliza exclusivamente /logo/horarily-master.svg. */}
+          <HorarilyGuide message={messages[step]} state={step === 4 ? "success" : step === 3 ? "writing" : "attentive"} />
+
+          <div className="mx-auto w-full max-w-xl space-y-6">
+            <div>
+              <p className="text-sm font-medium text-primary">{STEP_LABELS[step]}</p>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{messages[step]}</h1>
+            </div>
+
+            {step === 0 && (
+              <div className="space-y-4">
+                <div className="rounded-xl border bg-muted/30 p-4 text-sm">
+                  <p><HardDrive className="mr-2 inline h-4 w-4" />Como invitado, tus datos quedan en este dispositivo.</p>
+                  <p className="mt-2"><Cloud className="mr-2 inline h-4 w-4" />Con una cuenta, tus datos privados pueden sincronizarse.</p>
+                </div>
+                <Button className="w-full" size="lg" onClick={advanceWelcome}>Continuar como invitado</Button>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Button variant="outline" asChild><Link href="/auth/register?next=/?tab=onboarding">Crear cuenta</Link></Button>
+                  <Button variant="ghost" asChild><Link href="/auth/login?next=/?tab=onboarding">Iniciar sesión</Link></Button>
+                </div>
+              </div>
+            )}
+
+            {step === 1 && (
+              <div className="space-y-2">
+                <Label htmlFor="activation-name">Nombre o alias</Label>
+                <Input id="activation-name" value={name} maxLength={60} autoFocus onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") saveName() }} placeholder="Ej: Maurizio" />
+              </div>
+            )}
+
+            {step === 2 && (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">Aquí agruparemos tus materias, horarios y notas.</p>
+                <Label htmlFor="activation-semester">Semestre</Label>
+                <Input id="activation-semester" value={semesterName} autoFocus onChange={(event) => { setSemesterName(event.target.value); persistStep(2, subjectName, event.target.value) }} onKeyDown={(event) => { if (event.key === "Enter") saveSemester() }} />
+                {activeSemester && <p className="text-sm text-muted-foreground">Usaremos tu semestre activo existente; no se creará otro.</p>}
+              </div>
+            )}
+
+            {step === 3 && (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">Escribe una materia para preparar tu espacio académico.</p>
+                <div className="space-y-2">
+                  <Label htmlFor="activation-subject">Nombre de la materia</Label>
+                  <Input id="activation-subject" value={subjectName} maxLength={80} autoFocus onChange={(event) => { setSubjectName(event.target.value); persistStep(3, event.target.value) }} onKeyDown={(event) => { if (event.key === "Enter") createFirstSubject() }} placeholder="Matemáticas" />
+                </div>
+                {subjectName.trim() && (
+                  <div className="rounded-xl border bg-muted/30 p-4">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Vista previa</p>
+                    <p className="mt-1 font-semibold">{subjectName.trim()}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Clave automática: {commandKey} · podrás personalizarla después.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {step === 4 && (
+              <div className="space-y-3 rounded-xl border bg-muted/30 p-4 text-sm">
+                <p><Check className="mr-2 inline h-4 w-4 text-primary" />Nombre: {store.data.profile.displayName}</p>
+                <p><Check className="mr-2 inline h-4 w-4 text-primary" />Semestre: {activeSemester?.name ?? semesterName}</p>
+                <p><Check className="mr-2 inline h-4 w-4 text-primary" />Primera materia: {activeSubject?.name ?? subjectName}</p>
+                <p>{authenticated ? "Tus datos se guardan en tu cuenta sincronizada." : "Tus datos están guardados en este dispositivo."}</p>
+              </div>
+            )}
+
+            {notice && <p role="alert" className="text-sm text-destructive">{notice}</p>}
+
+            {step > 0 && (
+              <div className="flex items-center justify-between gap-3">
+                {step < 4 ? <Button variant="ghost" onClick={goBack}><ArrowLeft className="mr-2 h-4 w-4" />Atrás</Button> : <span />}
+                {step === 1 && <Button onClick={saveName}>Continuar</Button>}
+                {step === 2 && <Button onClick={saveSemester}>Continuar</Button>}
+                {step === 3 && <Button onClick={createFirstSubject} disabled={busy || !subjectName.trim()}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Crear materia</Button>}
+                {step === 4 && <div className="grid gap-2 sm:grid-cols-2"><Button size="lg" onClick={() => void finish().then((saved) => { if (saved) onDone(true) })} disabled={busy}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Ver recorrido básico</Button><Button size="lg" variant="outline" onClick={() => void finish().then((saved) => { if (saved) onDone(false) })} disabled={busy}>Explorar por mi cuenta</Button></div>}
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+    </main>
+  )
 }
