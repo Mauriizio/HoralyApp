@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, Volume2, VolumeX } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { HorarilyGuide } from "@/components/horarily/horarily-guide"
 import { useSpeechSynthesis } from "@/hooks/use-speech-synthesis"
+import { calculateTourCompositionPosition } from "@/lib/tutorial-positioning"
 import type { TutorialDefinition } from "@/lib/tutorials"
 
 export const TOUR_LAYERS = {
@@ -36,18 +37,6 @@ function rectOf(element: HTMLElement): TargetRect {
   return { top: rect.top, left: rect.left, width: rect.width, height: rect.height }
 }
 
-function bubblePosition(rect: TargetRect | null, mobile: boolean) {
-  if (mobile || !rect) return { left: 16, right: 16, bottom: 16 }
-  const width = 430
-  const gap = 24
-  const useRight = rect.left + rect.width + gap + width < window.innerWidth
-  return {
-    left: useRight ? rect.left + rect.width + gap : Math.max(16, rect.left - width - gap),
-    top: Math.min(Math.max(16, rect.top), Math.max(16, window.innerHeight - 330)),
-    width,
-  }
-}
-
 export function GuidedTour({
   definition,
   currentStep,
@@ -67,6 +56,7 @@ export function GuidedTour({
   const targetRef = useRef<HTMLElement | null>(null)
   const [mounted, setMounted] = useState(false)
   const [targetRect, setTargetRect] = useState<TargetRect | null>(null)
+  const [bubbleSize, setBubbleSize] = useState({ width: 430, height: 300 })
   const [actionComplete, setActionComplete] = useState(step?.type !== "action")
   const [mobile, setMobile] = useState(false)
   const [pausedByDialog, setPausedByDialog] = useState(false)
@@ -128,6 +118,19 @@ export function GuidedTour({
   }, [step, speech.stop, updateRect])
 
   useEffect(() => {
+    const panel = panelRef.current
+    if (!panel || !("ResizeObserver" in window)) return
+    const update = () => {
+      const rect = panel.getBoundingClientRect()
+      setBubbleSize({ width: Math.min(430, rect.width), height: rect.height })
+    }
+    const observer = new ResizeObserver(update)
+    observer.observe(panel)
+    update()
+    return () => observer.disconnect()
+  }, [step])
+
+  useEffect(() => {
     if (!step?.requiredEvent) return
     const handle = (event: Event) => {
       const detail = (event as CustomEvent<{ type?: string }>).detail
@@ -156,9 +159,21 @@ export function GuidedTour({
   }, [onSkip, once])
 
   if (!mounted || !step || pausedByDialog) return null
-  const panelStyle = bubblePosition(targetRect, mobile)
+  const viewport = window.visualViewport
+  const placement = calculateTourCompositionPosition(
+    targetRect ?? { left: 16, top: 16, width: 0, height: 0 },
+    { width: viewport?.width ?? window.innerWidth, height: viewport?.height ?? window.innerHeight },
+    {
+      bubbleWidth: mobile ? Math.min(430, (viewport?.width ?? window.innerWidth) - 32) : bubbleSize.width,
+      bubbleHeight: bubbleSize.height,
+      mascotWidth: mobile ? 80 : 112,
+      mascotHeight: mobile ? 80 : 112,
+      gap: 16,
+      safeMargin: 16,
+    },
+  )
   const ring = targetRect ? { top: targetRect.top - 6, left: targetRect.left - 6, width: targetRect.width + 12, height: targetRect.height + 12 } : null
-  const pointsLeft = Boolean("left" in panelStyle && panelStyle.left && targetRect && panelStyle.left > targetRect.left)
+  const pointsLeft = Boolean(targetRect && placement.left > targetRect.left)
 
   return createPortal(
     <div data-guided-tour="true">
@@ -169,11 +184,27 @@ export function GuidedTour({
           {pointsLeft ? <ArrowLeft className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />} Haz clic aquí
         </div>
       )}
-      <div className="pointer-events-none fixed" style={{ ...panelStyle, zIndex: TOUR_LAYERS.MASCOT }}>
-        <div className="pointer-events-none relative h-20 w-20 md:absolute md:-left-20 md:bottom-5 md:h-28 md:w-28">
+      <div
+        className="pointer-events-none fixed"
+        data-tour-composition={placement.layout}
+        style={{ left: placement.left, top: placement.top, width: placement.width, height: placement.height, zIndex: TOUR_LAYERS.MASCOT }}
+      >
+        <div
+          className="pointer-events-none absolute h-20 w-20 md:h-28 md:w-28"
+          style={{ left: placement.mascotLeft, top: placement.mascotTop }}
+        >
           <HorarilyGuide message="" state={currentStep === definition.steps.length - 1 ? "success" : "attentive"} compact />
         </div>
-        <section ref={panelRef} tabIndex={-1} role="dialog" aria-modal="false" aria-labelledby="guided-tour-title" aria-describedby="guided-tour-description" className="pointer-events-auto relative rounded-2xl border-2 border-primary bg-card p-4 text-card-foreground shadow-2xl outline-none md:p-5" style={{ zIndex: TOUR_LAYERS.BUBBLE }}>
+        <section
+          ref={panelRef}
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="false"
+          aria-labelledby="guided-tour-title"
+          aria-describedby="guided-tour-description"
+          className="pointer-events-auto absolute rounded-2xl border-2 border-primary bg-card p-4 text-card-foreground shadow-2xl outline-none md:p-5"
+          style={{ left: placement.bubbleLeft, top: placement.bubbleTop, width: mobile ? placement.width : bubbleSize.width, zIndex: TOUR_LAYERS.BUBBLE }}
+        >
           <span className="absolute -top-2 left-8 h-4 w-4 rotate-45 border-l-2 border-t-2 border-primary bg-card md:left-0 md:top-auto md:-bottom-2" aria-hidden="true" />
           <p className="text-xs font-medium text-primary" aria-live="polite">Paso {currentStep + 1} de {definition.steps.length}</p>
           <h2 id="guided-tour-title" className="mt-1 text-lg font-semibold">{step.title}</h2>
