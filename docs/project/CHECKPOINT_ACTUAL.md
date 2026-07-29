@@ -148,3 +148,10 @@ Organizar correctamente:
   1440 px.
 - Pendiente externo: QA con una cuenta autenticada QA en perfiles separados y
   verificación PWA en un teléfono físico.
+# Estabilización final de PR #19 (2026-07-29)
+
+- El tutorial usa una composición geométrica única: burbuja arriba y Horarily unido debajo a la izquierda, con cola inferior orientada a la mascota.
+- El asistente principal se suspende durante cualquier tutorial sin desmontar ni reiniciar su historial.
+- La próxima clase usa una duración humana centralizada en vez de minutos crudos.
+- El service worker v4 limita su alcance a GET same-origin público, excluye Auth/Supabase/Vercel feedback y resuelve fallos de red con fallback seguro.
+- La CSP se mantiene estricta. En Preview, el widget de feedback de Vercel puede registrar un aviso al ser bloqueado; no se autoriza debilitar CSP para silenciarlo.
