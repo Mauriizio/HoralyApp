@@ -126,6 +126,7 @@ const settingsSchema = z.object({
     updatedAt: z.string().optional(),
     activationCompletedAt: z.string().optional(),
     draftSubjectName: z.string().optional(),
+    draftSemesterName: z.string().optional(),
   }),
 })
 

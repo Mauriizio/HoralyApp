@@ -11,23 +11,16 @@ import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { commandKeyForSubjectName } from "@/lib/command-key"
 import { HorarilyGuide } from "@/components/horarily/horarily-guide"
+import { displayGivenName } from "@/lib/onboarding-copy"
 
 const STEP_LABELS = ["Bienvenida", "Tu nombre", "Semestre", "Primera materia", "Listo"] as const
-const MESSAGES = [
-  "Hola, soy Horarily. Voy a preparar tu espacio académico. Tardaremos menos de dos minutos.",
-  "¿Cómo quieres que te llame?",
-  "Organicemos dónde vivirán tus materias.",
-  "¿Cuál es la primera materia que quieres organizar?",
-  "¡Tu espacio académico está listo!",
-] as const
-
 export function OnboardingFlow({
   store,
   onDone,
   initialStep,
 }: {
   store: ScheduleStore
-  onDone: () => void
+  onDone: (startBasicTour?: boolean) => void
   initialStep?: number
 }) {
   const { authenticated } = useAuth()
@@ -35,7 +28,9 @@ export function OnboardingFlow({
   const [step, setStep] = useState(Math.min(Math.max(authenticated ? Math.max(1, suggestedStep) : suggestedStep, 0), 4))
   const [name, setName] = useState(store.data.profile.displayName)
   const [semesterName, setSemesterName] = useState(
-    store.data.semesters.find((semester) => semester.id === store.data.activeSemesterId)?.name ?? "Semestre actual",
+    store.data.settings.onboarding.draftSemesterName
+      ?? store.data.semesters.find((semester) => semester.id === store.data.activeSemesterId)?.name
+      ?? "Primer semestre",
   )
   const [subjectName, setSubjectName] = useState(store.data.settings.onboarding.draftSubjectName ?? "")
   const [notice, setNotice] = useState<string | null>(null)
@@ -48,14 +43,23 @@ export function OnboardingFlow({
     () => commandKeyForSubjectName(subjectName || "Materia", store.allData.subjects),
     [store.allData.subjects, subjectName],
   )
+  const givenName = displayGivenName(store.data.profile.displayName || name)
+  const messages = [
+    "Hola, soy Horarily. Voy a preparar tu espacio académico. Tardaremos menos de dos minutos.",
+    "¿Cómo quieres que te llame?",
+    givenName ? `${givenName}, organicemos tu semestre` : "Organicemos tu semestre",
+    givenName ? `Muy bien, ${givenName}. Organicemos dónde vivirán tus materias.` : "Organicemos dónde vivirán tus materias.",
+    "Tu espacio está listo",
+  ] as const
 
-  const persistStep = (nextStep: number, draft = subjectName) => {
+  const persistStep = (nextStep: number, draft = subjectName, semesterDraft = semesterName) => {
     store.updateSettings({
       onboarding: {
         ...store.allData.settings.onboarding,
         currentStep: nextStep,
         completed: false,
         draftSubjectName: draft || undefined,
+        draftSemesterName: semesterDraft || undefined,
         updatedAt: new Date().toISOString(),
       },
     })
@@ -77,7 +81,7 @@ export function OnboardingFlow({
   }
 
   const saveSemester = () => {
-    const value = semesterName.trim() || "Semestre actual"
+    const value = semesterName.trim() || "Primer semestre"
     setNotice(null)
     const current = activeSemester
     if (current) {
@@ -127,12 +131,13 @@ export function OnboardingFlow({
           updatedAt: completedAt,
         },
       })
-      onDone()
+      return true
     } catch {
       setNotice("No pudimos confirmar el guardado. Tus datos actuales permanecen seguros; inténtalo nuevamente.")
     } finally {
       setBusy(false)
     }
+    return false
   }
 
   const goBack = () => {
@@ -155,12 +160,12 @@ export function OnboardingFlow({
 
         <section className="grid flex-1 items-center gap-6 rounded-3xl border bg-card/95 p-5 shadow-sm md:grid-cols-[minmax(220px,0.8fr)_minmax(0,1.2fr)] md:p-10">
           {/* HorarilyGuide reutiliza exclusivamente /logo/horarily-master.svg. */}
-          <HorarilyGuide message={MESSAGES[step]} state={step === 4 ? "success" : step === 3 ? "writing" : "attentive"} />
+          <HorarilyGuide message={messages[step]} state={step === 4 ? "success" : step === 3 ? "writing" : "attentive"} />
 
           <div className="mx-auto w-full max-w-xl space-y-6">
             <div>
               <p className="text-sm font-medium text-primary">{STEP_LABELS[step]}</p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{MESSAGES[step]}</h1>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{messages[step]}</h1>
             </div>
 
             {step === 0 && (
@@ -186,17 +191,19 @@ export function OnboardingFlow({
 
             {step === 2 && (
               <div className="space-y-3">
-                <Label htmlFor="activation-semester">Nombre del semestre</Label>
-                <Input id="activation-semester" value={semesterName} autoFocus onChange={(event) => setSemesterName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") saveSemester() }} />
+                <p className="text-sm text-muted-foreground">Aquí agruparemos tus materias, horarios y notas.</p>
+                <Label htmlFor="activation-semester">Semestre</Label>
+                <Input id="activation-semester" value={semesterName} autoFocus onChange={(event) => { setSemesterName(event.target.value); persistStep(2, subjectName, event.target.value) }} onKeyDown={(event) => { if (event.key === "Enter") saveSemester() }} />
                 {activeSemester && <p className="text-sm text-muted-foreground">Usaremos tu semestre activo existente; no se creará otro.</p>}
               </div>
             )}
 
             {step === 3 && (
               <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">Escribe una materia para preparar tu espacio académico.</p>
                 <div className="space-y-2">
                   <Label htmlFor="activation-subject">Nombre de la materia</Label>
-                  <Input id="activation-subject" value={subjectName} maxLength={80} autoFocus onChange={(event) => { setSubjectName(event.target.value); persistStep(3, event.target.value) }} onKeyDown={(event) => { if (event.key === "Enter") createFirstSubject() }} placeholder="Ej: Electrotecnia 1" />
+                  <Input id="activation-subject" value={subjectName} maxLength={80} autoFocus onChange={(event) => { setSubjectName(event.target.value); persistStep(3, event.target.value) }} onKeyDown={(event) => { if (event.key === "Enter") createFirstSubject() }} placeholder="Matemáticas" />
                 </div>
                 {subjectName.trim() && (
                   <div className="rounded-xl border bg-muted/30 p-4">
@@ -225,7 +232,7 @@ export function OnboardingFlow({
                 {step === 1 && <Button onClick={saveName}>Continuar</Button>}
                 {step === 2 && <Button onClick={saveSemester}>Continuar</Button>}
                 {step === 3 && <Button onClick={createFirstSubject} disabled={busy || !subjectName.trim()}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Crear materia</Button>}
-                {step === 4 && <Button size="lg" onClick={() => void finish()} disabled={busy}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Entrar a mi dashboard</Button>}
+                {step === 4 && <div className="grid gap-2 sm:grid-cols-2"><Button size="lg" onClick={() => void finish().then((saved) => { if (saved) onDone(true) })} disabled={busy}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Ver recorrido básico</Button><Button size="lg" variant="outline" onClick={() => void finish().then((saved) => { if (saved) onDone(false) })} disabled={busy}>Explorar por mi cuenta</Button></div>}
               </div>
             )}
           </div>
