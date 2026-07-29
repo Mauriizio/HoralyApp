@@ -129,7 +129,7 @@ export function GradesPanel({ store }: { store: ScheduleStore }) {
           <h2 className="text-lg font-semibold">{t("tabs.grades")}</h2>
           <p className="text-sm text-muted-foreground">Escala {scale.min.toFixed(1)} a {scale.max.toFixed(1)} · aprobación {scale.passing.toFixed(1)}</p>
         </div>
-        <Button onClick={() => onAddForSubject()} className="bg-emerald-600 text-white hover:bg-emerald-700">
+        <Button data-tour="grades-add-assessment" onClick={() => onAddForSubject()} className="bg-emerald-600 text-white hover:bg-emerald-700">
           <Plus className="mr-1.5 size-4" />{t("grade.create")}
         </Button>
       </div>
@@ -185,7 +185,7 @@ export function GradesPanel({ store }: { store: ScheduleStore }) {
                         <CardTitle className="truncate text-base">{subject.name}</CardTitle>
                         {showRisk && <Badge variant="destructive" className="gap-1"><AlertTriangle className="size-3" />Requiere atención</Badge>}
                       </div>
-                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      <div data-tour="grades-average-summary" className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                         <span>Promedio actual evaluado: <strong className="text-lg text-foreground">{projection?.evaluatedAverage?.toFixed(1) ?? "Sin datos"}</strong></span>
                         <span>Cobertura: {coverage.toFixed(2)}%</span>
                         <span>Restante: {remaining.toFixed(2)}%</span>

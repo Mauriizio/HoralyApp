@@ -416,6 +416,7 @@ function BlockPill({
   const IconComp = getLucideIcon(subject.icon)
   return (
     <div
+      data-tour="schedule-existing-block"
       draggable
       onDragStart={(e) => {
         e.dataTransfer.setData("text/plain", block.id)
