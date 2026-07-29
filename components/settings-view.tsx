@@ -4,6 +4,7 @@ import { useRef, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -37,9 +38,9 @@ const ACCENT_PRESETS = [
   { hex: "#475569", label: "Pizarra" },
 ]
 
-export function SettingsView({ store, onOpenOnboarding, onRestartTutorial }: { store: ScheduleStore; onOpenOnboarding?: () => void; onRestartTutorial?: (id: TutorialId) => void }) {
+export function SettingsView({ store, onRestartTutorial }: { store: ScheduleStore; onRestartTutorial?: (id: TutorialId) => void }) {
   const { t } = useI18n()
-  const { data, updateSettings, replaceAll, resetSettings, storageRecovery, clearStorageRecovery } = store
+  const { data, updateProfile, updateSettings, replaceAll, resetSettings, storageRecovery, clearStorageRecovery } = store
   const { settings } = data
   const fileInput = useRef<HTMLInputElement>(null)
   const [permission, setPermission] = useState<string>(() => getPermission())
@@ -117,22 +118,30 @@ export function SettingsView({ store, onOpenOnboarding, onRestartTutorial }: { s
 
       <SemesterManager store={store} />
 
-      <Card>
+      <Card data-tour="preferences-academic-setup">
         <CardHeader>
-          <CardTitle className="text-base">Configuración académica inicial</CardTitle>
-          <CardDescription>Revisa el onboarding existente sin reiniciar datos, semestres ni materias.</CardDescription>
+          <CardTitle className="text-base">Editar configuración académica inicial</CardTitle>
+          <CardDescription>Revisar configuración inicial aquí no borra materias, horario, notas ni semestres.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid gap-2 text-sm sm:grid-cols-2">
-            <p><span className="text-muted-foreground">Estado:</span> {data.settings.onboarding.completed || data.profile.onboardingCompletedAt ? "Completado" : "No completado"}</p>
-            <p><span className="text-muted-foreground">Institución:</span> {data.profile.institution ?? "No definida"}</p>
-            <p><span className="text-muted-foreground">Carrera:</span> {data.profile.career ?? "No definida"}</p>
-            <p><span className="text-muted-foreground">Zona horaria:</span> {data.profile.timezone ?? "No definida"}</p>
-            <p><span className="text-muted-foreground">Semestre activo:</span> {data.semesters.find((semester) => semester.id === data.activeSemesterId)?.name ?? "Sin semestre activo"}</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {([
+              ["displayName", "Nombre", data.profile.displayName],
+              ["institution", "Institución", data.profile.institution ?? ""],
+              ["career", "Carrera", data.profile.career ?? ""],
+              ["timezone", "Zona horaria", data.profile.timezone ?? ""],
+            ] as const).map(([field, label, value]) => (
+              <div key={field} className="space-y-2">
+                <Label htmlFor={`profile-${field}`}>{label}</Label>
+                <Input
+                  id={`profile-${field}`}
+                  defaultValue={value}
+                  onBlur={(event) => updateProfile({ [field]: event.currentTarget.value.trim() })}
+                />
+              </div>
+            ))}
           </div>
-          <Button onClick={onOpenOnboarding}>
-            {data.settings.onboarding.completed || data.profile.onboardingCompletedAt ? "Revisar configuración inicial" : "Continuar onboarding"}
-          </Button>
+          <p className="text-xs text-muted-foreground">Semestre activo: {data.semesters.find((semester) => semester.id === data.activeSemesterId)?.name ?? "Sin semestre activo"}. Edítalo en el gestor de semestres superior.</p>
         </CardContent>
       </Card>
 
@@ -148,7 +157,7 @@ export function SettingsView({ store, onOpenOnboarding, onRestartTutorial }: { s
       </Card>
 
       {/* Language + Theme */}
-      <Card>
+      <Card data-tour="preferences-appearance">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Languages className="h-4 w-4" />
@@ -360,10 +369,10 @@ export function SettingsView({ store, onOpenOnboarding, onRestartTutorial }: { s
       </Card>
 
       {/* Time modules */}
-      <TimeModulesEditor store={store} />
+      <div data-tour="preferences-time-modules"><TimeModulesEditor store={store} /></div>
 
       {/* Grade scale */}
-      <GradeScaleEditor store={store} />
+      <div data-tour="preferences-grade-scale"><GradeScaleEditor store={store} /></div>
 
       {/* Notifications */}
       <Card>
