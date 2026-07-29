@@ -118,3 +118,33 @@ Organizar correctamente:
 - Utilizar la aplicación durante varios días con materias, horarios, notas y pendientes reales.
 - Registrar fricciones antes de iniciar otra macrofase.
 - Revisar nuevamente la fidelidad visual respecto a los mockups.
+
+## Activación guiada obligatoria y Horarily — 2026-07-28
+
+### Implementado
+
+- Límite full-screen previo al App Shell para primeras activaciones incompletas.
+- Cuenta opcional: invitado local o acceso mediante las rutas Auth existentes.
+- Flujo breve de nombre, semestre, primera materia y confirmación.
+- Primera materia obligatoria mediante nombre simple, con clave automática,
+  color seguro, confirmación y protección contra duplicados.
+- Reanudación del último paso y marcador compatible para activaciones legacy
+  válidas, sin borrar ni duplicar datos.
+- Caso de uso tipado compartido por UI y consola para validar identidad,
+  semestre activo y duplicados antes de crear materias.
+- Horarily basado en el SVG maestro, con estados breves y reducción de
+  movimiento accesible.
+- Asistente conversacional determinista con máquina de estados, intents locales,
+  acciones visibles y comandos slash preservados como modo avanzado.
+- Sin LLM, cambios de Supabase, migraciones, RLS ni políticas Storage.
+
+### Verificación de la rama
+
+- `pnpm typecheck`, `pnpm build`, `pnpm check` y `git diff --check`: aprobados.
+- Suite local: 193 pruebas aprobadas, 0 fallidas.
+- QA invitado: bloqueo por URL, reanudación, primera materia, dashboard,
+  conversación natural y persistencia tras recarga aprobados.
+- Responsive sin desbordamiento horizontal: 360, 390, 768, 1024, 1280 y
+  1440 px.
+- Pendiente externo: QA con una cuenta autenticada QA en perfiles separados y
+  verificación PWA en un teléfono físico.
