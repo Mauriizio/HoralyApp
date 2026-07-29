@@ -48,7 +48,7 @@ function detectIntent(value: string): ConversationIntent {
   if (/(proxima clase|clase tengo ahora)/.test(clean)) return { kind: "nextClass" }
   if (/(mis notas|muestrame mis notas)/.test(clean)) return { kind: "showGrades" }
   const directSubject = clean.match(/^(?:crear|agregar)\s+(.+)$/)
-  if (directSubject && !/^(una|materia)$/.test(directSubject[1])) {
+  if (directSubject && !/^(una|una materia|materia)$/.test(directSubject[1])) {
     return { kind: "createSubject", subjectName: value.trim().replace(/^(crear|agregar)\s+/i, "") }
   }
   if (/(agregar|crear).*(materia)/.test(clean)) return { kind: "createSubject" }

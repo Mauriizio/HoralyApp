@@ -63,6 +63,7 @@ test("conversación natural crea una materia mediante confirmación y conserva c
   const idle = createConversationState()
   const ask = transitionConversation(idle, "quiero agregar una materia")
   assert.equal(ask.state.kind, "awaitingSubjectName")
+  assert.equal(transitionConversation(idle, "agregar una materia").state.kind, "awaitingSubjectName")
   const confirm = transitionConversation(ask.state, "Circuitos Eléctricos")
   assert.equal(confirm.state.kind, "confirmingSubject")
   assert.equal(confirm.state.subjectName, "Circuitos Eléctricos")
