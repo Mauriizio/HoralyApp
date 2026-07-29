@@ -42,6 +42,10 @@ interface HorarilySpeakingCardProps {
     updateProfileName?: (name: string) => void
     openSubjectForm?: () => void
     openGradeForm?: () => void
+    openSchedule?: () => void
+    openReminderForm?: () => void
+    openTools?: () => void
+    openPreferences?: () => void
     resetProfileName?: () => void
   }
 }
@@ -446,6 +450,18 @@ export function HorarilySpeakingCard({
     if (transition.intent.kind === "listSubjects") return executeCommand("/MATERIAS")
     if (transition.intent.kind === "nextClass") return executeCommand("/PROXIMACLASE")
     if (transition.intent.kind === "showGrades") return executeCommand("/NOTAS")
+    if (transition.intent.kind === "showAverage") return executeCommand("/NOTAS")
+    if (transition.intent.kind === "openSchedule") return commandActions?.openSchedule?.()
+    if (transition.intent.kind === "createReminder") return commandActions?.openReminderForm?.()
+    if (transition.intent.kind === "openTools") return commandActions?.openTools?.()
+    if (transition.intent.kind === "openPreferences") return commandActions?.openPreferences?.()
+    if (conversationState.kind === "confirmingSubject" && transition.intent.kind === "confirmSubject") return confirmNaturalSubject()
+    if (transition.intent.kind === "cancel" || transition.intent.kind === "correct") {
+      setPendingSubjectName(null)
+      setPendingResponse(transition.message)
+      speak(transition.message)
+      return
+    }
     if (transition.intent.kind === "help") {
       const response = "Puedo ayudarte a agregar una materia, revisar tu próxima clase, ver tus materias o consultar tus notas."
       setPendingResponse(response)
@@ -567,7 +583,7 @@ export function HorarilySpeakingCard({
             </span>
           </div>
         ) : (
-          <div className="horarily-console" ref={consoleRef}>
+          <div className="horarily-console" ref={consoleRef} data-tour="assistant-history">
             {history.map((line, idx) => (
               <p key={`${line}-${idx}`} className={`horarily-console-line ${line.includes("TAMBIÉN PUEDES HACERLO POR CONSOLA") || line.includes("YOU CAN ALSO") ? "horarily-console-highlight" : ""}`}>
                 {line}
@@ -586,9 +602,29 @@ export function HorarilySpeakingCard({
 
         {!booting && (
           <>
+            <p className="px-3 pt-2 text-xs text-muted-foreground">
+              Soy tu asistente académico guiado. Puedo ayudarte con materias, horario, notas, recordatorios y navegación.
+            </p>
+            <div data-tour="assistant-quick-actions" className="horarily-console-input-wrap" style={{ gap: 6, flexWrap: "wrap" }}>
+              {[
+                ["Agregar materia", "agregar una materia"],
+                ["Ver materias", "ver materias"],
+                ["Próxima clase", "ver próxima clase"],
+                ["Ver mis notas", "ver mis notas"],
+                ["Ver mi promedio", "quiero ver mi promedio"],
+                ["Crear recordatorio", "crear recordatorio"],
+                ["Configurar horario", "abrir horario"],
+                ["Abrir ayuda", "ayuda"],
+              ].map(([label, request]) => (
+                <button key={label} type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => executeNaturalInput(request)}>
+                  {label}
+                </button>
+              ))}
+            </div>
             <form className="horarily-console-input-wrap" onSubmit={onSubmitCommand}>
               <span className="horarily-console-prompt" aria-hidden="true">&gt;</span>
               <input
+                data-tour="assistant-input"
                 value={commandInput}
                 onChange={(e) => setCommandInput(e.target.value)}
                 onInput={(e) => {
@@ -651,7 +687,7 @@ export function HorarilySpeakingCard({
 
         {!booting && (
           <div className="horarily-console-input-wrap" style={{ gap: 8, justifyContent: "flex-start", flexWrap: "wrap" }}>
-            <details>
+            <details data-tour="assistant-advanced-commands">
               <summary className="horarily-console-input horarily-console-action-btn">Comandos avanzados</summary>
               <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => executeCommand("/AYUDA")} style={{ maxWidth: 220 }}>/AYUDA</button>
             </details>

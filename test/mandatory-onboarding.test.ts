@@ -70,6 +70,28 @@ test("conversación natural crea una materia mediante confirmación y conserva c
   assert.match(transitionConversation(idle, "algo incomprensible").message, /No entendí del todo/)
 })
 
+test("confirmingSubject da precedencia a confirmar, cancelar y corregir", () => {
+  const state = { kind: "confirmingSubject", subjectName: "Física" } as const
+
+  for (const answer of ["sí", "si", "claro", "dale", "ok", "okay", "correcto", "está bien", "confirmar", "créala", "crear", "hazlo", "de acuerdo"]) {
+    const transition = transitionConversation(state, answer)
+    assert.equal(transition.intent.kind, "confirmSubject", answer)
+    assert.equal(transition.state.kind, "completed", answer)
+  }
+
+  for (const answer of ["no", "cancelar", "cancela", "mejor no", "déjalo", "salir"]) {
+    const transition = transitionConversation(state, answer)
+    assert.equal(transition.intent.kind, "cancel", answer)
+    assert.equal(transition.state.kind, "idle", answer)
+  }
+
+  for (const answer of ["corregir", "cambiar nombre", "otro nombre", "me equivoqué", "editar"]) {
+    const transition = transitionConversation(state, answer)
+    assert.equal(transition.intent.kind, "correct", answer)
+    assert.equal(transition.state.kind, "awaitingSubjectName", answer)
+  }
+})
+
 test("boundary full-screen impide renderizar AppShell durante activación", async () => {
   const page = await readFile("app/page.tsx", "utf8")
   const onboarding = await readFile("components/onboarding/onboarding-flow.tsx", "utf8")
