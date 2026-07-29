@@ -12,7 +12,7 @@ import { defaultAssessmentGroupId, ensureGradeAssessmentGroup } from "./assessme
 
 export const STORAGE_KEY = "horario-escolar:v1"
 
-const ARRAY_FIELDS = ["subjects", "blocks", "studyBlocks", "reminders", "modules", "grades", "assessmentGroups", "semesters"] as const
+const ARRAY_FIELDS = ["subjects", "blocks", "studyBlocks", "reminders", "modules", "grades", "assessmentGroups", "subjectNotes", "semesters"] as const
 
 const daySchema = z.enum(["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"])
 const difficultySchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)])
@@ -131,6 +131,16 @@ const settingsSchema = z.object({
 })
 
 const semesterSchema = z.object({ id: z.string().min(1), name: z.string().min(1), startsOn: z.string().optional(), endsOn: z.string().optional(), status: z.enum(["planned", "active", "archived"]), createdAt: z.number().finite() })
+const subjectNoteSchema = z.object({
+  id: z.string().min(1),
+  semesterId: z.string().min(1),
+  subjectId: z.string().min(1),
+  title: z.string().min(1),
+  unit: z.string().optional(),
+  content: z.string(),
+  createdAt: z.number().finite(),
+  updatedAt: z.number().finite(),
+})
 
 const appDataSchema = z.object({
   subjects: z.array(subjectSchema),
@@ -140,11 +150,12 @@ const appDataSchema = z.object({
   modules: z.array(moduleSchema),
   grades: z.array(gradeSchema),
   assessmentGroups: z.array(assessmentGroupSchema),
+  subjectNotes: z.array(subjectNoteSchema),
   profile: profileSchema,
   settings: settingsSchema,
   semesters: z.array(semesterSchema),
   activeSemesterId: z.string().optional(),
-  version: z.literal(4),
+  version: z.literal(5),
 })
 
 export type LoadDataResult =
@@ -235,10 +246,11 @@ export function migrateData(parsed: Partial<AppData> & Record<string, unknown>):
     modules: Array.isArray(parsed.modules) && parsed.modules.length ? parsed.modules : EMPTY_APP_DATA.modules,
     grades: Array.isArray(parsed.grades) ? parsed.grades : [],
     assessmentGroups: Array.isArray(parsed.assessmentGroups) ? parsed.assessmentGroups : [],
+    subjectNotes: Array.isArray(parsed.subjectNotes) ? parsed.subjectNotes : [],
     profile: { ...DEFAULT_PROFILE, ...(parsed.profile ?? {}) },
     semesters: Array.isArray(parsed.semesters) ? parsed.semesters : [],
     activeSemesterId: typeof parsed.activeSemesterId === "string" ? parsed.activeSemesterId : undefined,
-    version: 4,
+    version: 5,
   } as AppData
 
   migrated.subjects = normalizeSubjects(Array.isArray(migrated.subjects) ? migrated.subjects : [])
@@ -305,6 +317,11 @@ function validateRelations(data: AppData): string[] {
     if (grade.weight < 0 || grade.weight > 100) errors.push(`Nota ${grade.id} tiene ponderación inválida.`)
     if (grade.status === "graded" && grade.score === null) errors.push(`Nota ${grade.id} está calificada sin puntaje.`)
     if (grade.groupId && grade.semesterId && !groupKeys.has(`${grade.semesterId}:${grade.subjectId}:${grade.groupId}`)) errors.push(`Nota ${grade.id} referencia un grupo inexistente para su semestre y materia.`)
+  }
+  for (const note of data.subjectNotes) {
+    if (!subjectIds.has(note.subjectId)) errors.push(`Apunte ${note.id} referencia una materia inexistente.`)
+    const subject = data.subjects.find((item) => item.id === note.subjectId)
+    if (subject?.semesterId && subject.semesterId !== note.semesterId) errors.push(`Apunte ${note.id} no pertenece al semestre de su materia.`)
   }
 
   return errors

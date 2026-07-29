@@ -1,9 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import type { AppData, AssessmentGroup, Grade, Reminder, ScheduleBlock, StudyBlock, Subject, AppSettings, UserProfile } from "@/lib/types"
+import type { AppData, AssessmentGroup, Grade, Reminder, ScheduleBlock, StudyBlock, Subject, SubjectNote, AppSettings, UserProfile } from "@/lib/types"
 import { EMPTY_APP_DATA } from "@/lib/types"
 import { loadData, saveData } from "@/lib/storage"
 import { SessionIdentityMismatchError } from "@/lib/session-identity"
-import { appDataToSupabaseRows, assessmentGroupToSupabaseRow, gradeToSupabaseRow, reminderToSupabaseRow, scheduleBlockToSupabaseRow, studyBlockToSupabaseRow, subjectToSupabaseRow, supabaseRowsToAppData, type SupabaseDataset } from "./supabase-mappers"
+import { appDataToSupabaseRows, assessmentGroupToSupabaseRow, gradeToSupabaseRow, reminderToSupabaseRow, scheduleBlockToSupabaseRow, studyBlockToSupabaseRow, subjectNoteToSupabaseRow, subjectToSupabaseRow, supabaseRowsToAppData, type SupabaseDataset } from "./supabase-mappers"
 
 export type SyncStatus = "local" | "loading" | "syncing" | "synced" | "error" | "offline"
 
@@ -25,6 +25,8 @@ export interface AcademicRepository {
   deleteAssessmentGroup(id: string): Promise<void>
   saveGrade(grade: Grade): Promise<void>
   deleteGrade(id: string): Promise<void>
+  saveSubjectNote(note: SubjectNote): Promise<void>
+  deleteSubjectNote(id: string): Promise<void>
   updateSettings(settings: AppSettings, modules: AppData["modules"]): Promise<void>
   updateProfile(profile: UserProfile, email?: string): Promise<void>
   assertRepositoryOwner(expectedUserId: string): void
@@ -47,13 +49,15 @@ export class LocalAcademicRepository implements AcademicRepository {
   async deleteAssessmentGroup() {}
   async saveGrade() {}
   async deleteGrade() {}
+  async saveSubjectNote() {}
+  async deleteSubjectNote() {}
   async updateSettings() {}
   async updateProfile() {}
   assertRepositoryOwner() {}
 }
 
-const DATA_TABLES = ["semesters", "subjects", "schedule_blocks", "study_blocks", "reminders", "assessment_groups", "grades", "user_settings", "profiles"] as const
-const REPLACE_DELETE_TABLES = ["schedule_blocks", "study_blocks", "reminders", "grades", "assessment_groups", "subjects", "semesters"] as const
+const DATA_TABLES = ["semesters", "subjects", "schedule_blocks", "study_blocks", "reminders", "assessment_groups", "grades", "subject_notes", "user_settings", "profiles"] as const
+const REPLACE_DELETE_TABLES = ["schedule_blocks", "study_blocks", "reminders", "grades", "assessment_groups", "subject_notes", "subjects", "semesters"] as const
 
 export class SupabaseAcademicRepository implements AcademicRepository {
   readonly kind = "supabase" as const
@@ -112,9 +116,10 @@ export class SupabaseAcademicRepository implements AcademicRepository {
       reminders: data.reminders.map((item) => item.id),
       assessment_groups: data.assessmentGroups.map((item) => item.id),
       grades: data.grades.map((item) => item.id),
+      subject_notes: data.subjectNotes.map((item) => item.id),
     }
     for (const table of REPLACE_DELETE_TABLES) await this.deleteObsolete(table, keepByTable[table])
-    for (const table of ["profiles", "user_settings", "semesters", "subjects", "assessment_groups", "schedule_blocks", "study_blocks", "reminders", "grades"] as (keyof SupabaseDataset)[]) {
+    for (const table of ["profiles", "user_settings", "semesters", "subjects", "assessment_groups", "schedule_blocks", "study_blocks", "reminders", "grades", "subject_notes"] as (keyof SupabaseDataset)[]) {
       await this.upsert(table, rows[table])
     }
   }
@@ -126,6 +131,7 @@ export class SupabaseAcademicRepository implements AcademicRepository {
     await this.deleteWhere("grades", "subject_id", id)
     await this.deleteWhere("assessment_groups", "subject_id", id)
     await this.deleteWhere("reminders", "subject_id", id)
+    await this.deleteWhere("subject_notes", "subject_id", id)
     const { error: studyError } = await this.client.from("study_blocks").update({ subject_id: null }).eq("subject_id", id).eq("user_id", this.userIdForCache)
     if (studyError) throw new Error("No se pudieron desvincular bloques de estudio sincronizados.")
     await this.deleteById("subjects", id)
@@ -140,6 +146,8 @@ export class SupabaseAcademicRepository implements AcademicRepository {
   async deleteAssessmentGroup(id: string) { await this.deleteById("assessment_groups", id) }
   async saveGrade(grade: Grade) { await this.upsert("grades", [gradeToSupabaseRow(grade, this.userIdForCache)]) }
   async deleteGrade(id: string) { await this.deleteById("grades", id) }
+  async saveSubjectNote(note: SubjectNote) { await this.upsert("subject_notes", [subjectNoteToSupabaseRow(note, this.userIdForCache)]) }
+  async deleteSubjectNote(id: string) { await this.deleteById("subject_notes", id) }
   async updateSettings(settings: AppSettings, modules: AppData["modules"]) { await this.upsert("user_settings", appDataToSupabaseRows({ ...EMPTY_APP_DATA, settings, modules }, this.userIdForCache).user_settings) }
   async updateProfile(profile: UserProfile, email?: string) { await this.upsert("profiles", appDataToSupabaseRows({ ...EMPTY_APP_DATA, profile }, this.userIdForCache, email).profiles) }
 }
