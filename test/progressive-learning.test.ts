@@ -10,9 +10,9 @@ import {
 } from "../lib/tutorials.ts"
 import { EMPTY_APP_DATA } from "../lib/types.ts"
 
-test("nombre visible conserva nombres compuestos y neutraliza markup", () => {
+test("nombre visible conserva nombres compuestos y deja el escape a React", () => {
   assert.equal(displayGivenName("  Juan   Pablo  "), "Juan Pablo")
-  assert.equal(displayGivenName("<b>ANA</b>"), "Ana")
+  assert.equal(displayGivenName("<script>alert(1)</script>"), "<script>alert(1)</script>")
   assert.equal(displayGivenName(""), "")
 })
 
