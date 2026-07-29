@@ -11,5 +11,5 @@ export const manifest: PluginManifest = {
   status: "available",
   capabilities: ["storage:namespace"],
   permissions: ["write:own-storage"],
-  routes: [{ path: "/", label: "Calculadora", description: "Teclado científico y resultado" }],
+  routes: [{ path: "herramientas/calculadora-cientifica", label: "Calculadora", description: "Teclado científico y resultado" }],
 }

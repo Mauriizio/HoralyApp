@@ -3,6 +3,8 @@ import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import { CalculatorError, evaluateExpression } from "../plugins/scientific-calculator/domain.ts"
 import { manifest } from "../plugins/scientific-calculator/manifest.ts"
+import { createPluginRegistry } from "../lib/plugins/plugin-registry.ts"
+import scientificCalculator from "../plugins/scientific-calculator/index.ts"
 
 const close = (actual: number, expected: number) => assert.ok(Math.abs(actual - expected) < 1e-10, `${actual} != ${expected}`)
 
@@ -39,5 +41,6 @@ test("plugin no usa ejecución arbitraria, red ni permisos personales", async ()
   assert.doesNotMatch(`${domain}${ui}`, /supabase|fetch\(|cookie|jwt/i)
   assert.deepEqual(manifest.permissions, ["write:own-storage"])
   assert.deepEqual(manifest.capabilities, ["storage:namespace"])
+  assert.equal(createPluginRegistry([scientificCalculator]).list()[0]?.id, "scientific-calculator")
   assert.equal(manifest.category, "Matemáticas")
 })
