@@ -104,10 +104,14 @@ test("boundary full-screen impide renderizar AppShell durante activación", asyn
   assert.match(onboarding, /horarily-master\.svg/)
 })
 
-test("asistente normal no exige slash y mantiene comandos avanzados", async () => {
+test("asistente normal usa acciones guiadas y mantiene comandos avanzados", async () => {
   const assistant = await readFile("components/HorarilySpeakingCard.tsx", "utf8")
-  assert.match(assistant, /Escribe qué necesitas/)
+  assert.match(assistant, /¿Qué quieres hacer\?/)
+  assert.match(assistant, /conversationState\.kind === "awaitingSubjectName"/)
+  assert.match(assistant, /Nombre de la materia/)
+  assert.doesNotMatch(assistant, /placeholder="Escribe qué necesitas/)
   assert.match(assistant, /Comandos avanzados/)
+  assert.match(assistant, /Volver al modo guiado/)
   assert.doesNotMatch(assistant, /EL COMANDO DEBE INICIAR CON \//)
   assert.match(assistant, /transitionConversation/)
 })

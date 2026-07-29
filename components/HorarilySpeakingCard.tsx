@@ -69,6 +69,7 @@ export function HorarilySpeakingCard({
   const [commandHistory, setCommandHistory] = useState<string[]>([])
   const [historyCursor, setHistoryCursor] = useState<number | null>(null)
   const [interactiveMode, setInteractiveMode] = useState(false)
+  const [advancedMode, setAdvancedMode] = useState(false)
   const [commandInput, setCommandInput] = useState("")
   const [pendingResponse, setPendingResponse] = useState<string | null>(null)
   const [awaitingSetupChoice, setAwaitingSetupChoice] = useState(false)
@@ -479,7 +480,7 @@ export function HorarilySpeakingCard({
     const response = created
       ? `Materia creada: ${created.name}. Su clave automática es ${created.commandKey}.`
       : `No pude crear ${pendingSubjectName}. Revisa si ya existe o vuelve a intentarlo.`
-    setConversationState(created ? { kind: "completed" } : { kind: "error", message: response })
+    setConversationState({ kind: "idle" })
     setPendingSubjectName(null)
     setPendingResponse(response)
     speak(response)
@@ -602,29 +603,41 @@ export function HorarilySpeakingCard({
 
         {!booting && (
           <>
-            <p className="px-3 pt-2 text-xs text-muted-foreground">
+            <p className="px-3 pt-2 text-sm font-medium">¿Qué quieres hacer?</p>
+            <p className="px-3 pt-1 text-xs text-muted-foreground">
               Soy tu asistente académico guiado. Puedo ayudarte con materias, horario, notas, recordatorios y navegación.
             </p>
-            <div data-tour="assistant-quick-actions" className="horarily-console-input-wrap" style={{ gap: 6, flexWrap: "wrap" }}>
+            {!advancedMode && conversationState.kind === "idle" && (
+            <div data-tour="assistant-actions" className="horarily-console-input-wrap grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
               {[
                 ["Agregar materia", "agregar una materia"],
+                ["Agregar nota", "open-grade"],
+                ["Configurar horario", "open-schedule"],
+                ["Crear recordatorio", "open-reminder"],
                 ["Ver materias", "ver materias"],
                 ["Próxima clase", "ver próxima clase"],
                 ["Ver mis notas", "ver mis notas"],
                 ["Ver mi promedio", "quiero ver mi promedio"],
-                ["Crear recordatorio", "crear recordatorio"],
-                ["Configurar horario", "abrir horario"],
-                ["Abrir ayuda", "ayuda"],
+                ["Abrir herramientas", "open-tools"],
+                ["Ayuda", "ayuda"],
               ].map(([label, request]) => (
-                <button key={label} type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => executeNaturalInput(request)}>
+                <button key={label} type="button" className="horarily-console-input horarily-console-action-btn min-h-11" onClick={() => {
+                  if (request === "open-grade") return commandActions?.openGradeForm?.()
+                  if (request === "open-schedule") return commandActions?.openSchedule?.()
+                  if (request === "open-reminder") return commandActions?.openReminderForm?.()
+                  if (request === "open-tools") return commandActions?.openTools?.()
+                  executeNaturalInput(request)
+                }}>
                   {label}
                 </button>
               ))}
             </div>
+            )}
+            {(advancedMode || conversationState.kind === "awaitingSubjectName") && (
             <form className="horarily-console-input-wrap" onSubmit={onSubmitCommand}>
               <span className="horarily-console-prompt" aria-hidden="true">&gt;</span>
               <input
-                data-tour="assistant-input"
+                data-tour="assistant-input-active"
                 value={commandInput}
                 onChange={(e) => setCommandInput(e.target.value)}
                 onInput={(e) => {
@@ -660,10 +673,16 @@ export function HorarilySpeakingCard({
                   }
                 }}
                 className="horarily-console-input"
-                placeholder="Escribe qué necesitas…"
+                placeholder={advancedMode ? "Ejemplo: /MATERIAS" : "Nombre de la materia"}
                 autoComplete="off"
               />
+              {!advancedMode && <button type="button" className="horarily-console-action-btn" onClick={() => {
+                setConversationState({ kind: "idle" })
+                setCommandInput("")
+                setPendingResponse("Acción cancelada.")
+              }}>Cancelar</button>}
             </form>
+            )}
 
             {suggestions.length > 0 && (
               <div className="horarily-console-input-wrap" style={{ marginTop: 0, paddingTop: 0, borderTop: "none", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
@@ -677,7 +696,13 @@ export function HorarilySpeakingCard({
 
             {pendingSubjectName && (
               <div className="horarily-console-input-wrap" style={{ gap: 8, flexWrap: "wrap" }}>
-                <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={confirmNaturalSubject}>Crear materia</button>
+                <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={confirmNaturalSubject}>Crear rápido</button>
+                <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => {
+                  commandActions?.openSubjectForm?.()
+                  setConversationState({ kind: "idle" })
+                  setPendingSubjectName(null)
+                  setPendingResponse("Personaliza la materia en el formulario.")
+                }}>Personalizar</button>
                 <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => { setConversationState({ kind: "awaitingSubjectName" }); setPendingSubjectName(null); setPendingResponse("Claro. Escribe el nombre correcto."); }}>Corregir nombre</button>
                 <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => { setConversationState({ kind: "idle" }); setPendingSubjectName(null); setPendingResponse("Cancelado. ¿En qué más puedo ayudarte?"); }}>Cancelar</button>
               </div>
@@ -687,28 +712,14 @@ export function HorarilySpeakingCard({
 
         {!booting && (
           <div className="horarily-console-input-wrap" style={{ gap: 8, justifyContent: "flex-start", flexWrap: "wrap" }}>
-            <details data-tour="assistant-advanced-commands">
-              <summary className="horarily-console-input horarily-console-action-btn">Comandos avanzados</summary>
-              <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => executeCommand("/AYUDA")} style={{ maxWidth: 220 }}>/AYUDA</button>
-            </details>
-            {interactiveMode && (
-              <>
-                {!awaitingResetConfirm ? (
-                  <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => setAwaitingResetConfirm(true)} style={{ maxWidth: 280 }}>
-                    CONFIGURACIÓN DESDE CERO
-                  </button>
-                ) : (
-                  <>
-                    <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={restartOnboarding} style={{ maxWidth: 280 }}>
-                      CONFIRMAR REINICIO
-                    </button>
-                    <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => setAwaitingResetConfirm(false)} style={{ maxWidth: 220 }}>
-                      CANCELAR
-                    </button>
-                  </>
-                )}
-              </>
-            )}
+            <div data-tour="assistant-advanced-commands">
+              <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => {
+                setAdvancedMode((current) => !current)
+                setCommandInput("")
+                setSuggestions([])
+              }}>{advancedMode ? "Volver al modo guiado" : "Comandos avanzados"}</button>
+              {advancedMode && <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => executeCommand("/AYUDA")} style={{ maxWidth: 220 }}>/AYUDA</button>}
+            </div>
           </div>
         )}
       </div>
