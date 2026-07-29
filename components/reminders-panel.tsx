@@ -45,9 +45,11 @@ export function RemindersPanel({ store }: { store: ScheduleStore }) {
           </p>
         </div>
         <Button
+          data-tour="reminder-create"
           onClick={() => {
             setEditing(undefined)
             setOpen(true)
+            window.dispatchEvent(new CustomEvent("horarily:tutorial-action", { detail: { type: "reminder-dialog-opened" } }))
           }}
           size="sm"
         >

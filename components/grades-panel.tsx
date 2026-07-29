@@ -160,7 +160,16 @@ export function GradesPanel({ store }: { store: ScheduleStore }) {
                   </CardTitle>
                   <p className="mt-2 text-sm text-muted-foreground">Sin evaluaciones · Configuración pendiente</p>
                 </div>
-                <Button size="sm" onClick={() => setConfiguringSubjectId(subject.id)}>Configurar evaluación</Button>
+                <Button
+                  size="sm"
+                  data-tour="grades-configure"
+                  onClick={() => {
+                    setConfiguringSubjectId(subject.id)
+                    window.dispatchEvent(new CustomEvent("horarily:tutorial-action", { detail: { type: "grades-dialog-opened" } }))
+                  }}
+                >
+                  Configurar evaluación
+                </Button>
               </CardHeader>
             </Card>
           )
@@ -240,7 +249,7 @@ export function GradesPanel({ store }: { store: ScheduleStore }) {
       </Dialog>
 
       <Dialog open={Boolean(configuringSubjectId)} onOpenChange={(next) => { if (!next) setConfiguringSubjectId(undefined) }}>
-        <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto sm:max-w-lg">
+        <DialogContent data-app-dialog="grades-configuration" className="z-[800] max-h-[calc(100dvh-1rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Configura cómo se calculará esta asignatura</DialogTitle>
             <DialogDescription>Define la estructura antes de registrar la primera nota. Podrás ajustarla después.</DialogDescription>

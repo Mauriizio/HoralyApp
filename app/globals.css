@@ -224,11 +224,7 @@ html[data-font="tech"] body {
 }
 
 [data-tour-active="true"] {
-  position: relative;
-  z-index: 51;
-  outline: 3px solid color-mix(in srgb, var(--primary) 70%, transparent);
-  outline-offset: 4px;
-  border-radius: var(--radius);
+  scroll-margin: 7rem;
 }
 
 .horarily-guide-writing {

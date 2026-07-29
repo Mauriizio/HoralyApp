@@ -541,18 +541,22 @@ function EmptyCell({
   upsertBlock: ScheduleStore["upsertBlock"]
   onNewSubject: () => void
 }) {
+  const emitTutorialAction = (type: string) => {
+    window.dispatchEvent(new CustomEvent("horarily:tutorial-action", { detail: { type } }))
+  }
   return (
-    <Popover>
+    <Popover onOpenChange={(open) => { if (open) emitTutorialAction("schedule-cell-opened") }}>
       <PopoverTrigger asChild>
         <button
           type="button"
+          data-tour="schedule-empty-cell"
           className="group h-full min-h-14 w-full rounded-md border border-dashed border-border/70 hover:border-primary hover:bg-accent/40 transition flex items-center justify-center text-muted-foreground"
           aria-label="Agregar materia a esta celda"
         >
           <Plus className="h-4 w-4 opacity-0 group-hover:opacity-100 transition" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-60 p-2">
+      <PopoverContent data-tour="schedule-subject-picker" className="z-[760] w-60 p-2">
         <div className="text-xs font-semibold px-2 py-1 text-muted-foreground">
           Agregar al horario
         </div>
@@ -569,6 +573,7 @@ function EmptyCell({
               <button
                 key={s.id}
                 type="button"
+                data-tour="schedule-subject-option"
                 className="flex items-center gap-2 w-full rounded px-2 py-1.5 text-sm hover:bg-accent text-left"
                 onClick={() => {
                   const block = {
@@ -579,11 +584,15 @@ function EmptyCell({
                     moduleIds: [moduleId],
                   }
                   const result = upsertBlock(block)
+                  if (result.ok) emitTutorialAction("schedule-subject-selected")
                   if (!result.ok) {
                     const confirmed = window.confirm(
                       "Ya existe un bloque en este módulo. ¿Quieres reemplazarlo?",
                     )
-                    if (confirmed) upsertBlock(block, { replaceConflicts: true })
+                    if (confirmed) {
+                      const replaced = upsertBlock(block, { replaceConflicts: true })
+                      if (replaced.ok) emitTutorialAction("schedule-subject-selected")
+                    }
                   }
                 }}
               >
