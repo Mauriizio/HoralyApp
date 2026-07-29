@@ -1,14 +1,17 @@
+const PUBLIC_PRODUCTION_ORIGIN = "https://horaly-app.vercel.app"
+
 export function getClientAuthOrigin() {
-  if (typeof window !== "undefined" && window.location.origin) return window.location.origin
+  if (process.env.NODE_ENV === "development" && typeof window !== "undefined" && isLocalOrigin(window.location.origin)) {
+    return window.location.origin
+  }
   return getServerSiteUrl()
 }
 
 export function getServerSiteUrl() {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim()
   if (explicit) return normalizeOrigin(explicit)
-  const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL
-  if (vercel) return normalizeOrigin(vercel.startsWith("http") ? vercel : `https://${vercel}`)
-  return "http://localhost:3000"
+  if (process.env.NODE_ENV === "development") return "http://localhost:3000"
+  return PUBLIC_PRODUCTION_ORIGIN
 }
 
 export function getMetadataBase() {
@@ -16,7 +19,35 @@ export function getMetadataBase() {
 }
 
 function normalizeOrigin(value: string) {
-  try { return new URL(value).origin } catch { return "http://localhost:3000" }
+  try { return new URL(value).origin } catch { return PUBLIC_PRODUCTION_ORIGIN }
+}
+
+function isLocalOrigin(origin: string) {
+  try {
+    const hostname = new URL(origin).hostname
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]"
+  } catch {
+    return false
+  }
+}
+
+export function getPublicAuthOrigin() {
+  const explicitAuth = process.env.NEXT_PUBLIC_AUTH_SITE_URL?.trim()
+  if (explicitAuth) return normalizeOrigin(explicitAuth)
+  const explicitSite = process.env.NEXT_PUBLIC_SITE_URL?.trim()
+  if (explicitSite) return normalizeOrigin(explicitSite)
+  if (process.env.NODE_ENV === "development" && typeof window !== "undefined" && isLocalOrigin(window.location.origin)) {
+    return window.location.origin
+  }
+  return PUBLIC_PRODUCTION_ORIGIN
+}
+
+export function getPublicAuthCallbackUrl(search = "") {
+  const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search)
+  if (params.has("next")) params.set("next", safeInternalRedirect(params.get("next"), "/"))
+  const callback = new URL("/auth/callback", getPublicAuthOrigin())
+  callback.search = params.toString()
+  return callback.toString()
 }
 
 export function buildClientAuthRedirectUrl(path: string, origin = getClientAuthOrigin()) {

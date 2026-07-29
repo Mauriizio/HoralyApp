@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PasswordInput } from "@/components/password-input"
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client"
 import { validateEmail, validatePassword } from "@/lib/auth-utils"
-import { buildClientAuthRedirectUrl } from "@/lib/auth-url"
+import { getPublicAuthCallbackUrl } from "@/lib/auth-url"
 import { type AuthNotice, classifySignUpResult, mapAuthError, maskEmail } from "@/lib/auth-flow"
 
 type Mode = "login" | "register" | "reset"
@@ -59,8 +59,8 @@ export function AuthForm({ mode }: { mode: Mode }) {
     if (!supabase) return setNotice({ type: "warning", title: "La nube no está configurada.", description: "Puedes continuar en modo invitado." })
     setResending(true)
     const { error } = successView === "reset"
-      ? await supabase.auth.resetPasswordForEmail(email, { redirectTo: buildClientAuthRedirectUrl("/auth/callback?next=/auth/update-password") })
-      : await supabase.auth.resend({ type: "signup", email, options: { emailRedirectTo: buildClientAuthRedirectUrl("/auth/callback?next=/auth/status?code=email-confirmed") } })
+      ? await supabase.auth.resetPasswordForEmail(email, { redirectTo: getPublicAuthCallbackUrl("?next=/auth/update-password") })
+      : await supabase.auth.resend({ type: "signup", email, options: { emailRedirectTo: getPublicAuthCallbackUrl("?next=/auth/status?code=email-confirmed") } })
     setResending(false)
     if (error) {
       const mapped = mapAuthError(error)
@@ -84,8 +84,8 @@ export function AuthForm({ mode }: { mode: Mode }) {
     const result = mode === "login"
       ? await supabase.auth.signInWithPassword({ email, password })
       : mode === "register"
-        ? await supabase.auth.signUp({ email, password, options: { emailRedirectTo: buildClientAuthRedirectUrl("/auth/callback?next=/auth/status?code=email-confirmed") } })
-        : await supabase.auth.resetPasswordForEmail(email, { redirectTo: buildClientAuthRedirectUrl("/auth/callback?next=/auth/update-password") })
+        ? await supabase.auth.signUp({ email, password, options: { emailRedirectTo: getPublicAuthCallbackUrl("?next=/auth/status?code=email-confirmed") } })
+        : await supabase.auth.resetPasswordForEmail(email, { redirectTo: getPublicAuthCallbackUrl("?next=/auth/update-password") })
     setLoading(false)
     if (result.error) {
       const mapped = mapAuthError(result.error)
@@ -111,7 +111,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
     const supabase = createSupabaseBrowserClient()
     if (!supabase) return setNotice({ type: "warning", title: "La nube no está configurada.", description: "Puedes continuar con correo y contraseña cuando Supabase esté configurado." })
     setLoading(true)
-    const { error } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: buildClientAuthRedirectUrl("/auth/callback?next=/") } })
+    const { error } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: getPublicAuthCallbackUrl("?next=/") } })
     setLoading(false)
     if (error) setNotice(mapAuthError(error))
   }

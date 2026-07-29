@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="es">
+  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Confirma tu cuenta en HORARILY</title></head>
+  <body style="margin:0;padding:0;background:#f5f3ff;color:#1f1933;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f3ff;padding:24px 12px;"><tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border:1px solid #e9e3ff;border-radius:18px;overflow:hidden;">
+        <tr><td style="padding:32px 28px;text-align:center;">
+          <img src="https://horaly-app.vercel.app/horarily_logo_assets_fullhd_svg/horarily_simbolo_transparente_1024.png" width="112" height="112" alt="Horarily, guía de HORARILY" style="display:block;width:112px;height:112px;object-fit:contain;margin:0 auto 18px;">
+          <h1 style="margin:0 0 12px;font-size:25px;line-height:1.25;color:#4c1d95;">¡Hola! Soy Horarily</h1>
+          <p style="margin:0 auto 24px;max-width:470px;font-size:16px;line-height:1.55;color:#3f3655;">Solo falta confirmar tu correo para activar tu cuenta y sincronizar tus datos académicos.</p>
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 24px;"><tr><td style="border-radius:10px;background:#7c3aed;"><a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 24px;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;">Confirmar mi correo</a></td></tr></table>
+          <p style="margin:0 0 8px;font-size:13px;line-height:1.5;color:#6b6479;">Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
+          <p style="margin:0 0 24px;font-size:12px;line-height:1.5;word-break:break-all;"><a href="{{ .ConfirmationURL }}" style="color:#6d28d9;">{{ .ConfirmationURL }}</a></p>
+          <p style="margin:0;font-size:13px;line-height:1.5;color:#6b6479;">Si no creaste esta cuenta, puedes ignorar este mensaje.</p>
+        </td></tr>
+        <tr><td style="padding:18px 28px;background:#faf8ff;text-align:center;font-size:12px;color:#6b6479;">HORARILY · Tu espacio académico, organizado.</td></tr>
+      </table>
+    </td></tr></table>
+  </body>
+</html>

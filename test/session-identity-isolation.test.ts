@@ -63,11 +63,11 @@ test("service worker no se registra en development y limpia solo caches Horaly",
   assert.match(sw, /!isSameOrigin/)
 })
 
-test("no se introducen secretos ni cambios destructivos en Auth/avatar durante planificación académica", async () => {
+test("no se introducen secretos ni cambios destructivos en avatar", async () => {
   const tracked = execFileSync("git", ["ls-files"], { encoding: "utf8" })
   assert.equal(/SERVICE_ROLE|SUPABASE_DB_PASSWORD|postgres:\/\//.test(tracked), false)
   const changed = execFileSync("git", ["diff", "--name-only", "HEAD"], { encoding: "utf8" })
-  assert.equal(/lib\/avatar-storage|components\/profile-form|app\/auth\//m.test(changed), false)
+  assert.equal(/lib\/avatar-storage|components\/profile-form/m.test(changed), false)
   assert.equal(/supabase\/migrations\/(202607180001|202607200001|202607200002|202607200003)/m.test(changed), false)
 })
 

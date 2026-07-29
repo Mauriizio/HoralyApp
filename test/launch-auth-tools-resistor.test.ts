@@ -33,7 +33,7 @@ test("Google OAuth queda tras feature flag sin secretos", async () => {
   const form = await readFile("components/auth-form.tsx", "utf8")
   assert.match(form, /NEXT_PUBLIC_GOOGLE_AUTH_ENABLED/)
   assert.match(form, /signInWithOAuth\(\{[\s\S]*provider: "google"/)
-  assert.match(form, /redirectTo: buildClientAuthRedirectUrl/)
+  assert.match(form, /redirectTo: getPublicAuthCallbackUrl/)
   assert.equal(/CLIENT_SECRET|GOOGLE_SECRET|service_role/i.test(form), false)
 })
 
