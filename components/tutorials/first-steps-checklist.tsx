@@ -6,17 +6,23 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/lib/auth-context"
 import { getFirstStepsCompletion } from "@/lib/tutorials"
+import { getPersistentTutorialIdentity } from "@/lib/tutorial-identity"
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
 import type { AppTab } from "@/components/app-shell/navigation"
 
 export function FirstStepsChecklist({ store, onNavigate }: { store: ScheduleStore; onNavigate: (tab: AppTab) => void }) {
-  const { userId, authGeneration } = useAuth()
-  const storageKey = `horarily:first-steps:v1:${encodeURIComponent(userId ?? "guest")}:${authGeneration}`
+  const { userId } = useAuth()
+  const [storageKey, setStorageKey] = useState("")
   const [hidden, setHidden] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const completion = useMemo(() => getFirstStepsCompletion(store.data), [store.data])
 
   useEffect(() => {
+    setStorageKey(`horarily:first-steps:v2:${encodeURIComponent(getPersistentTutorialIdentity(userId, window.localStorage))}`)
+  }, [userId])
+
+  useEffect(() => {
+    if (!storageKey) return
     setHidden(window.localStorage.getItem(storageKey) === "hidden")
     const restore = () => { window.localStorage.removeItem(storageKey); setHidden(false) }
     window.addEventListener("horarily:restore-checklist", restore)

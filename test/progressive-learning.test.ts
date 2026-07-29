@@ -22,6 +22,19 @@ test("recorrido básico tiene seis pasos y tutoriales estables versionados", () 
     "basic-tour", "schedule-tour", "grades-tour", "reminders-tour", "tools-tour", "preferences-tour", "assistant-tour", "analytics-tour",
   ])
   assert.equal(TUTORIAL_REGISTRY["basic-tour"].version, 2)
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(TUTORIAL_REGISTRY).map(([id, definition]) => [id, definition.entryTab])),
+    {
+      "basic-tour": "dashboard",
+      "schedule-tour": "horario",
+      "grades-tour": "notas",
+      "reminders-tour": "recordatorios",
+      "tools-tour": "herramientas",
+      "preferences-tour": "preferencias",
+      "assistant-tour": "dashboard",
+      "analytics-tour": "analitica",
+    },
+  )
 })
 
 test("pasos distinguen información de acciones reales sin bloquear el escape", () => {
@@ -44,9 +57,10 @@ test("progreso se normaliza sin repetir versiones ya terminadas", () => {
   assert.equal(completed.currentStep, 5)
 })
 
-test("persistencia tutorial queda aislada por identidad y generación", () => {
-  assert.notEqual(buildTutorialStorageKey("guest", 1), buildTutorialStorageKey("user-a", 1))
-  assert.notEqual(buildTutorialStorageKey("user-a", 1), buildTutorialStorageKey("user-a", 2))
+test("persistencia tutorial queda aislada por identidad estable y no por generación", () => {
+  assert.notEqual(buildTutorialStorageKey("installation:a"), buildTutorialStorageKey("user:a"))
+  assert.equal(buildTutorialStorageKey("user:a"), buildTutorialStorageKey("user:a"))
+  assert.doesNotMatch(buildTutorialStorageKey("user:a"), /generation|:1$/)
 })
 
 test("checklist deriva progreso de datos reales", () => {
@@ -84,8 +98,25 @@ test("targets interactivos y tutorial del asistente son estables", async () => {
   assert.match(schedule, /data-tour="schedule-empty-cell"/)
   assert.match(schedule, /data-tour="schedule-subject-picker"/)
   assert.match(schedule, /data-tour="schedule-subject-option"/)
-  assert.match(assistant, /data-tour="assistant-quick-actions"/)
-  assert.match(assistant, /data-tour="assistant-input"/)
+  assert.match(assistant, /data-tour="assistant-actions"/)
+  assert.match(assistant, /data-tour="assistant-input-active"/)
   assert.match(assistant, /data-tour="assistant-advanced-commands"/)
-  assert.equal(TUTORIAL_REGISTRY["assistant-tour"].steps.length, 6)
+  assert.equal(TUTORIAL_REGISTRY["assistant-tour"].steps.length, 5)
+})
+
+test("inicio manual navega antes de activar y recarga no autolanza progreso pendiente", async () => {
+  const page = await readFile("app/page.tsx", "utf8")
+  assert.match(page, /startTutorial\(\{\s*id,\s*mode/)
+  assert.match(page, /navigateTo\(definition\.entryTab\)[\s\S]*?requestAnimationFrame[\s\S]*?setActiveTutorial/)
+  assert.match(page, /Tienes un tutorial pendiente/)
+  assert.doesNotMatch(page, /current\.status === "in-progress" \? current\.currentStep : 0/)
+})
+
+test("asistente guiado no muestra caja libre en idle", async () => {
+  const assistant = await readFile("components/HorarilySpeakingCard.tsx", "utf8")
+  assert.match(assistant, /¿Qué quieres hacer\?/)
+  assert.match(assistant, /conversationState\.kind === "awaitingSubjectName"/)
+  assert.match(assistant, /advancedMode/)
+  assert.doesNotMatch(assistant, /placeholder="Escribe qué necesitas…"/)
+  assert.match(assistant, /Volver al modo guiado/)
 })

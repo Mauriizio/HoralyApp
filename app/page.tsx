@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   CalendarDays,
   BookOpen,
@@ -60,6 +60,8 @@ import { FirstStepsChecklist } from "@/components/tutorials/first-steps-checklis
 import { useTutorialProgress } from "@/hooks/use-tutorial-progress"
 import { TUTORIAL_REGISTRY, type TutorialId } from "@/lib/tutorials"
 
+type TutorialStartMode = "manual" | "automatic" | "resume"
+
 const DAY_INDEX_TO_KEY: Record<number, DayKey | null> = {
   0: "domingo",
   1: "lunes",
@@ -107,15 +109,31 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
     }
   }, [])
 
-  const navigateTo = (nextTab: AppTab) => {
+  const navigateTo = useCallback((nextTab: AppTab) => {
     setTab(nextTab)
     window.history.replaceState(null, "", getTabUrl(nextTab, window.location.search))
-  }
-  const startTutorial = (id: TutorialId) => {
+  }, [])
+  const tutorialIdentityRef = useRef(tutorials.identity)
+  const startLockRef = useRef(false)
+  const startTutorial = useCallback(({ id, mode }: { id: TutorialId; mode: TutorialStartMode }) => {
+    if (!tutorials.ready || startLockRef.current) return
+    const definition = TUTORIAL_REGISTRY[id]
     const current = tutorials.get(id)
-    tutorials.update(id, { status: "in-progress", currentStep: current.status === "in-progress" ? current.currentStep : 0 })
-    setActiveTutorial(id)
-  }
+    if (mode === "automatic" && current.status !== "not-started") return
+    startLockRef.current = true
+    setActiveTutorial(null)
+    navigateTo(definition.entryTab)
+    const currentStep = mode === "resume" && current.status === "in-progress"
+      ? current.currentStep
+      : 0
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        tutorials.update(id, { status: "in-progress", currentStep })
+        setActiveTutorial(id)
+        startLockRef.current = false
+      })
+    })
+  }, [navigateTo, tutorials])
 
   useEffect(() => {
     if (!tutorials.ready || activeTutorial) return
@@ -127,15 +145,17 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
       preferencias: "preferences-tour",
     }
     const id = contextual[tab]
-    if (id && tutorials.get(id).status === "not-started") startTutorial(id)
-    if (tab === "analitica" && data.grades.length > 0 && tutorials.get("analytics-tour").status === "not-started") startTutorial("analytics-tour")
-  }, [activeTutorial, tab, tutorials])
+    if (id && tutorials.get(id).status === "not-started") startTutorial({ id, mode: "automatic" })
+    if (tab === "analitica" && data.grades.length > 0 && tutorials.get("analytics-tour").status === "not-started") {
+      startTutorial({ id: "analytics-tour", mode: "automatic" })
+    }
+  }, [activeTutorial, data.grades.length, startTutorial, tab, tutorials])
 
   useEffect(() => {
-    if (!activeTutorial) return
-    const step = TUTORIAL_REGISTRY[activeTutorial].steps[tutorials.get(activeTutorial).currentStep]
-    if (step?.tab && isAppTab(step.tab) && step.tab !== tab) navigateTo(step.tab)
-  }, [activeTutorial, tab, tutorials])
+    if (tutorialIdentityRef.current === tutorials.identity) return
+    tutorialIdentityRef.current = tutorials.identity
+    setActiveTutorial(null)
+  }, [tutorials.identity])
   const openSubjectCreation = () => {
     const requiresAcademicSetup = evaluateActivation(store.allData, {
       hydrated: store.hydrated,
@@ -319,7 +339,10 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         <OnboardingFlow
           store={store}
           initialStep={"resumeStep" in activation ? activation.resumeStep : undefined}
-          onDone={(startBasic) => { navigateTo("dashboard"); if (startBasic) startTutorial("basic-tour") }}
+          onDone={(startBasic) => {
+            navigateTo("dashboard")
+            if (startBasic) startTutorial({ id: "basic-tour", mode: "manual" })
+          }}
         />
       </>
     )
@@ -455,13 +478,18 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
                 addSubject: addSubjectFromConsole,
                 addGrade: addGradeFromConsole,
                 updateProfileName: (name) => updateProfile({ displayName: name }),
-                resetProfileName: () => updateProfile({ displayName: "" }),
                 openSubjectForm: openSubjectCreation,
-                openGradeForm: () => setGradeOpen(true),
-                openSchedule: () => setTab("horario"),
+                openGradeForm: () => {
+                  if (data.assessmentGroups.length === 0) {
+                    navigateTo("notas")
+                    return
+                  }
+                  setGradeOpen(true)
+                },
+                openSchedule: () => navigateTo("horario"),
                 openReminderForm: () => setReminderOpen(true),
-                openTools: () => setTab("herramientas"),
-                openPreferences: () => setTab("preferencias"),
+                openTools: () => navigateTo("herramientas"),
+                openPreferences: () => navigateTo("preferencias"),
               }}
               grade={data.grades.length > 0 ? (data.grades[data.grades.length - 1]?.score ?? undefined) : undefined}
               isTyping={subjectOpen || reminderOpen || studyOpen || gradeOpen}
@@ -524,11 +552,26 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
           <Tabs value={tab} onValueChange={(value) => isAppTab(value) && navigateTo(value)} className="space-y-4">
 
             <TabsContent value="dashboard" className="space-y-4 mt-4">
+              {!activeTutorial && tutorials.pending.map((id) => (
+                <div key={id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium">Tienes un tutorial pendiente</p>
+                    <p className="text-xs text-muted-foreground">{TUTORIAL_REGISTRY[id].title}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => tutorials.update(id, { status: "skipped" })}>Descartar</Button>
+                    <Button size="sm" onClick={() => startTutorial({ id, mode: "resume" })}>Continuar</Button>
+                  </div>
+                </div>
+              ))}
               <div data-tour="dashboard-overview"><FirstStepsChecklist store={store} onNavigate={navigateTo} /><AcademicDashboard store={store} onNavigate={navigateTo} /></div>
             </TabsContent>
 
             <TabsContent value="onboarding" className="space-y-4 mt-4">
-              <OnboardingFlow store={store} onDone={(startBasic) => { navigateTo("dashboard"); if (startBasic) startTutorial("basic-tour") }} />
+              <OnboardingFlow store={store} onDone={(startBasic) => {
+                navigateTo("dashboard")
+                if (startBasic) startTutorial({ id: "basic-tour", mode: "manual" })
+              }} />
             </TabsContent>
 
             <TabsContent value="horario" className="space-y-4 mt-4" data-tour="schedule-grid">
@@ -546,7 +589,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-xs text-muted-foreground hidden md:inline">
+                  <span data-tour="schedule-modules-summary" className="text-xs text-muted-foreground hidden md:inline">
                     {blockCount === 1
                       ? t("schedule.blockCount.one", { n: blockCount })
                       : t("schedule.blockCount.other", { n: blockCount })}
@@ -604,7 +647,12 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
             </TabsContent>
 
             <TabsContent value="preferencias" className="mt-4">
-              <div data-tour="preferences-overview"><SettingsView store={store} onOpenOnboarding={() => navigateTo("onboarding")} onRestartTutorial={(id) => startTutorial(id)} /></div>
+              <div data-tour="preferences-overview">
+                <SettingsView
+                  store={store}
+                  onRestartTutorial={(id) => startTutorial({ id, mode: "manual" })}
+                />
+              </div>
             </TabsContent>
           </Tabs>
         <footer className="hidden py-6 text-xs text-muted-foreground lg:block">
@@ -669,7 +717,11 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
       {activeTutorial && <GuidedTour
         definition={TUTORIAL_REGISTRY[activeTutorial]}
         currentStep={tutorials.get(activeTutorial).currentStep}
-        onStepChange={(currentStep) => tutorials.update(activeTutorial, { status: "in-progress", currentStep })}
+        onStepChange={(currentStep) => {
+          const step = TUTORIAL_REGISTRY[activeTutorial].steps[currentStep]
+          if (step?.tab && isAppTab(step.tab)) navigateTo(step.tab)
+          requestAnimationFrame(() => tutorials.update(activeTutorial, { status: "in-progress", currentStep }))
+        }}
         onSkip={() => { tutorials.update(activeTutorial, { status: "skipped" }); setActiveTutorial(null) }}
         onFinish={() => { tutorials.update(activeTutorial, { status: "completed" }); setActiveTutorial(null) }}
       />}
