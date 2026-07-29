@@ -128,7 +128,7 @@ export function GuidedTour({
     observer.observe(panel)
     update()
     return () => observer.disconnect()
-  }, [step])
+  }, [mounted, pausedByDialog, step])
 
   useEffect(() => {
     if (!step?.requiredEvent) return
@@ -160,15 +160,22 @@ export function GuidedTour({
 
   if (!mounted || !step || pausedByDialog) return null
   const viewport = window.visualViewport
+  const viewportOffsetLeft = viewport?.offsetLeft ?? 0
+  const viewportOffsetTop = viewport?.offsetTop ?? 0
+  const viewportWidth = viewport?.width ?? window.innerWidth
+  const viewportHeight = viewport?.height ?? window.innerHeight
+  const mascotSize = mobile && viewportHeight < 500 ? 56 : mobile ? 80 : 112
   const placement = calculateTourCompositionPosition(
-    targetRect ?? { left: 16, top: 16, width: 0, height: 0 },
-    { width: viewport?.width ?? window.innerWidth, height: viewport?.height ?? window.innerHeight },
+    targetRect
+      ? { ...targetRect, left: targetRect.left - viewportOffsetLeft, top: targetRect.top - viewportOffsetTop }
+      : { left: 16, top: 16, width: 0, height: 0 },
+    { width: viewportWidth, height: viewportHeight },
     {
-      bubbleWidth: mobile ? Math.min(430, (viewport?.width ?? window.innerWidth) - 32) : bubbleSize.width,
+      bubbleWidth: mobile ? Math.min(430, viewportWidth - 32) : bubbleSize.width,
       bubbleHeight: bubbleSize.height,
-      mascotWidth: mobile ? 80 : 112,
-      mascotHeight: mobile ? 80 : 112,
-      gap: 16,
+      mascotWidth: mascotSize,
+      mascotHeight: mascotSize,
+      gap: 10,
       safeMargin: 16,
     },
   )
@@ -187,14 +194,19 @@ export function GuidedTour({
       <div
         className="pointer-events-none fixed"
         data-tour-composition={placement.layout}
-        style={{ left: placement.left, top: placement.top, width: placement.width, height: placement.height, zIndex: TOUR_LAYERS.MASCOT }}
+        style={{ left: placement.left + viewportOffsetLeft, top: placement.top + viewportOffsetTop, width: placement.width, height: placement.height, zIndex: TOUR_LAYERS.MASCOT }}
       >
         <div
-          className="pointer-events-none absolute h-20 w-20 md:h-28 md:w-28"
-          style={{ left: placement.mascotLeft, top: placement.mascotTop }}
+          className="pointer-events-none absolute md:h-28 md:w-28"
+          style={{ left: placement.mascotLeft, top: placement.mascotTop, width: mascotSize, height: mascotSize }}
         >
           <HorarilyGuide message="" state={currentStep === definition.steps.length - 1 ? "success" : "attentive"} compact />
         </div>
+        <span
+          className="pointer-events-none absolute h-4 w-4 rotate-45 border-b-2 border-r-2 border-primary bg-card"
+          style={{ left: placement.bubbleLeft + 20, top: placement.bubbleTop + bubbleSize.height - 8, zIndex: TOUR_LAYERS.BUBBLE + 1 }}
+          aria-hidden="true"
+        />
         <section
           ref={panelRef}
           tabIndex={-1}
@@ -202,10 +214,9 @@ export function GuidedTour({
           aria-modal="false"
           aria-labelledby="guided-tour-title"
           aria-describedby="guided-tour-description"
-          className="pointer-events-auto absolute rounded-2xl border-2 border-primary bg-card p-4 text-card-foreground shadow-2xl outline-none md:p-5"
-          style={{ left: placement.bubbleLeft, top: placement.bubbleTop, width: mobile ? placement.width : bubbleSize.width, zIndex: TOUR_LAYERS.BUBBLE }}
+          className="pointer-events-auto absolute overflow-y-auto rounded-2xl border-2 border-primary bg-card p-4 text-card-foreground shadow-2xl outline-none md:p-5"
+          style={{ left: placement.bubbleLeft, top: placement.bubbleTop, width: placement.bubbleWidth, maxHeight: Math.max(180, viewportHeight - mascotSize - 42), zIndex: TOUR_LAYERS.BUBBLE }}
         >
-          <span className="absolute -top-2 left-8 h-4 w-4 rotate-45 border-l-2 border-t-2 border-primary bg-card md:left-0 md:top-auto md:-bottom-2" aria-hidden="true" />
           <p className="text-xs font-medium text-primary" aria-live="polite">Paso {currentStep + 1} de {definition.steps.length}</p>
           <h2 id="guided-tour-title" className="mt-1 text-lg font-semibold">{step.title}</h2>
           <p id="guided-tour-description" className="mt-1 text-sm text-muted-foreground">{step.description}</p>

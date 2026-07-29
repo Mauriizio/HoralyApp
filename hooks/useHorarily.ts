@@ -133,10 +133,17 @@ export function useHorarilySpeech(
   }, [isSpeaking, message, onChar, charDelay, startMouthAnim, stopMouthAnim])
 }
 
-export function useHorarlyLayers(svgRef: RefObject<SVGSVGElement | null>, state: HorarlyAnimationState) {
+export function useHorarlyLayers(svgRef: RefObject<SVGSVGElement | null>, state: HorarlyAnimationState, suspended = false) {
   useEffect(() => {
     const svg = svgRef.current
     if (!svg) return
+
+    const animClasses = ["anim-idle-swing", "anim-talking", "anim-wave", "anim-excited", "anim-write", "anim-droopy"]
+    if (suspended) {
+      animClasses.forEach((className) => svg.classList.remove(className))
+      svg.parentElement?.classList.remove("horarily-float")
+      return
+    }
 
     const config: HorarilyLayerConfig = getLayersForState(state)
 
@@ -153,36 +160,36 @@ export function useHorarlyLayers(svgRef: RefObject<SVGSVGElement | null>, state:
     const wrapper = svg.parentElement
     if (wrapper) wrapper.classList.toggle("horarily-float", config.bodyFloat)
 
-    const animClasses = ["anim-idle-swing", "anim-talking", "anim-wave", "anim-excited", "anim-write", "anim-droopy"]
     animClasses.forEach((className) => svg.classList.remove(className))
     svg.classList.add(`anim-${config.brazoIzqAnim}`)
 
     const stateClasses = ["state-sorprendido", "state-pensando", "state-feliz", "state-triste"]
     stateClasses.forEach((className) => svg.classList.remove(className))
     svg.classList.add(`state-${state.toLowerCase()}`)
-  }, [svgRef, state])
+  }, [svgRef, state, suspended])
 }
 
-export function useHorarlyState(svgRef: RefObject<SVGSVGElement | null>) {
+export function useHorarlyState(svgRef: RefObject<SVGSVGElement | null>, suspended = false) {
   const [state, setState] = useState<HorarlyAnimationState>("IDLE")
   const [displayText, setDisplayText] = useState("")
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [message, setMessageInternal] = useState("")
+  const speechTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const config = getLayersForState(state)
 
-  useHorarlyLayers(svgRef, state)
-  useHorarlyBlink(svgRef, config.blinkInterval)
+  useHorarlyLayers(svgRef, state, suspended)
+  useHorarlyBlink(svgRef, suspended ? 0 : config.blinkInterval)
 
   useHorarilySpeech(svgRef, {
-    isSpeaking,
+    isSpeaking: isSpeaking && !suspended,
     message,
     onChar: setDisplayText,
     charDelay: 38,
   })
 
   useEffect(() => {
-    if (state !== "IDLE" || isSpeaking) return
+    if (suspended || state !== "IDLE" || isSpeaking) return
 
     const intervalId = setInterval(() => {
       if (Math.random() < 0.3) {
@@ -194,20 +201,38 @@ export function useHorarlyState(svgRef: RefObject<SVGSVGElement | null>) {
     }, 22000)
 
     return () => clearInterval(intervalId)
-  }, [state, isSpeaking])
+  }, [state, isSpeaking, suspended])
+
+  const stop = useCallback(() => {
+    if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current)
+    speechTimeoutRef.current = null
+    setIsSpeaking(false)
+    setState("IDLE")
+    setDisplayText("")
+  }, [])
+
+  useEffect(() => {
+    if (suspended) stop()
+    return () => {
+      if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current)
+    }
+  }, [stop, suspended])
 
   const speak = useCallback((msg: string, returnToState: HorarlyAnimationState = "IDLE") => {
+    if (suspended) return
+    if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current)
     setState("HABLANDO")
     setMessageInternal(msg)
     setIsSpeaking(true)
     setDisplayText("")
 
     const duration = msg.length * 38 + 500
-    setTimeout(() => {
+    speechTimeoutRef.current = setTimeout(() => {
       setIsSpeaking(false)
       setState(returnToState)
+      speechTimeoutRef.current = null
     }, duration)
-  }, [])
+  }, [suspended])
 
   const setContext = useCallback((ctx: Parameters<typeof resolveHorarlyState>[0]) => {
     setState(resolveHorarlyState(ctx))
@@ -219,6 +244,7 @@ export function useHorarlyState(svgRef: RefObject<SVGSVGElement | null>) {
     displayText,
     isSpeaking,
     speak,
+    stop,
     setContext,
   }
 }

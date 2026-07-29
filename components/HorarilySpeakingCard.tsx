@@ -26,6 +26,7 @@ interface HorarilySpeakingCardProps {
   isUrgent?: boolean
   isLoading?: boolean
   autoSpeak?: boolean
+  suspended?: boolean
   className?: string
   commandContext?: {
     nextClassText?: string
@@ -58,6 +59,7 @@ export function HorarilySpeakingCard({
   isUrgent = false,
   isLoading = false,
   autoSpeak = true,
+  suspended = false,
   className = "",
   commandContext,
   commandActions,
@@ -80,7 +82,8 @@ export function HorarilySpeakingCard({
   const [conversationState, setConversationState] = useState<ConversationState>(createConversationState)
   const [pendingSubjectName, setPendingSubjectName] = useState<string | null>(null)
   const consoleRef = useRef<HTMLDivElement>(null)
-  const { displayText, isSpeaking, speak, setContext } = useHorarlyState(svgRef)
+  const lastAutoSpokenMessageRef = useRef("")
+  const { displayText, isSpeaking, speak, setContext } = useHorarlyState(svgRef, suspended)
 
   useEffect(() => {
     let isMounted = true
@@ -108,10 +111,15 @@ export function HorarilySpeakingCard({
   }, [isTyping, isLoading, isUrgent, grade, setContext, usingMasterSvg])
 
   useEffect(() => {
-    if (!booting && autoSpeak && message && !interactiveMode) {
+    if (suspended) {
+      lastAutoSpokenMessageRef.current = message
+      return
+    }
+    if (!booting && autoSpeak && !suspended && message && message !== lastAutoSpokenMessageRef.current && !interactiveMode) {
+      lastAutoSpokenMessageRef.current = message
       speak(message)
     }
-  }, [autoSpeak, message, speak, usingMasterSvg, booting, interactiveMode])
+  }, [autoSpeak, suspended, message, speak, usingMasterSvg, booting, interactiveMode])
 
   useEffect(() => {
     const timeoutId = setTimeout(() => setBooting(false), 3600)
@@ -119,7 +127,7 @@ export function HorarilySpeakingCard({
   }, [])
 
   useEffect(() => {
-    if (booting) return
+    if (booting || suspended) return
     setHistory((prev) => {
       if (prev.length > 0) return prev
       const isNewUser = !userName.trim() && !commandContext?.hasAnyData
@@ -135,10 +143,10 @@ export function HorarilySpeakingCard({
       const greeting = userName.trim() ? `> HOLA, ${userName.toUpperCase()}` : "> HOLA"
       return [greeting, `> ${message.toUpperCase()}`, "> CUÉNTAME QUÉ NECESITAS O ABRE COMANDOS AVANZADOS"]
     })
-  }, [booting, userName, commandContext?.hasAnyData, message])
+  }, [booting, suspended, userName, commandContext?.hasAnyData, message])
 
   useEffect(() => {
-    if (booting) return
+    if (booting || suspended) return
     if (pendingResponse && (!isSpeaking || displayText.trim().toUpperCase() === pendingResponse.trim().toUpperCase())) {
       const lines = pendingResponse
         .split("\n")
@@ -147,7 +155,7 @@ export function HorarilySpeakingCard({
       setHistory((prev) => [...prev, ...lines.map((line) => `> ${line.toUpperCase()}`)])
       setPendingResponse(null)
     }
-  }, [displayText, booting, pendingResponse, isSpeaking])
+  }, [displayText, booting, suspended, pendingResponse, isSpeaking])
 
   useEffect(() => {
     if (!consoleRef.current) return
@@ -567,6 +575,8 @@ export function HorarilySpeakingCard({
     if (value.startsWith("/")) executeCommand(value)
     else executeNaturalInput(value)
   }
+
+  if (suspended) return null
 
   return (
     <div className={`horarily-card ${className}`}>

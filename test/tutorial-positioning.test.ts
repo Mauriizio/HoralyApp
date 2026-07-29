@@ -3,7 +3,7 @@ import assert from "node:assert/strict"
 import { calculateTourCompositionPosition } from "../lib/tutorial-positioning.ts"
 
 const viewport = { width: 1280, height: 800 }
-const composition = { bubbleWidth: 430, bubbleHeight: 260, mascotWidth: 112, mascotHeight: 112, gap: 16, safeMargin: 16 }
+const composition = { bubbleWidth: 430, bubbleHeight: 260, mascotWidth: 112, mascotHeight: 112, gap: 10, safeMargin: 16 }
 
 test("composición completa permanece dentro del viewport en todos los bordes", () => {
   const targets = [
@@ -21,5 +21,24 @@ test("composición completa permanece dentro del viewport en todos los bordes", 
     assert.ok(result.top + result.height <= viewport.height - 16)
     assert.ok(result.left + result.mascotLeft >= 16)
     assert.ok(result.left + result.mascotLeft + composition.mascotWidth <= viewport.width - 16)
+  }
+})
+
+test("Horarily permanece debajo a la izquierda de la burbuja en cualquier colocación", () => {
+  const targets = [
+    { left: 0, top: 300, width: 40, height: 40 },
+    { left: 1240, top: 300, width: 40, height: 40 },
+    { left: 600, top: 0, width: 40, height: 40 },
+    { left: 600, top: 760, width: 40, height: 40 },
+  ]
+
+  for (const target of targets) {
+    const result = calculateTourCompositionPosition(target, viewport, composition)
+    assert.equal(result.layout, "speech")
+    assert.equal(result.mascotLeft, 0)
+    assert.equal(result.bubbleTop, 0)
+    assert.equal(result.mascotTop, composition.bubbleHeight + composition.gap)
+    assert.ok(result.bubbleLeft > result.mascotLeft)
+    assert.ok(result.bubbleLeft <= 32)
   }
 })

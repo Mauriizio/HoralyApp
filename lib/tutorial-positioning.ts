@@ -28,58 +28,58 @@ export interface TourCompositionPosition {
   mascotTop: number
   bubbleLeft: number
   bubbleTop: number
-  layout: "mascot-left" | "mascot-right" | "stacked"
+  bubbleWidth: number
+  layout: "speech"
 }
 
-const clamp = (value: number, minimum: number, maximum: number) => Math.min(Math.max(value, minimum), maximum)
+const clamp = (value: number, minimum: number, maximum: number) =>
+  Math.min(Math.max(value, minimum), Math.max(minimum, maximum))
 
+/**
+ * Positions one indivisible speech composition. Placement around the target may
+ * flip or shift, but Horarily always remains attached below the bubble's left
+ * corner so its tail never points into empty space.
+ */
 export function calculateTourCompositionPosition(
   target: TourRect,
   viewport: TourViewport,
   composition: TourComposition,
 ): TourCompositionPosition {
-  const { bubbleWidth, bubbleHeight, mascotWidth, mascotHeight, gap, safeMargin } = composition
-  const sideWidth = bubbleWidth + mascotWidth + gap
-  const sideHeight = Math.max(bubbleHeight, mascotHeight)
+  const { bubbleHeight, mascotWidth, mascotHeight, gap, safeMargin } = composition
+  const bubbleLeft = Math.min(24, Math.max(12, Math.round(mascotWidth * 0.18)))
+  const availableWidth = Math.max(1, viewport.width - safeMargin * 2)
+  const bubbleWidth = Math.min(composition.bubbleWidth, availableWidth - bubbleLeft)
+  const width = Math.max(mascotWidth, bubbleLeft + bubbleWidth)
+  const height = bubbleHeight + gap + mascotHeight
   const targetRight = target.left + target.width
-  const rightSpace = viewport.width - targetRight - gap - safeMargin
-  const leftSpace = target.left - gap - safeMargin
-  const sideFits = sideWidth <= viewport.width - safeMargin * 2
+  const targetBottom = target.top + target.height
+  const placementGap = 12
 
-  if (sideFits && (rightSpace >= sideWidth || leftSpace >= sideWidth)) {
-    const useRight = rightSpace >= sideWidth && (leftSpace < sideWidth || rightSpace >= leftSpace)
-    const desiredLeft = useRight ? targetRight + gap : target.left - gap - sideWidth
-    const left = clamp(desiredLeft, safeMargin, viewport.width - safeMargin - sideWidth)
-    const top = clamp(target.top + target.height / 2 - sideHeight / 2, safeMargin, viewport.height - safeMargin - sideHeight)
-    return {
-      left,
-      top,
-      width: sideWidth,
-      height: sideHeight,
-      mascotLeft: useRight ? 0 : bubbleWidth + gap,
-      mascotTop: Math.max(0, sideHeight - mascotHeight),
-      bubbleLeft: useRight ? mascotWidth + gap : 0,
-      bubbleTop: Math.max(0, (sideHeight - bubbleHeight) / 2),
-      layout: useRight ? "mascot-left" : "mascot-right",
-    }
-  }
+  const candidates = [
+    { left: targetRight + placementGap, top: target.top + target.height / 2 - height / 2 },
+    { left: target.left - placementGap - width, top: target.top + target.height / 2 - height / 2 },
+    { left: target.left + target.width / 2 - width / 2, top: targetBottom + placementGap },
+    { left: target.left + target.width / 2 - width / 2, top: target.top - placementGap - height },
+  ]
+  const fits = (candidate: { left: number; top: number }) =>
+    candidate.left >= safeMargin
+    && candidate.top >= safeMargin
+    && candidate.left + width <= viewport.width - safeMargin
+    && candidate.top + height <= viewport.height - safeMargin
+  const preferred = candidates.find(fits) ?? candidates[2]
+  const left = clamp(preferred.left, safeMargin, viewport.width - safeMargin - width)
+  const top = clamp(preferred.top, safeMargin, viewport.height - safeMargin - height)
 
-  const width = Math.min(bubbleWidth, viewport.width - safeMargin * 2)
-  const height = mascotHeight + gap + bubbleHeight
-  const left = clamp(target.left + target.width / 2 - width / 2, safeMargin, viewport.width - safeMargin - width)
-  const below = target.top + target.height + gap
-  const top = below + height <= viewport.height - safeMargin
-    ? below
-    : clamp(target.top - gap - height, safeMargin, viewport.height - safeMargin - height)
   return {
     left,
     top,
     width,
     height,
-    mascotLeft: Math.max(0, (width - mascotWidth) / 2),
-    mascotTop: 0,
-    bubbleLeft: 0,
-    bubbleTop: mascotHeight + gap,
-    layout: "stacked",
+    mascotLeft: 0,
+    mascotTop: bubbleHeight + gap,
+    bubbleLeft,
+    bubbleTop: 0,
+    bubbleWidth,
+    layout: "speech",
   }
 }

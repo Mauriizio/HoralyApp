@@ -49,7 +49,7 @@ import { PluginsView } from "@/components/tools/plugins-view"
 import { usePwaInstall } from "@/hooks/use-pwa-install"
 import { I18nProvider, useI18n } from "@/components/i18n-provider"
 import type { DayKey, Subject } from "@/lib/types"
-import { formatTime, parseTime } from "@/lib/time-format"
+import { formatRelativeDuration, formatTime, parseTime } from "@/lib/time-format"
 import { AuthProvider, useAuth } from "@/lib/auth-context"
 import { GuestAuthActions } from "@/components/auth/guest-auth-actions"
 import { AppShell } from "@/components/app-shell/app-shell"
@@ -263,10 +263,11 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         .sort((a, b) => a.startMinutes - b.startMinutes)[0]
 
       if (nextBlock) {
+        const minutesUntilClass = nextBlock.startMinutes - nowMinutes
         return t("profile.assistant.nextClass", {
           subject: nextBlock.subject.name,
           time: nextBlock.module.start,
-          minutes: nextBlock.startMinutes - nowMinutes,
+          duration: formatRelativeDuration(minutesUntilClass, data.settings.language),
         })
       }
     }
@@ -450,6 +451,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
           {/* Greeting */}
           <div className="mb-4">
             <HorarilySpeakingCard
+              suspended={Boolean(activeTutorial)}
               userName={data.profile.displayName}
               message={`${t("profile.assistant.hello")} ${assistantMessage}`}
               commandContext={{
