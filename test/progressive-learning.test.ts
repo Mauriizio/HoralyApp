@@ -19,14 +19,26 @@ test("nombre visible conserva nombres compuestos y deja el escape a React", () =
 test("recorrido básico tiene seis pasos y tutoriales estables versionados", () => {
   assert.equal(TUTORIAL_REGISTRY["basic-tour"].steps.length, 6)
   assert.deepEqual(Object.keys(TUTORIAL_REGISTRY), [
-    "basic-tour", "schedule-tour", "grades-tour", "reminders-tour", "tools-tour", "preferences-tour", "analytics-tour",
+    "basic-tour", "schedule-tour", "grades-tour", "reminders-tour", "tools-tour", "preferences-tour", "assistant-tour", "analytics-tour",
   ])
-  assert.equal(TUTORIAL_REGISTRY["basic-tour"].version, 1)
+  assert.equal(TUTORIAL_REGISTRY["basic-tour"].version, 2)
+})
+
+test("pasos distinguen información de acciones reales sin bloquear el escape", () => {
+  const schedule = TUTORIAL_REGISTRY["schedule-tour"]
+  assert.ok(schedule.steps.some((step) => step.type === "action"))
+  assert.ok(schedule.steps.some((step) => step.requiredEvent === "schedule-cell-opened"))
+  assert.ok(schedule.steps.some((step) => step.requiredEvent === "schedule-subject-selected"))
+  for (const tutorial of Object.values(TUTORIAL_REGISTRY)) {
+    for (const step of tutorial.steps) {
+      assert.ok(step.type === "information" || step.type === "action")
+    }
+  }
 })
 
 test("progreso se normaliza sin repetir versiones ya terminadas", () => {
   const completed = normalizeTutorialProgress(TUTORIAL_REGISTRY["basic-tour"], {
-    status: "completed", currentStep: 99, version: 1,
+    status: "completed", currentStep: 99, version: 2,
   })
   assert.equal(completed.status, "completed")
   assert.equal(completed.currentStep, 5)
@@ -53,4 +65,26 @@ test("onboarding conserva borrador de semestre y usa ejemplos pedidos", async ()
   assert.match(source, /placeholder="Matemáticas"/)
   assert.doesNotMatch(source, /placeholder="Ej: Electrotecnia/)
   assert.match(source, /draftSemesterName/)
+})
+
+test("tour usa portal y spotlight pasivo sin elevar el target real", async () => {
+  const guidedTour = await readFile("components/tutorials/guided-tour.tsx", "utf8")
+  const styles = await readFile("app/globals.css", "utf8")
+  assert.match(guidedTour, /createPortal/)
+  assert.match(guidedTour, /TOUR_LAYERS/)
+  assert.match(guidedTour, /ResizeObserver/)
+  assert.match(guidedTour, /pointer-events-none/)
+  assert.doesNotMatch(styles, /\[data-tour-active="true"\][\s\S]*?z-index:\s*51/)
+})
+
+test("targets interactivos y tutorial del asistente son estables", async () => {
+  const schedule = await readFile("components/schedule-grid.tsx", "utf8")
+  const assistant = await readFile("components/HorarilySpeakingCard.tsx", "utf8")
+  assert.match(schedule, /data-tour="schedule-empty-cell"/)
+  assert.match(schedule, /data-tour="schedule-subject-picker"/)
+  assert.match(schedule, /data-tour="schedule-subject-option"/)
+  assert.match(assistant, /data-tour="assistant-quick-actions"/)
+  assert.match(assistant, /data-tour="assistant-input"/)
+  assert.match(assistant, /data-tour="assistant-advanced-commands"/)
+  assert.equal(TUTORIAL_REGISTRY["assistant-tour"].steps.length, 6)
 })
