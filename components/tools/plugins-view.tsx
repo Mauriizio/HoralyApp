@@ -1,7 +1,7 @@
 "use client"
 
 import { Component, lazy, Suspense, useMemo, useState, type ReactNode } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -37,12 +37,13 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean
 
 export function PluginsView() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { lang } = useI18n()
   const registry = useMemo(() => createPluginRegistry(toolPlugins), [])
   const plugins = registry.list()
   const [query, setQuery] = useState("")
   const [category, setCategory] = useState<PluginCategory | "Todas">("Todas")
-  const [active, setActive] = useState<PluginManifest | null>(null)
+  const [active, setActive] = useState<PluginManifest | null>(() => registry.get(searchParams.get("tool") ?? "") ?? null)
   const filtered = useMemo(
     () => plugins.filter((plugin) => {
       const matchesCategory = category === "Todas" || plugin.category === category
