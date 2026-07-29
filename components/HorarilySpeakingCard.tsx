@@ -46,6 +46,9 @@ interface HorarilySpeakingCardProps {
     openSchedule?: () => void
     openReminderForm?: () => void
     openTools?: () => void
+    openNotebook?: () => void
+    createNote?: (payload: { subjectId: string; title: string; unit?: string; content: string }) => Promise<boolean>
+    openScientificCalculator?: () => void
     openPreferences?: () => void
     resetProfileName?: () => void
   }
@@ -81,6 +84,7 @@ export function HorarilySpeakingCard({
   const [helpMenuMode, setHelpMenuMode] = useState<"idle" | "es" | "en">("idle")
   const [conversationState, setConversationState] = useState<ConversationState>(createConversationState)
   const [pendingSubjectName, setPendingSubjectName] = useState<string | null>(null)
+  const [noteDraft, setNoteDraft] = useState<{ step: "subject" | "title" | "unit" | "content" | "confirm"; subjectId?: string; title?: string; unit?: string; content?: string } | null>(null)
   const consoleRef = useRef<HTMLDivElement>(null)
   const lastAutoSpokenMessageRef = useRef("")
   const { displayText, isSpeaking, speak, setContext } = useHorarlyState(svgRef, suspended)
@@ -515,6 +519,23 @@ export function HorarilySpeakingCard({
     if (!value) return
     const normalized = value.trim().toUpperCase()
 
+    if (noteDraft && noteDraft.step !== "subject" && noteDraft.step !== "confirm") {
+      const next = noteDraft.step === "title"
+        ? { ...noteDraft, title: value, step: "unit" as const }
+        : noteDraft.step === "unit"
+          ? { ...noteDraft, unit: normalized === "-" ? undefined : value, step: "content" as const }
+          : { ...noteDraft, content: value, step: "confirm" as const }
+      setNoteDraft(next)
+      setHistory((previous) => [...previous, `> ${value}`])
+      setCommandInput("")
+      setPendingResponse(next.step === "unit"
+        ? "Unidad o tema (opcional). Escribe - para omitir."
+        : next.step === "content"
+          ? "Pega o escribe el contenido del apunte."
+          : "Revisa los datos y confirma para guardar.")
+      return
+    }
+
     if (awaitingSetupChoice && !normalized.startsWith("/")) {
       if (normalized === "Y") {
         setInteractiveMode(true)
@@ -629,6 +650,9 @@ export function HorarilySpeakingCard({
                 ["Ver mis notas", "ver mis notas"],
                 ["Ver mi promedio", "quiero ver mi promedio"],
                 ["Abrir herramientas", "open-tools"],
+                ["Abrir Cuaderno", "open-notebook"],
+                ["Crear apunte", "create-note"],
+                ["Calculadora científica", "open-calculator"],
                 ["Ayuda", "ayuda"],
               ].map(([label, request]) => (
                 <button key={label} type="button" className="horarily-console-input horarily-console-action-btn min-h-11" onClick={() => {
@@ -636,6 +660,13 @@ export function HorarilySpeakingCard({
                   if (request === "open-schedule") return commandActions?.openSchedule?.()
                   if (request === "open-reminder") return commandActions?.openReminderForm?.()
                   if (request === "open-tools") return commandActions?.openTools?.()
+                  if (request === "open-notebook") return commandActions?.openNotebook?.()
+                  if (request === "create-note") {
+                    setNoteDraft({ step: "subject" })
+                    setPendingResponse("Elige la materia para tu nuevo apunte.")
+                    return
+                  }
+                  if (request === "open-calculator") return commandActions?.openScientificCalculator?.()
                   executeNaturalInput(request)
                 }}>
                   {label}
@@ -643,7 +674,7 @@ export function HorarilySpeakingCard({
               ))}
             </div>
             )}
-            {(advancedMode || conversationState.kind === "awaitingSubjectName") && (
+            {(advancedMode || conversationState.kind === "awaitingSubjectName" || (noteDraft && noteDraft.step !== "subject" && noteDraft.step !== "confirm")) && (
             <form className="horarily-console-input-wrap" onSubmit={onSubmitCommand}>
               <span className="horarily-console-prompt" aria-hidden="true">&gt;</span>
               <input
@@ -683,7 +714,7 @@ export function HorarilySpeakingCard({
                   }
                 }}
                 className="horarily-console-input"
-                placeholder={advancedMode ? "Ejemplo: /MATERIAS" : "Nombre de la materia"}
+                placeholder={noteDraft?.step === "title" ? "Título del apunte" : noteDraft?.step === "unit" ? "Unidad o tema, o -" : noteDraft?.step === "content" ? "Contenido" : advancedMode ? "Ejemplo: /MATERIAS" : "Nombre de la materia"}
                 autoComplete="off"
               />
               {!advancedMode && <button type="button" className="horarily-console-action-btn" onClick={() => {
@@ -692,6 +723,38 @@ export function HorarilySpeakingCard({
                 setPendingResponse("Acción cancelada.")
               }}>Cancelar</button>}
             </form>
+            )}
+
+            {noteDraft?.step === "subject" && (
+              <div className="horarily-console-input-wrap flex-wrap gap-2" aria-label="Elegir materia para el apunte">
+                {(commandContext?.subjects ?? []).map((subject) => (
+                  <button key={subject.id} type="button" className="horarily-console-input horarily-console-action-btn min-h-11" onClick={() => {
+                    setNoteDraft({ step: "title", subjectId: subject.id })
+                    setPendingResponse(`Materia elegida: ${subject.name}. Escribe el título del apunte.`)
+                  }}>{subject.name}</button>
+                ))}
+                {(commandContext?.subjects?.length ?? 0) === 0 && <p className="text-sm">Primero agrega una materia.</p>}
+                <button type="button" className="horarily-console-input horarily-console-action-btn" onClick={() => setNoteDraft(null)}>Cancelar</button>
+              </div>
+            )}
+
+            {noteDraft?.step === "confirm" && (
+              <div className="horarily-console-input-wrap flex-wrap gap-2">
+                <p className="w-full text-sm">Título: {noteDraft.title}<br />Unidad: {noteDraft.unit || "Sin unidad"}<br />Contenido: {noteDraft.content}</p>
+                <button type="button" className="horarily-console-input horarily-console-action-btn min-h-11" onClick={async () => {
+                  if (!noteDraft.subjectId || !noteDraft.title || !noteDraft.content) return
+                  const saved = await commandActions?.createNote?.({
+                    subjectId: noteDraft.subjectId,
+                    title: noteDraft.title,
+                    unit: noteDraft.unit,
+                    content: noteDraft.content,
+                  })
+                  setPendingResponse(saved ? "Apunte guardado. Puedes abrirlo en Cuaderno." : "No se pudo guardar el apunte.")
+                  if (saved) setNoteDraft(null)
+                }}>Confirmar y guardar</button>
+                <button type="button" className="horarily-console-input horarily-console-action-btn min-h-11" onClick={() => setNoteDraft({ ...noteDraft, step: "title" })}>Corregir</button>
+                <button type="button" className="horarily-console-input horarily-console-action-btn min-h-11" onClick={() => setNoteDraft(null)}>Cancelar</button>
+              </div>
             )}
 
             {suggestions.length > 0 && (

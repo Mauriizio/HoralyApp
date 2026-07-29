@@ -349,6 +349,7 @@ export function AcademicDashboard({ store, onNavigate }: { store: ScheduleStore;
           <QuickAction icon={<GraduationCap className="size-4" />} label="Registrar nota" onClick={() => onNavigate("notas")} />
           <QuickAction icon={<Clock3 className="size-4" />} label="Planificar estudio" onClick={() => onNavigate("estudio")} />
           <QuickAction icon={<CalendarDays className="size-4" />} label="Ver horario" onClick={() => onNavigate("horario")} />
+          <QuickAction icon={<BookOpen className="size-4" />} label="Abrir Cuaderno" onClick={() => onNavigate("cuaderno")} />
         </div>
       </section>
     </div>

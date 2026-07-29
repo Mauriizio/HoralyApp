@@ -46,6 +46,7 @@ import { HorarilySpeakingCard } from "@/components/HorarilySpeakingCard"
 import { AcademicDashboard } from "@/components/dashboard/academic-dashboard"
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow"
 import { PluginsView } from "@/components/tools/plugins-view"
+import { NotebookView } from "@/components/notebook/notebook-view"
 import { usePwaInstall } from "@/hooks/use-pwa-install"
 import { I18nProvider, useI18n } from "@/components/i18n-provider"
 import type { DayKey, Subject } from "@/lib/types"
@@ -142,6 +143,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
       notas: "grades-tour",
       recordatorios: "reminders-tour",
       herramientas: "tools-tour",
+      cuaderno: "notebook-tour",
       preferencias: "preferences-tour",
     }
     const id = contextual[tab]
@@ -491,6 +493,24 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
                 openSchedule: () => navigateTo("horario"),
                 openReminderForm: () => setReminderOpen(true),
                 openTools: () => navigateTo("herramientas"),
+                openNotebook: () => navigateTo("cuaderno"),
+                createNote: async ({ subjectId, title, unit, content }) => {
+                  const subject = data.subjects.find((item) => item.id === subjectId)
+                  if (!subject?.semesterId) return false
+                  try {
+                    await store.saveSubjectNoteConfirmed({ semesterId: subject.semesterId, subjectId, title, unit, content }, store.dataOwnerUserId ? {
+                      expectedUserId: store.dataOwnerUserId,
+                      expectedAuthGeneration: store.authGeneration,
+                    } : undefined)
+                    return true
+                  } catch {
+                    return false
+                  }
+                },
+                openScientificCalculator: () => {
+                  setTab("herramientas")
+                  window.history.replaceState(null, "", "?tab=herramientas&tool=scientific-calculator")
+                },
                 openPreferences: () => navigateTo("preferencias"),
               }}
               grade={data.grades.length > 0 ? (data.grades[data.grades.length - 1]?.score ?? undefined) : undefined}
@@ -638,6 +658,10 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
 
             <TabsContent value="notas" className="mt-4" data-tour="grades-overview">
               <GradesPanel store={store} />
+            </TabsContent>
+
+            <TabsContent value="cuaderno" className="mt-4">
+              <NotebookView store={store} onAddSubject={openSubjectCreation} />
             </TabsContent>
 
             <TabsContent value="analitica" className="mt-4" data-tour="analytics-overview">
