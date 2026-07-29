@@ -55,6 +55,10 @@ import { GuestAuthActions } from "@/components/auth/guest-auth-actions"
 import { AppShell } from "@/components/app-shell/app-shell"
 import { evaluateActivation } from "@/application/activation"
 import { getTabUrl, isAppTab, type AppTab } from "@/components/app-shell/navigation"
+import { GuidedTour } from "@/components/tutorials/guided-tour"
+import { FirstStepsChecklist } from "@/components/tutorials/first-steps-checklist"
+import { useTutorialProgress } from "@/hooks/use-tutorial-progress"
+import { TUTORIAL_REGISTRY, type TutorialId } from "@/lib/tutorials"
 
 const DAY_INDEX_TO_KEY: Record<number, DayKey | null> = {
   0: "domingo",
@@ -81,6 +85,8 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
   const [tab, setTab] = useState<AppTab>("dashboard")
   const [quickOpen, setQuickOpen] = useState(false)
   const { authenticated, loading: authLoading, transitioning } = useAuth()
+  const tutorials = useTutorialProgress()
+  const [activeTutorial, setActiveTutorial] = useState<TutorialId | null>(null)
 
   const [subjectOpen, setSubjectOpen] = useState(false)
   const [subjectEditing, setSubjectEditing] = useState<Subject | undefined>()
@@ -105,6 +111,31 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
     setTab(nextTab)
     window.history.replaceState(null, "", getTabUrl(nextTab, window.location.search))
   }
+  const startTutorial = (id: TutorialId) => {
+    const current = tutorials.get(id)
+    tutorials.update(id, { status: "in-progress", currentStep: current.status === "in-progress" ? current.currentStep : 0 })
+    setActiveTutorial(id)
+  }
+
+  useEffect(() => {
+    if (!tutorials.ready || activeTutorial) return
+    const contextual: Partial<Record<AppTab, TutorialId>> = {
+      horario: "schedule-tour",
+      notas: "grades-tour",
+      recordatorios: "reminders-tour",
+      herramientas: "tools-tour",
+      preferencias: "preferences-tour",
+    }
+    const id = contextual[tab]
+    if (id && tutorials.get(id).status === "not-started") startTutorial(id)
+    if (tab === "analitica" && data.grades.length > 0 && tutorials.get("analytics-tour").status === "not-started") startTutorial("analytics-tour")
+  }, [activeTutorial, tab, tutorials])
+
+  useEffect(() => {
+    if (!activeTutorial) return
+    const step = TUTORIAL_REGISTRY[activeTutorial].steps[tutorials.get(activeTutorial).currentStep]
+    if (step?.tab && isAppTab(step.tab) && step.tab !== tab) navigateTo(step.tab)
+  }, [activeTutorial, tab, tutorials])
   const openSubjectCreation = () => {
     const requiresAcademicSetup = evaluateActivation(store.allData, {
       hydrated: store.hydrated,
@@ -288,7 +319,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         <OnboardingFlow
           store={store}
           initialStep={"resumeStep" in activation ? activation.resumeStep : undefined}
-          onDone={() => navigateTo("dashboard")}
+          onDone={(startBasic) => { navigateTo("dashboard"); if (startBasic) startTutorial("basic-tour") }}
         />
       </>
     )
@@ -489,14 +520,14 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
           <Tabs value={tab} onValueChange={(value) => isAppTab(value) && navigateTo(value)} className="space-y-4">
 
             <TabsContent value="dashboard" className="space-y-4 mt-4">
-              <AcademicDashboard store={store} onNavigate={navigateTo} />
+              <div data-tour="dashboard-overview"><FirstStepsChecklist store={store} onNavigate={navigateTo} /><AcademicDashboard store={store} onNavigate={navigateTo} /></div>
             </TabsContent>
 
             <TabsContent value="onboarding" className="space-y-4 mt-4">
-              <OnboardingFlow store={store} onDone={() => navigateTo("dashboard")} />
+              <OnboardingFlow store={store} onDone={(startBasic) => { navigateTo("dashboard"); if (startBasic) startTutorial("basic-tour") }} />
             </TabsContent>
 
-            <TabsContent value="horario" className="space-y-4 mt-4">
+            <TabsContent value="horario" className="space-y-4 mt-4" data-tour="schedule-grid">
               <div className="flex items-start sm:items-center justify-between flex-wrap gap-2">
                 <div className="min-w-0">
                   <h2 className="text-lg font-semibold truncate">
@@ -552,24 +583,24 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
               <StudyBlocksPanel store={store} />
             </TabsContent>
 
-            <TabsContent value="recordatorios" className="mt-4">
+            <TabsContent value="recordatorios" className="mt-4" data-tour="reminders-overview">
               <RemindersPanel store={store} />
             </TabsContent>
 
-            <TabsContent value="notas" className="mt-4">
+            <TabsContent value="notas" className="mt-4" data-tour="grades-overview">
               <GradesPanel store={store} />
             </TabsContent>
 
-            <TabsContent value="analitica" className="mt-4">
+            <TabsContent value="analitica" className="mt-4" data-tour="analytics-overview">
               <AnalyticsView store={store} />
             </TabsContent>
 
             <TabsContent value="herramientas" className="mt-4">
-              <PluginsView />
+              <div data-tour="tools-catalog"><PluginsView /></div>
             </TabsContent>
 
             <TabsContent value="preferencias" className="mt-4">
-              <SettingsView store={store} onOpenOnboarding={() => navigateTo("onboarding")} />
+              <div data-tour="preferences-overview"><SettingsView store={store} onOpenOnboarding={() => navigateTo("onboarding")} onRestartTutorial={(id) => startTutorial(id)} /></div>
             </TabsContent>
           </Tabs>
         <footer className="hidden py-6 text-xs text-muted-foreground lg:block">
@@ -631,6 +662,13 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         onAction={handleQuickAction}
         store={store}
       />
+      {activeTutorial && <GuidedTour
+        definition={TUTORIAL_REGISTRY[activeTutorial]}
+        currentStep={tutorials.get(activeTutorial).currentStep}
+        onStepChange={(currentStep) => tutorials.update(activeTutorial, { status: "in-progress", currentStep })}
+        onSkip={() => { tutorials.update(activeTutorial, { status: "skipped" }); setActiveTutorial(null) }}
+        onFinish={() => { tutorials.update(activeTutorial, { status: "completed" }); setActiveTutorial(null) }}
+      />}
     </>
   )
 }

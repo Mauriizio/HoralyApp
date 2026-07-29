@@ -220,7 +220,15 @@ html[data-font="tech"] body {
 }
 
 .horarily-guide-mascot {
-  animation: horarily-guide-breathe 3.2s ease-in-out infinite;
+  animation: horarily-guide-breathe 620ms ease-out 1;
+}
+
+[data-tour-active="true"] {
+  position: relative;
+  z-index: 51;
+  outline: 3px solid color-mix(in srgb, var(--primary) 70%, transparent);
+  outline-offset: 4px;
+  border-radius: var(--radius);
 }
 
 .horarily-guide-writing {

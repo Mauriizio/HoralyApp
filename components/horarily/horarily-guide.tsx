@@ -6,9 +6,11 @@ import { loadHorarilyMasterSvg, useHorarlyLayers } from "@/hooks/useHorarily"
 export function HorarilyGuide({
   message,
   state,
+  compact = false,
 }: {
   message: string
   state: "attentive" | "writing" | "success"
+  compact?: boolean
 }) {
   const [failed, setFailed] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -35,14 +37,14 @@ export function HorarilyGuide({
           viewBox="180 140 310 530"
           role="img"
           aria-label="Horarily, tu guía académica"
-          className={`horarily-guide-mascot h-36 w-36 object-contain sm:h-44 sm:w-44 md:h-64 md:w-64 horarily-guide-${state}`}
+          className={`horarily-guide-mascot object-contain horarily-guide-${state} ${compact ? "h-16 w-16" : "h-36 w-36 sm:h-44 sm:w-44 md:h-64 md:w-64"}`}
         />
       ) : (
         <div className="grid h-36 w-36 place-items-center rounded-full border bg-primary/10 text-4xl" role="img" aria-label="Horarily">H</div>
       )}
-      <div className="relative max-w-sm rounded-2xl border bg-background p-4 text-left text-sm shadow-sm" role="status" aria-live="polite">
+      {message && <div className="relative max-w-sm rounded-2xl border bg-background p-4 text-left text-sm shadow-sm" role="status" aria-live="polite">
         {message}
-      </div>
+      </div>}
     </div>
   )
 }

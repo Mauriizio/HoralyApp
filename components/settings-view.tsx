@@ -23,6 +23,7 @@ import { useI18n } from "@/components/i18n-provider"
 import { TimeModulesEditor } from "@/components/time-modules-editor"
 import { GradeScaleEditor } from "@/components/grade-scale-editor"
 import { SemesterManager } from "@/components/semesters/semester-manager"
+import { TUTORIAL_REGISTRY, type TutorialId } from "@/lib/tutorials"
 
 const ACCENT_PRESETS = [
   { hex: "#7c3aed", label: "Morado Horarily" },
@@ -36,7 +37,7 @@ const ACCENT_PRESETS = [
   { hex: "#475569", label: "Pizarra" },
 ]
 
-export function SettingsView({ store, onOpenOnboarding }: { store: ScheduleStore; onOpenOnboarding?: () => void }) {
+export function SettingsView({ store, onOpenOnboarding, onRestartTutorial }: { store: ScheduleStore; onOpenOnboarding?: () => void; onRestartTutorial?: (id: TutorialId) => void }) {
   const { t } = useI18n()
   const { data, updateSettings, replaceAll, resetSettings, storageRecovery, clearStorageRecovery } = store
   const { settings } = data
@@ -77,6 +78,13 @@ export function SettingsView({ store, onOpenOnboarding }: { store: ScheduleStore
 
   return (
     <div className="space-y-6">
+      <Card data-tour="learning-settings">
+        <CardHeader><CardTitle className="text-base">Aprendizaje y ayuda</CardTitle><CardDescription>Retoma o reinicia recorridos cuando los necesites.</CardDescription></CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          {(Object.keys(TUTORIAL_REGISTRY) as TutorialId[]).map((id) => <Button key={id} variant="outline" size="sm" onClick={() => onRestartTutorial?.(id)}>{TUTORIAL_REGISTRY[id].title}</Button>)}
+          <Button variant="ghost" size="sm" onClick={() => window.dispatchEvent(new Event("horarily:restore-checklist"))}>Restaurar “Primeros pasos”</Button>
+        </CardContent>
+      </Card>
       {storageRecovery && (
         <Card className="border-destructive/40">
           <CardHeader>

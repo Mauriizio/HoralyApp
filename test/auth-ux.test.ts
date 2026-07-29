@@ -101,12 +101,12 @@ function withWindowOrigin(origin: string, fn: () => void) {
 
 test("localhost vuelve a localhost en operaciones cliente", () => {
   const previous = process.env.NODE_ENV
-  process.env.NODE_ENV = "development"
+  Reflect.set(process.env, "NODE_ENV", "development")
   withWindowOrigin("http://localhost:3000", () => {
     assert.equal(getClientAuthOrigin(), "http://localhost:3000")
     assert.equal(buildClientAuthRedirectUrl("/auth/callback"), "http://localhost:3000/auth/callback")
   })
-  process.env.NODE_ENV = previous
+  Reflect.set(process.env, "NODE_ENV", previous)
 })
 
 test("preview de Vercel usa el callback público estable", () => {
