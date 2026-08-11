@@ -82,7 +82,8 @@ describe("regresión integración académica avanzada", () => {
     assert.match(read("components/schedule-grid.tsx"), /Vista previa PDF/)
     assert.match(read("components/schedule-grid.tsx"), /Descargar PDF/)
     assert.ok(existsSync(join(root, "components/academic-agenda-panel.tsx")))
-    assert.match(read("components/dashboard/academic-dashboard.tsx"), /Consejero académico/)
+    assert.ok(existsSync(join(root, "components/horarily/horarily-companion.tsx")))
+    assert.match(read("app/page.tsx"), /HorarilyCompanion/)
   })
 
   it("agenda agrega clases y no fija evaluaciones a 12:00 UTC", () => {

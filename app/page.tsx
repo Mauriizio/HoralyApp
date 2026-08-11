@@ -43,14 +43,14 @@ import { ProfileButton } from "@/components/profile-button"
 import { MigrationModal } from "@/components/migration-modal"
 import { InstallAppButton } from "@/components/install-app-button"
 import { HorarilySpeakingCard } from "@/components/HorarilySpeakingCard"
+import { HorarilyCompanion } from "@/components/horarily/horarily-companion"
 import { AcademicDashboard } from "@/components/dashboard/academic-dashboard"
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow"
 import { PluginsView } from "@/components/tools/plugins-view"
 import { NotebookView } from "@/components/notebook/notebook-view"
-import { usePwaInstall } from "@/hooks/use-pwa-install"
 import { I18nProvider, useI18n } from "@/components/i18n-provider"
 import type { DayKey, Subject } from "@/lib/types"
-import { formatRelativeDuration, formatTime, parseTime } from "@/lib/time-format"
+import { getHorarilyCompanionMessage } from "@/domain/horarily-companion"
 import { AuthProvider, useAuth } from "@/lib/auth-context"
 import { GuestAuthActions } from "@/components/auth/guest-auth-actions"
 import { AppShell } from "@/components/app-shell/app-shell"
@@ -217,72 +217,19 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
   const subjectCount = data.subjects.length
   const blockCount = data.blocks.length
 
-  const assistantMessage = useMemo(() => {
-    const now = new Date()
-    const toLocalIso = (d: Date) =>
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-        d.getDate(),
-      ).padStart(2, "0")}`
-    const todayIso = toLocalIso(now)
-    const nowMinutes = now.getHours() * 60 + now.getMinutes()
-
-    const reminderToday = data.reminders
-      .map((r) => ({ r, date: new Date(r.targetDateTime) }))
-      .filter(({ date }) => !Number.isNaN(date.getTime()))
-      .filter(({ date }) => {
-        const localIso = toLocalIso(date)
-        return localIso === todayIso && date.getTime() >= now.getTime()
-      })
-      .sort((a, b) => a.date.getTime() - b.date.getTime())[0]
-
-    if (reminderToday) {
-      return t("profile.assistant.reminder", {
-        title: reminderToday.r.title,
-        time: formatTime(
-          `${String(reminderToday.date.getHours()).padStart(2, "0")}:${String(
-            reminderToday.date.getMinutes(),
-          ).padStart(2, "0")}`,
-          data.settings.timeFormat,
-        ),
-      })
-    }
-
-    if (todayKey && todayKey !== "domingo") {
-      const modulesById = new Map(data.modules.map((m) => [m.id, m]))
-      const nextBlock = data.blocks
-        .filter((b) => b.day === todayKey)
-        .map((b) => {
-          const subject = data.subjects.find((s) => s.id === b.subjectId)
-          if (!subject) return null
-          const firstModule = b.moduleIds
-            .map((id) => modulesById.get(id))
-            .filter((m): m is NonNullable<typeof m> => Boolean(m))
-            .sort((a, b2) => a.start.localeCompare(b2.start))[0]
-          if (!firstModule) return null
-          const parsed = parseTime(firstModule.start)
-          if (!parsed) return null
-          return {
-            subject,
-            module: firstModule,
-            startMinutes: parsed.hour * 60 + parsed.minute,
-          }
-        })
-        .filter((v): v is NonNullable<typeof v> => Boolean(v))
-        .filter((v) => v.startMinutes >= nowMinutes)
-        .sort((a, b) => a.startMinutes - b.startMinutes)[0]
-
-      if (nextBlock) {
-        const minutesUntilClass = nextBlock.startMinutes - nowMinutes
-        return t("profile.assistant.nextClass", {
-          subject: nextBlock.subject.name,
-          time: nextBlock.module.start,
-          duration: formatRelativeDuration(minutesUntilClass, data.settings.language),
-        })
-      }
-    }
-
-    return t("profile.assistant.empty")
-  }, [data, t, todayKey])
+  const companion = useMemo(() => {
+    const modules = new Map(data.modules.map((module) => [module.id, module]))
+    return getHorarilyCompanionMessage({
+      reminders: data.reminders,
+      assessments: data.grades,
+      subjects: data.subjects.map((subject) => ({ name: subject.name, requiresAttention: subject.difficulty >= 4 })),
+      classes: data.blocks.flatMap((block) => {
+        const subject = data.subjects.find((item) => item.id === block.subjectId)
+        const ordered = block.moduleIds.map((id) => modules.get(id)).filter((item): item is NonNullable<typeof item> => Boolean(item)).sort((a, b) => a.start.localeCompare(b.start))
+        return subject && ordered.length ? [{ subjectName: subject.name, day: block.day, start: ordered[0].start, end: ordered.at(-1)!.end }] : []
+      }),
+    }, new Date())
+  }, [data])
 
   const hasAnyData =
     data.subjects.length > 0 ||
@@ -457,14 +404,17 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         </header>
         }
       >
-          {/* Greeting */}
+          {!activeTutorial && <HorarilyCompanion message={companion.message} action={companion.action} onNavigate={navigateTo} />}
+
+          {/* Advanced console */}
           {data.settings.advancedModeEnabled && <div className="mb-4">
             <HorarilySpeakingCard
+              hideMascot
               suspended={Boolean(activeTutorial)}
               userName={data.profile.displayName}
-              message={`${t("profile.assistant.hello")} ${assistantMessage}`}
+              message={companion.message}
               commandContext={{
-                nextClassText: assistantMessage,
+                nextClassText: companion.message,
                 subjects: data.subjects.map((s) => ({
                   id: s.id,
                   name: s.name,
@@ -573,10 +523,6 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
               </div>
             </div>
           )}
-
-          {/* Persistent install banner: shown only when there's already content
-              AND the app is installable. Auto-hides after install. */}
-          {subjectCount > 0 && <InstallBanner />}
 
           <Tabs value={tab} onValueChange={(value) => isAppTab(value) && navigateTo(value)} className="space-y-4">
 
@@ -763,31 +709,6 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         onFinish={() => { tutorials.update(activeTutorial, { status: "completed" }); setActiveTutorial(null) }}
       />}
     </>
-  )
-}
-
-/**
- * Compact install banner shown above the tabs when the user already has
- * content and the app is installable. Renders null when the device cannot
- * install (already installed, unsupported browser, etc.).
- */
-function InstallBanner() {
-  const { t } = useI18n()
-  const { canPrompt, showInstructions, installed } = usePwaInstall()
-  if (installed || (!canPrompt && !showInstructions)) return null
-  return (
-    <div className="mb-4 rounded-lg border border-border bg-card/60 px-4 py-3 flex items-center gap-3">
-      <div className="hidden sm:flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary shrink-0">
-        <Sparkles className="h-4 w-4" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium truncate">{t("install.banner.title")}</div>
-        <div className="text-xs text-muted-foreground line-clamp-2 sm:truncate">
-          {t("install.banner.body")}
-        </div>
-      </div>
-      <InstallAppButton variant="default" size="sm" />
-    </div>
   )
 }
 
