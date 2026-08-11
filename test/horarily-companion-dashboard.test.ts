@@ -13,8 +13,8 @@ test("Horarily respeta prioridades y fechas reales", () => {
   const data = {
     ...base,
     reminders: [
-      { title: "Vencido", targetDateTime: "2026-08-11T09:00:00-04:00" },
-      { title: "Pronto", targetDateTime: "2026-08-11T10:30:00-04:00" },
+      { title: "Vencido", targetDateTime: "2026-08-11T09:00:00" },
+      { title: "Pronto", targetDateTime: "2026-08-11T10:30:00" },
     ],
     classes: [{ subjectName: "Álgebra", start: "10:20", end: "11:20", day: "martes" as const }],
   }
@@ -30,7 +30,7 @@ test("clase actual supera futura; recordatorio supera evaluación", () => {
   assert.equal(getHorarilyCompanionMessage({ ...base, classes }, now).kind, "current-class")
   const result = getHorarilyCompanionMessage({
     ...base,
-    reminders: [{ title: "Informe", targetDateTime: "2026-08-11T16:00:00-04:00" }],
+    reminders: [{ title: "Informe", targetDateTime: "2026-08-11T16:00:00" }],
     assessments: [{ title: "Prueba", date: "2026-08-12" }],
   }, now)
   assert.equal(result.kind, "reminder")
