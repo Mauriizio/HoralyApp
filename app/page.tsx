@@ -60,6 +60,7 @@ import { GuidedTour } from "@/components/tutorials/guided-tour"
 import { FirstStepsChecklist } from "@/components/tutorials/first-steps-checklist"
 import { useTutorialProgress } from "@/hooks/use-tutorial-progress"
 import { TUTORIAL_REGISTRY, type TutorialId } from "@/lib/tutorials"
+import type { TutorialProgressMap } from "@/lib/tutorial-progress"
 
 type TutorialStartMode = "manual" | "automatic" | "resume"
 
@@ -88,7 +89,13 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
   const [tab, setTab] = useState<AppTab>("dashboard")
   const [quickOpen, setQuickOpen] = useState(false)
   const { authenticated, loading: authLoading, transitioning } = useAuth()
-  const tutorials = useTutorialProgress()
+  const persistTutorialProgress = useCallback((progress: TutorialProgressMap, context: { expectedUserId: string; expectedAuthGeneration: number }) => {
+    return store.updateSettingsConfirmed({ tutorialProgress: progress }, context)
+  }, [store.updateSettingsConfirmed])
+  const tutorials = useTutorialProgress({
+    cloudProgress: data.settings.tutorialProgress as TutorialProgressMap | undefined,
+    persistCloudProgress: persistTutorialProgress,
+  })
   const [activeTutorial, setActiveTutorial] = useState<TutorialId | null>(null)
 
   const [subjectOpen, setSubjectOpen] = useState(false)
@@ -451,7 +458,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         }
       >
           {/* Greeting */}
-          <div className="mb-4">
+          {data.settings.advancedModeEnabled && <div className="mb-4">
             <HorarilySpeakingCard
               suspended={Boolean(activeTutorial)}
               userName={data.profile.displayName}
@@ -523,7 +530,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
               })}
               isLoading={!store.hydrated}
             />
-          </div>
+          </div>}
 
           {/* Welcome banner when empty */}
           {subjectCount === 0 && (
@@ -676,7 +683,11 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
               <div data-tour="preferences-overview">
                 <SettingsView
                   store={store}
-                  onRestartTutorial={(id) => startTutorial({ id, mode: "manual" })}
+                  onRestartTutorial={(id) => {
+                    tutorials.reset(id)
+                    requestAnimationFrame(() => startTutorial({ id, mode: "manual" }))
+                  }}
+                  onAdvancedModeFirstEnabled={() => startTutorial({ id: "advanced-mode-tour", mode: "automatic" })}
                 />
               </div>
             </TabsContent>

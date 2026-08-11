@@ -260,6 +260,8 @@ export interface AppSettings {
   googleCalendarConnected: boolean
   gradeScale: GradeScale
   onboarding: OnboardingState
+  advancedModeEnabled: boolean
+  tutorialProgress?: Partial<Record<string, { version: number; status: "not-started" | "in-progress" | "completed" | "skipped"; currentStep: number; updatedAt?: string }>>
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -276,6 +278,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   googleCalendarConnected: false,
   gradeScale: { min: 1, max: 7, passing: 4 },
   onboarding: { currentStep: 0, completed: false },
+  advancedModeEnabled: false,
 }
 
 export interface AppData {

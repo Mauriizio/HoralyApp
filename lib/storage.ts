@@ -119,6 +119,13 @@ const settingsSchema = z.object({
   focusMode: z.boolean(),
   enableSaturday: z.boolean(),
   googleCalendarConnected: z.boolean(),
+  advancedModeEnabled: z.boolean().default(false),
+  tutorialProgress: z.record(z.string(), z.object({
+    version: z.number().int().nonnegative(),
+    status: z.enum(["not-started", "in-progress", "completed", "skipped"]),
+    currentStep: z.number().int().nonnegative(),
+    updatedAt: z.string().optional(),
+  })).optional(),
   gradeScale: gradeScaleSchema,
   onboarding: z.object({
     currentStep: z.number().int().nonnegative(),

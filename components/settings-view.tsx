@@ -38,7 +38,7 @@ const ACCENT_PRESETS = [
   { hex: "#475569", label: "Pizarra" },
 ]
 
-export function SettingsView({ store, onRestartTutorial }: { store: ScheduleStore; onRestartTutorial?: (id: TutorialId) => void }) {
+export function SettingsView({ store, onRestartTutorial, onAdvancedModeFirstEnabled }: { store: ScheduleStore; onRestartTutorial?: (id: TutorialId) => void; onAdvancedModeFirstEnabled?: () => void }) {
   const { t } = useI18n()
   const { data, updateProfile, updateSettings, replaceAll, resetSettings, storageRecovery, clearStorageRecovery } = store
   const { settings } = data
@@ -79,6 +79,24 @@ export function SettingsView({ store, onRestartTutorial }: { store: ScheduleStor
 
   return (
     <div className="space-y-6">
+      <Card data-tour="advanced-mode-settings">
+        <CardHeader>
+          <CardTitle className="text-base">Modo avanzado de Horarily</CardTitle>
+          <CardDescription>Activa una consola de comandos para operar Horarily mediante acciones y comandos explícitos. Está pensada para usuarios que prefieren una interfaz avanzada. Puedes desactivarla en cualquier momento.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex min-h-11 items-center justify-between gap-4">
+          <Label htmlFor="advanced-mode">Mostrar consola avanzada</Label>
+          <Switch
+            id="advanced-mode"
+            checked={settings.advancedModeEnabled}
+            onCheckedChange={(checked) => {
+              const firstActivation = checked && !settings.advancedModeEnabled
+              updateSettings({ advancedModeEnabled: checked })
+              if (firstActivation) requestAnimationFrame(() => onAdvancedModeFirstEnabled?.())
+            }}
+          />
+        </CardContent>
+      </Card>
       <Card data-tour="learning-settings">
         <CardHeader><CardTitle className="text-base">Aprendizaje y ayuda</CardTitle><CardDescription>Retoma o reinicia recorridos cuando los necesites.</CardDescription></CardHeader>
         <CardContent className="flex flex-wrap gap-2">

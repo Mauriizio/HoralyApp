@@ -36,6 +36,7 @@ import { SemesterSwitcher } from "@/components/semesters/semester-switcher"
 import { AcademicAgendaPanel } from "@/components/academic-agenda-panel"
 import { generateAcademicRecommendations } from "@/domain/academic-advisor"
 import type { AppTab } from "@/components/app-shell/navigation"
+import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts"
 
 const confidenceLabel = { complete: "Datos completos", partial: "Datos parciales", none: "Sin datos" } as const
 
@@ -85,6 +86,7 @@ export function AcademicDashboard({ store, onNavigate }: { store: ScheduleStore;
     month: "long",
     timeZone: data.profile.timezone || undefined,
   }).format(now)
+  const greeting = now.getHours() < 12 ? "¡Buenos días" : now.getHours() < 20 ? "¡Buenas tardes" : "¡Buenas noches"
 
   if (!store.hydrated) {
     return <StateCard icon={<Loader2 className="size-5 animate-spin" />} title="Cargando dashboard" body="Estamos preparando tus datos académicos." />
@@ -109,6 +111,12 @@ export function AcademicDashboard({ store, onNavigate }: { store: ScheduleStore;
   const totalLoad = Math.max(load.totalBlocks, 1)
   const classLoadPercent = Math.min(100, Math.round((load.classBlocks / totalLoad) * 100))
   const studyLoadPercent = Math.min(100, Math.round((load.studyBlocks / totalLoad) * 100))
+  const gradedCount = data.grades.filter((grade) => grade.score !== null && (grade.status ?? "graded") === "graded").length
+  const assessmentProgress = data.grades.length > 0 ? Math.round((gradedCount / data.grades.length) * 100) : null
+  const loadChart = [
+    { name: "Clases", value: load.classBlocks, color: "#2f80ed" },
+    { name: "Estudio", value: load.studyBlocks, color: "#20c77a" },
+  ].filter((item) => item.value > 0)
 
   return (
     <div className="space-y-5 pb-4 sm:space-y-6">
@@ -123,7 +131,7 @@ export function AcademicDashboard({ store, onNavigate }: { store: ScheduleStore;
               <span>{activeSemester.name}</span>
             </div>
             <h1 className="mt-3 text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
-              {displayName ? `Hola, ${displayName}` : "Tu día académico"}
+              {displayName ? `${greeting}, ${displayName}! 👋` : `${greeting}! 👋`}
             </h1>
             <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">
               Revisa lo importante de hoy, adelanta tus pendientes y mantén tu semestre bajo control.
@@ -141,17 +149,11 @@ export function AcademicDashboard({ store, onNavigate }: { store: ScheduleStore;
 
       <section aria-label="Resumen académico" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <MetricCard
-          icon={<Clock3 className="size-4" />}
-          title="Próxima clase"
-          value={nextClass ? nextClass.subject.name : "Sin clases"}
-          detail={nextClass ? `${nextClass.day} · ${nextClass.start}-${nextClass.end}` : "Tu agenda está libre"}
-          onClick={() => onNavigate("horario")}
-        />
-        <MetricCard
           icon={<TrendingUp className="size-4" />}
-          title="Promedio actual"
+          title="Promedio general"
           value={average.value === null ? "—" : average.value.toFixed(1)}
           detail={confidenceLabel[average.confidence]}
+          accent="violet"
           onClick={() => onNavigate("notas")}
         />
         <MetricCard
@@ -159,14 +161,24 @@ export function AcademicDashboard({ store, onNavigate }: { store: ScheduleStore;
           title="Asignaturas"
           value={String(data.subjects.length)}
           detail={risks.length > 0 ? `${risks.length} requieren revisión` : "Sin riesgo detectado"}
+          accent="blue"
           onClick={() => onNavigate("materias")}
         />
         <MetricCard
           icon={<Target className="size-4" />}
-          title="Pendientes"
-          value={String(upcoming.length + overdue.length)}
-          detail={overdue.length > 0 ? `${overdue.length} vencidos` : "Nada vencido"}
-          onClick={() => onNavigate("recordatorios")}
+          title="Progreso académico"
+          value={assessmentProgress === null ? "—" : `${assessmentProgress}%`}
+          detail={data.grades.length > 0 ? `${gradedCount} de ${data.grades.length} evaluaciones calificadas` : "Sin evaluaciones registradas"}
+          accent="green"
+          onClick={() => onNavigate("notas")}
+        />
+        <MetricCard
+          icon={<Clock3 className="size-4" />}
+          title="Próxima clase"
+          value={nextClass ? nextClass.subject.name : "—"}
+          detail={nextClass ? `${nextClass.day} · ${nextClass.start}-${nextClass.end}` : "Sin próximas clases"}
+          accent="orange"
+          onClick={() => onNavigate("horario")}
         />
       </section>
 
@@ -234,6 +246,14 @@ export function AcademicDashboard({ store, onNavigate }: { store: ScheduleStore;
               <DailyCount label="Alertas" value={attention.length + risks.length} />
             </div>
             <div className="space-y-3">
+              <div className="relative mx-auto h-36 w-full max-w-48" aria-label={`Carga académica: ${load.totalBlocks} bloques semanales`}>
+                {loadChart.length > 0 ? <>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart><Pie data={loadChart} dataKey="value" innerRadius={42} outerRadius={62} paddingAngle={3} stroke="none">{loadChart.map((item) => <Cell key={item.name} fill={item.color} />)}</Pie></PieChart>
+                  </ResponsiveContainer>
+                  <div className="pointer-events-none absolute inset-0 grid place-content-center text-center"><strong className="text-xl tabular-nums">{load.totalBlocks}</strong><span className="text-[10px] text-muted-foreground">bloques/semana</span></div>
+                </> : <div className="grid h-full place-content-center text-center text-xs text-muted-foreground">Sin carga registrada</div>}
+              </div>
               <LoadBar label="Clases" value={classLoadPercent} detail={`${load.classBlocks} bloques`} />
               <LoadBar label="Estudio" value={studyLoadPercent} detail={`${load.studyBlocks} bloques`} />
             </div>
@@ -243,6 +263,27 @@ export function AcademicDashboard({ store, onNavigate }: { store: ScheduleStore;
           </CardContent>
         </Card>
       </section>
+
+      <Card className="border-border/70 bg-card/80 shadow-sm">
+        <CardHeader className="pb-3 sm:flex-row sm:items-center sm:justify-between">
+          <div><CardTitle className="text-base sm:text-lg">Resumen de asignaturas</CardTitle><CardDescription>Evaluaciones y promedio real del semestre activo.</CardDescription></div>
+          <Button variant="ghost" size="sm" onClick={() => onNavigate("materias")}>Ver todas<ArrowRight className="ml-2 size-4" /></Button>
+        </CardHeader>
+        <CardContent className="space-y-1">
+          {data.subjects.map((subject) => {
+            const subjectGrades = data.grades.filter((grade) => grade.subjectId === subject.id)
+            const subjectGraded = subjectGrades.filter((grade) => grade.score !== null).length
+            const subjectProgress = subjectGrades.length ? Math.round((subjectGraded / subjectGrades.length) * 100) : 0
+            const subjectAverage = calculateWeightedAverage(subjectGrades, data.settings.gradeScale).value
+            const atRisk = subjectAverage !== null && subjectAverage < data.settings.gradeScale.passing
+            return <button key={subject.id} type="button" onClick={() => onNavigate("materias")} className="grid min-h-14 w-full grid-cols-[minmax(0,1fr)_3rem] items-center gap-3 rounded-xl px-2 text-left hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:grid-cols-[minmax(0,1fr)_minmax(9rem,0.7fr)_4rem]">
+              <span className="flex min-w-0 items-center gap-3"><span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: subject.color }} /><span className="truncate text-sm font-medium">{subject.name}</span></span>
+              <span className="hidden items-center gap-3 sm:flex"><span className="h-2 flex-1 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-primary" style={{ width: `${subjectProgress}%` }} /></span><span className="w-9 text-right text-xs tabular-nums text-muted-foreground">{subjectGrades.length ? `${subjectProgress}%` : "—"}</span></span>
+              <span className={`text-right text-sm font-semibold tabular-nums ${atRisk ? "text-destructive" : "text-foreground"}`}>{subjectAverage === null ? "—" : subjectAverage.toFixed(1)}</span>
+            </button>
+          })}
+        </CardContent>
+      </Card>
 
       <section className="grid gap-5 lg:grid-cols-2">
         <Card className="border-border/70 bg-card/80 shadow-sm">
@@ -356,19 +397,20 @@ export function AcademicDashboard({ store, onNavigate }: { store: ScheduleStore;
   )
 }
 
-function MetricCard({ icon, title, value, detail, onClick }: { icon: React.ReactNode; title: string; value: string; detail: string; onClick: () => void }) {
+function MetricCard({ icon, title, value, detail, accent, onClick }: { icon: React.ReactNode; title: string; value: string; detail: string; accent: "violet" | "blue" | "green" | "orange"; onClick: () => void }) {
+  const accentClasses = { violet: "border-violet-500/25 bg-violet-500/5 text-violet-400", blue: "border-blue-500/25 bg-blue-500/5 text-blue-400", green: "border-emerald-500/25 bg-emerald-500/5 text-emerald-400", orange: "border-orange-500/25 bg-orange-500/5 text-orange-400" }[accent]
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group min-h-32 rounded-2xl border border-border/70 bg-card/80 p-4 text-left shadow-sm transition-[transform,background-color,border-color] hover:-translate-y-0.5 hover:border-primary/35 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-5"
+      className={`group min-h-32 rounded-2xl border p-4 text-left shadow-sm transition-[transform,background-color,border-color] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-5 ${accentClasses}`}
     >
       <span className="flex items-center justify-between gap-3 text-muted-foreground">
-        <span className="grid size-9 place-items-center rounded-xl bg-primary/10 text-primary">{icon}</span>
+        <span className="grid size-9 place-items-center rounded-xl bg-current/10">{icon}</span>
         <ArrowRight className="size-4 opacity-0 transition-opacity group-hover:opacity-100" />
       </span>
-      <span className="mt-4 block truncate text-lg font-semibold tracking-tight sm:text-xl">{value}</span>
-      <span className="mt-1 block text-xs font-medium text-muted-foreground">{title}</span>
+      <span className="mt-4 block truncate text-lg font-semibold tracking-tight text-foreground sm:text-xl">{value}</span>
+      <span className="mt-1 block text-xs font-medium text-foreground/80">{title}</span>
       <span className="mt-1 hidden truncate text-[11px] text-muted-foreground/80 sm:block">{detail}</span>
     </button>
   )
