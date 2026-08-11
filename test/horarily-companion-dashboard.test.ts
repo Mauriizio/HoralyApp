@@ -3,7 +3,7 @@ import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import { getHorarilyCompanionMessage } from "../domain/horarily-companion.ts"
 
-const now = new Date("2026-08-11T10:00:00-04:00")
+const now = new Date(2026, 7, 11, 10, 0, 0, 0)
 const base = {
   reminders: [], assessments: [], subjects: [],
   classes: [],
