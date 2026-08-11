@@ -1,472 +1,109 @@
 "use client"
 
-import {
-  AlertCircle,
-  ArrowRight,
-  Bell,
-  BookOpen,
-  CalendarDays,
-  CheckCircle2,
-  Clock3,
-  Gauge,
-  GraduationCap,
-  Layers3,
-  Loader2,
-  Plus,
-  Sparkles,
-  Target,
-  TrendingUp,
-  WifiOff,
-} from "lucide-react"
+import { ArrowRight, BookOpen, CalendarDays, Clock3, Layers3, Loader2, Target, TrendingUp, WifiOff, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  calculateWeightedAverage,
-  detectOverdueReminders,
-  detectSubjectsAtRisk,
-  detectSubjectsRequiringAttention,
-  determineNextClass,
-  estimateWeeklyLoad,
-  getTodayClasses,
-  suggestBasicStudyBlock,
-} from "@/domain/academic-engine"
+import { Card, CardContent } from "@/components/ui/card"
+import { calculateWeightedAverage, determineNextClass, getTodayClasses } from "@/domain/academic-engine"
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
-import { SemesterSwitcher } from "@/components/semesters/semester-switcher"
-import { AcademicAgendaPanel } from "@/components/academic-agenda-panel"
-import { generateAcademicRecommendations } from "@/domain/academic-advisor"
 import type { AppTab } from "@/components/app-shell/navigation"
-import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts"
-
-const confidenceLabel = { complete: "Datos completos", partial: "Datos parciales", none: "Sin datos" } as const
 
 export function AcademicDashboard({ store, onNavigate }: { store: ScheduleStore; onNavigate: (tab: AppTab) => void }) {
   const { data } = store
   const now = new Date()
   const activeSemester = data.semesters.find((semester) => semester.id === data.activeSemesterId)
-  const nextClass = determineNextClass(data, now)
   const todayClasses = getTodayClasses(data, now)
-  const overdue = detectOverdueReminders(data.reminders, now)
-  const upcoming = data.reminders
-    .filter((reminder) => new Date(reminder.targetDateTime).getTime() >= now.getTime())
-    .sort((a, b) => new Date(a.targetDateTime).getTime() - new Date(b.targetDateTime).getTime())
-    .slice(0, 4)
+  const nextClass = determineNextClass(data, now)
   const average = calculateWeightedAverage(data.grades, data.settings.gradeScale)
-  const risks = detectSubjectsAtRisk(data)
-  const attention = detectSubjectsRequiringAttention(data, now)
-  const load = estimateWeeklyLoad(data)
-  const suggestion = suggestBasicStudyBlock(data)
-  const firstSubject = data.subjects[0]
-  const advisorPlan = firstSubject
-    ? {
-        semesterId: firstSubject.semesterId ?? data.activeSemesterId ?? "",
-        subjectId: firstSubject.id,
-        groups: data.assessmentGroups.filter((group) => group.subjectId === firstSubject.id),
-        assessments: data.grades
-          .filter((grade) => grade.subjectId === firstSubject.id)
-          .map((grade) => ({
-            ...grade,
-            groupId: grade.groupId ?? "",
-            weightWithinGroup: grade.weightWithinGroup ?? grade.weight,
-            scheduledDate: grade.date,
-            status: grade.status ?? (grade.score === null ? "planned" : "graded"),
-          })),
-        scale: data.settings.gradeScale,
-        targetGrade: data.settings.gradeScale.passing,
-      }
-    : null
-  const advisorItems = advisorPlan
-    ? generateAcademicRecommendations({ now, plan: advisorPlan, subjects: data.subjects, agendaItems: [], weeklyLoad: load })
-    : []
-  const isNew = !data.profile.onboardingCompletedAt && data.subjects.length === 0
-  const displayName = data.profile.displayName?.trim()
-  const dateLabel = new Intl.DateTimeFormat("es-CL", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    timeZone: data.profile.timezone || undefined,
-  }).format(now)
+  const graded = data.grades.filter((grade) => grade.score !== null && (grade.status ?? "graded") === "graded").length
+  const progress = data.grades.length ? Math.round(graded / data.grades.length * 100) : null
+  const displayName = data.profile.displayName.trim()
   const greeting = now.getHours() < 12 ? "¡Buenos días" : now.getHours() < 20 ? "¡Buenas tardes" : "¡Buenas noches"
+  const date = new Intl.DateTimeFormat("es-CL", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: data.profile.timezone || undefined }).format(now)
 
-  if (!store.hydrated) {
-    return <StateCard icon={<Loader2 className="size-5 animate-spin" />} title="Cargando dashboard" body="Estamos preparando tus datos académicos." />
-  }
-  if (store.syncStatus === "offline") {
-    return <StateCard icon={<WifiOff className="size-5" />} title="Sin conexión" body="Puedes seguir trabajando en modo local; sincronizaremos cuando vuelva internet." />
-  }
-  if (store.syncStatus === "error") {
-    return <StateCard icon={<AlertCircle className="size-5" />} title="No pudimos sincronizar" body={store.syncError ?? "Tus datos locales siguen disponibles."} action={<Button onClick={store.retrySync}>Reintentar</Button>} />
-  }
-  if (isNew) {
-    return <StateCard icon={<Sparkles className="size-5" />} title="Configura tu espacio académico" body="Completa la configuración inicial como invitado o con tu cuenta. En modo invitado, tus datos quedan en este dispositivo." action={<Button onClick={() => onNavigate("onboarding")}>Configurar mi espacio</Button>} />
-  }
-  if (!activeSemester) {
-    return <StateCard icon={<CalendarDays className="size-5" />} title="Sin semestre activo" body="Crea o selecciona un semestre para filtrar correctamente tu información." action={<Button onClick={() => onNavigate("preferencias")}>Configurar semestre</Button>} />
-  }
-  if (data.subjects.length === 0) {
-    return <StateCard icon={<BookOpen className="size-5" />} title="Aún no tienes materias" body="Agrega tus materias para activar el horario, las notas y las recomendaciones." action={<Button onClick={() => onNavigate("materias")}>Agregar materias</Button>} />
-  }
+  if (!store.hydrated) return <StateCard icon={<Loader2 className="size-5 animate-spin" />} title="Cargando dashboard" body="Preparando tus datos académicos." />
+  if (store.syncStatus === "offline") return <StateCard icon={<WifiOff className="size-5" />} title="Sin conexión" body="Puedes seguir trabajando con tus datos locales." />
+  if (store.syncStatus === "error") return <StateCard icon={<AlertCircle className="size-5" />} title="No pudimos sincronizar" body={store.syncError ?? "Tus datos locales siguen disponibles."} action={<Button onClick={store.retrySync}>Reintentar</Button>} />
+  if (!activeSemester) return <StateCard icon={<CalendarDays className="size-5" />} title="Sin semestre activo" body="Selecciona el semestre activo en Preferencias." action={<Button onClick={() => onNavigate("preferencias")}>Abrir Preferencias</Button>} />
+  if (!data.profile.onboardingCompletedAt && data.subjects.length === 0) return <StateCard icon={<BookOpen className="size-5" />} title="Configura tu espacio académico" body="Completa la configuración inicial para comenzar." action={<Button onClick={() => onNavigate("onboarding")}>Configurar</Button>} />
 
-  const primaryAdvisor = advisorItems[0]
-  const totalLoad = Math.max(load.totalBlocks, 1)
-  const classLoadPercent = Math.min(100, Math.round((load.classBlocks / totalLoad) * 100))
-  const studyLoadPercent = Math.min(100, Math.round((load.studyBlocks / totalLoad) * 100))
-  const gradedCount = data.grades.filter((grade) => grade.score !== null && (grade.status ?? "graded") === "graded").length
-  const assessmentProgress = data.grades.length > 0 ? Math.round((gradedCount / data.grades.length) * 100) : null
-  const loadChart = [
-    { name: "Clases", value: load.classBlocks, color: "#2f80ed" },
-    { name: "Estudio", value: load.studyBlocks, color: "#20c77a" },
-  ].filter((item) => item.value > 0)
+  const pending = data.reminders
+    .map((item) => ({ item, date: new Date(item.targetDateTime) }))
+    .filter(({ date }) => !Number.isNaN(date.getTime()))
+    .sort((a, b) => a.date.getTime() - b.date.getTime()).slice(0, 4)
 
-  return (
-    <div className="space-y-5 pb-4 sm:space-y-6">
-      <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-card/85 p-5 shadow-sm sm:p-6">
-        <div className="pointer-events-none absolute -right-20 -top-28 size-64 rounded-full bg-primary/10 blur-3xl" />
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-2xl">
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              <CalendarDays className="size-4 text-primary" />
-              <span className="capitalize">{dateLabel}</span>
-              <span aria-hidden="true">·</span>
-              <span>{activeSemester.name}</span>
-            </div>
-            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
-              {displayName ? `${greeting}, ${displayName}! 👋` : `${greeting}! 👋`}
-            </h1>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">
-              Revisa lo importante de hoy, adelanta tus pendientes y mantén tu semestre bajo control.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <SemesterSwitcher store={store} onManage={() => onNavigate("preferencias")} />
-            <Button className="h-10 rounded-xl" onClick={() => onNavigate("recordatorios")}>
-              <Plus className="mr-2 size-4" />
-              Nueva tarea
-            </Button>
-          </div>
-        </div>
-      </section>
+  return <div className="space-y-2.5 pb-3 sm:space-y-3">
+    <header className="px-0.5">
+      <h1 className="text-[17px] font-semibold tracking-tight sm:text-xl">{displayName ? `${greeting}, ${displayName}!` : `${greeting}!`}</h1>
+      <p className="mt-0.5 text-[11px] capitalize text-muted-foreground sm:text-xs">{date}</p>
+    </header>
 
-      <section aria-label="Resumen académico" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <MetricCard
-          icon={<TrendingUp className="size-4" />}
-          title="Promedio general"
-          value={average.value === null ? "—" : average.value.toFixed(1)}
-          detail={confidenceLabel[average.confidence]}
-          accent="violet"
-          onClick={() => onNavigate("notas")}
-        />
-        <MetricCard
-          icon={<Layers3 className="size-4" />}
-          title="Asignaturas"
-          value={String(data.subjects.length)}
-          detail={risks.length > 0 ? `${risks.length} requieren revisión` : "Sin riesgo detectado"}
-          accent="blue"
-          onClick={() => onNavigate("materias")}
-        />
-        <MetricCard
-          icon={<Target className="size-4" />}
-          title="Progreso académico"
-          value={assessmentProgress === null ? "—" : `${assessmentProgress}%`}
-          detail={data.grades.length > 0 ? `${gradedCount} de ${data.grades.length} evaluaciones calificadas` : "Sin evaluaciones registradas"}
-          accent="green"
-          onClick={() => onNavigate("notas")}
-        />
-        <MetricCard
-          icon={<Clock3 className="size-4" />}
-          title="Próxima clase"
-          value={nextClass ? nextClass.subject.name : "—"}
-          detail={nextClass ? `${nextClass.day} · ${nextClass.start}-${nextClass.end}` : "Sin próximas clases"}
-          accent="orange"
-          onClick={() => onNavigate("horario")}
-        />
-      </section>
+    <section aria-label="Resumen académico" className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+      <Metric icon={<TrendingUp />} title="Promedio general" value={average.value == null ? "—" : average.value.toFixed(1)} detail={average.confidence === "complete" ? "Completo" : average.confidence === "partial" ? "Parcial" : "Sin notas"} accent="violet" onClick={() => onNavigate("notas")} />
+      <Metric icon={<Layers3 />} title="Asignaturas" value={String(data.subjects.length)} detail="Semestre activo" accent="blue" onClick={() => onNavigate("materias")} />
+      <Metric icon={<Target />} title="Progreso académico" value={progress == null ? "—" : `${progress}%`} detail={data.grades.length ? `${graded} / ${data.grades.length} calificadas` : "Sin evaluaciones"} accent="green" progress={progress ?? 0} onClick={() => onNavigate("notas")} />
+      <Metric icon={<Clock3 />} title="Próxima clase" value={nextClass?.subject.name ?? "—"} detail={nextClass ? `${nextClass.start}–${nextClass.end}` : "Sin clases"} accent="orange" onClick={() => onNavigate("horario")} />
+    </section>
 
-      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-        <Card className="overflow-hidden border-border/70 bg-card/80 shadow-sm">
-          <CardHeader className="border-b border-border/60 pb-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="text-base sm:text-lg">Horario de hoy</CardTitle>
-              <CardDescription>Tu secuencia de clases y la siguiente transición.</CardDescription>
-            </div>
-            <Button variant="ghost" size="sm" className="w-fit" onClick={() => onNavigate("horario")}>
-              Ver horario
-              <ArrowRight className="ml-2 size-4" />
-            </Button>
-          </CardHeader>
-          <CardContent className="p-0">
-            {todayClasses.length > 0 ? (
-              <div className="divide-y divide-border/60">
-                {todayClasses.map((item, index) => (
-                  <button
-                    key={item.block.id}
-                    type="button"
-                    onClick={() => onNavigate("horario")}
-                    className="flex min-h-20 w-full items-center gap-4 px-4 py-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:px-5"
-                  >
-                    <span className="w-14 shrink-0 text-sm font-semibold tabular-nums text-foreground">{item.start}</span>
-                    <span className="relative flex min-h-11 min-w-0 flex-1 items-center border-l border-border pl-4">
-                      <span className="absolute -left-1.5 top-1/2 size-3 -translate-y-1/2 rounded-full border-2 border-card bg-primary" />
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-medium">{item.subject.name}</span>
-                        <span className="mt-1 block text-xs text-muted-foreground">Hasta {item.end}</span>
-                      </span>
-                    </span>
-                    {index === 0 && <Badge className="hidden sm:inline-flex">Primera</Badge>}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <EmptyState
-                icon={<CalendarDays className="size-5" />}
-                title="No hay clases hoy"
-                body="Aprovecha el espacio para estudiar o revisar tus próximas evaluaciones."
-                action={<Button size="sm" variant="outline" onClick={() => onNavigate("estudio")}>Planificar estudio</Button>}
-              />
-            )}
-          </CardContent>
-        </Card>
+    <section className="grid gap-2.5 lg:grid-cols-2">
+      <div><CompactCard title="Horario de hoy" action="Ver horario completo" onAction={() => onNavigate("horario")}>
+        {todayClasses.length ? <div className="divide-y divide-border/50">{todayClasses.map((item) => {
+          const start = new Date(now); const end = new Date(now)
+          const [sh, sm] = item.start.split(":").map(Number); const [eh, em] = item.end.split(":").map(Number)
+          start.setHours(sh, sm, 0, 0); end.setHours(eh, em, 0, 0)
+          const current = start <= now && now < end
+          return <button key={item.block.id} onClick={() => onNavigate("horario")} className="grid min-h-11 w-full grid-cols-[3.25rem_1fr_auto] items-center gap-2 px-3 py-1 text-left hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <span className="text-xs font-semibold tabular-nums">{item.start}</span>
+            <span className="flex min-w-0 items-center gap-2 border-l border-border pl-2"><span className="size-2 shrink-0 rounded-full" style={{ background: item.subject.color }} /><span className="min-w-0"><span className="block truncate text-xs font-medium">{item.subject.name}</span><span className="block text-[10px] text-muted-foreground">hasta {item.end}</span></span></span>
+            {current && <span className="rounded-full bg-emerald-500/12 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-400">En curso</span>}
+          </button>
+        })}</div> : <p className="px-3 py-5 text-center text-xs text-muted-foreground">No hay clases hoy.</p>}
+      </CompactCard></div>
+      <div className="hidden lg:block"><MiniCalendar data={data} /></div>
+    </section>
 
-        <Card className="border-border/70 bg-card/80 shadow-sm">
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <CardTitle className="text-base sm:text-lg">Resumen del día</CardTitle>
-                <CardDescription>Lo que merece tu atención ahora.</CardDescription>
-              </div>
-              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
-                <Gauge className="size-5" />
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-2 rounded-xl border border-border/60 bg-background/35 p-3 text-center">
-              <DailyCount label="Clases" value={todayClasses.length} />
-              <DailyCount label="Próximos" value={upcoming.length} />
-              <DailyCount label="Alertas" value={attention.length + risks.length} />
-            </div>
-            <div className="space-y-3">
-              <div className="relative mx-auto h-36 w-full max-w-48" aria-label={`Carga académica: ${load.totalBlocks} bloques semanales`}>
-                {loadChart.length > 0 ? <>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart><Pie data={loadChart} dataKey="value" innerRadius={42} outerRadius={62} paddingAngle={3} stroke="none">{loadChart.map((item) => <Cell key={item.name} fill={item.color} />)}</Pie></PieChart>
-                  </ResponsiveContainer>
-                  <div className="pointer-events-none absolute inset-0 grid place-content-center text-center"><strong className="text-xl tabular-nums">{load.totalBlocks}</strong><span className="text-[10px] text-muted-foreground">bloques/semana</span></div>
-                </> : <div className="grid h-full place-content-center text-center text-xs text-muted-foreground">Sin carga registrada</div>}
-              </div>
-              <LoadBar label="Clases" value={classLoadPercent} detail={`${load.classBlocks} bloques`} />
-              <LoadBar label="Estudio" value={studyLoadPercent} detail={`${load.studyBlocks} bloques`} />
-            </div>
-            <Button variant="outline" className="w-full rounded-xl" onClick={() => onNavigate("analitica")}>
-              Ver estadísticas
-            </Button>
-          </CardContent>
-        </Card>
-      </section>
-
-      <Card className="border-border/70 bg-card/80 shadow-sm">
-        <CardHeader className="pb-3 sm:flex-row sm:items-center sm:justify-between">
-          <div><CardTitle className="text-base sm:text-lg">Resumen de asignaturas</CardTitle><CardDescription>Evaluaciones y promedio real del semestre activo.</CardDescription></div>
-          <Button variant="ghost" size="sm" onClick={() => onNavigate("materias")}>Ver todas<ArrowRight className="ml-2 size-4" /></Button>
-        </CardHeader>
-        <CardContent className="space-y-1">
-          {data.subjects.map((subject) => {
-            const subjectGrades = data.grades.filter((grade) => grade.subjectId === subject.id)
-            const subjectGraded = subjectGrades.filter((grade) => grade.score !== null).length
-            const subjectProgress = subjectGrades.length ? Math.round((subjectGraded / subjectGrades.length) * 100) : 0
-            const subjectAverage = calculateWeightedAverage(subjectGrades, data.settings.gradeScale).value
-            const atRisk = subjectAverage !== null && subjectAverage < data.settings.gradeScale.passing
-            return <button key={subject.id} type="button" onClick={() => onNavigate("materias")} className="grid min-h-14 w-full grid-cols-[minmax(0,1fr)_3rem] items-center gap-3 rounded-xl px-2 text-left hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:grid-cols-[minmax(0,1fr)_minmax(9rem,0.7fr)_4rem]">
-              <span className="flex min-w-0 items-center gap-3"><span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: subject.color }} /><span className="truncate text-sm font-medium">{subject.name}</span></span>
-              <span className="hidden items-center gap-3 sm:flex"><span className="h-2 flex-1 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-primary" style={{ width: `${subjectProgress}%` }} /></span><span className="w-9 text-right text-xs tabular-nums text-muted-foreground">{subjectGrades.length ? `${subjectProgress}%` : "—"}</span></span>
-              <span className={`text-right text-sm font-semibold tabular-nums ${atRisk ? "text-destructive" : "text-foreground"}`}>{subjectAverage === null ? "—" : subjectAverage.toFixed(1)}</span>
-            </button>
-          })}
-        </CardContent>
-      </Card>
-
-      <section className="grid gap-5 lg:grid-cols-2">
-        <Card className="border-border/70 bg-card/80 shadow-sm">
-          <CardHeader className="pb-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                <Bell className="size-4 text-amber-400" />
-                Tareas y recordatorios
-              </CardTitle>
-              <CardDescription>Ordenados por la fecha más próxima.</CardDescription>
-            </div>
-            {overdue.length > 0 && <Badge variant="destructive">{overdue.length} vencidos</Badge>}
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {upcoming.length > 0 ? (
-              upcoming.map((reminder) => (
-                <button
-                  key={reminder.id}
-                  type="button"
-                  onClick={() => onNavigate("recordatorios")}
-                  className="flex w-full items-center gap-3 rounded-xl border border-border/60 bg-background/30 p-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-amber-400/10 text-amber-400">
-                    <Bell className="size-4" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">{reminder.title}</span>
-                    <time className="mt-0.5 block text-xs text-muted-foreground" dateTime={reminder.targetDateTime}>
-                      {new Intl.DateTimeFormat("es-CL", {
-                        day: "2-digit",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        timeZone: data.profile.timezone || undefined,
-                      }).format(new Date(reminder.targetDateTime))}
-                    </time>
-                  </span>
-                  <ArrowRight className="size-4 text-muted-foreground" />
-                </button>
-              ))
-            ) : (
-              <EmptyState
-                icon={<CheckCircle2 className="size-5" />}
-                title="Estás al día"
-                body="No tienes recordatorios próximos registrados."
-                compact
-              />
-            )}
-            <Button variant="ghost" className="w-full" onClick={() => onNavigate("recordatorios")}>
-              Gestionar recordatorios
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/70 bg-card/80 shadow-sm">
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                  <Sparkles className="size-4 text-primary" />
-                  Consejero académico
-                </CardTitle>
-                <CardDescription>Recomendación determinista basada en tus datos.</CardDescription>
-              </div>
-              {primaryAdvisor && <Badge variant="outline" className="capitalize">{primaryAdvisor.priority}</Badge>}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {primaryAdvisor ? (
-              <>
-                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-                  <p className="text-sm font-medium leading-6">{primaryAdvisor.message}</p>
-                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                    {primaryAdvisor.evidence.slice(0, 2).join(" · ")}
-                  </p>
-                </div>
-                <Button className="w-full rounded-xl" onClick={() => onNavigate("notas")}>
-                  {primaryAdvisor.suggestedAction}
-                </Button>
-              </>
-            ) : (
-              <>
-                <div className="rounded-xl border border-border/60 bg-background/30 p-4">
-                  <p className="text-sm leading-6">{suggestion.message}</p>
-                </div>
-                <Button className="w-full rounded-xl" onClick={() => onNavigate("estudio")}>Planificar estudio</Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </section>
-
-      <AcademicAgendaPanel store={store} onNavigate={onNavigate} />
-
-      <section aria-label="Acciones rápidas" className="rounded-2xl border border-border/70 bg-card/70 p-4 shadow-sm sm:p-5">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-base font-semibold">Acciones rápidas</h2>
-            <p className="text-xs text-muted-foreground">Llega a las funciones frecuentes con menos clics.</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <QuickAction icon={<BookOpen className="size-4" />} label="Asignaturas" onClick={() => onNavigate("materias")} />
-          <QuickAction icon={<GraduationCap className="size-4" />} label="Registrar nota" onClick={() => onNavigate("notas")} />
-          <QuickAction icon={<Clock3 className="size-4" />} label="Planificar estudio" onClick={() => onNavigate("estudio")} />
-          <QuickAction icon={<CalendarDays className="size-4" />} label="Ver horario" onClick={() => onNavigate("horario")} />
-          <QuickAction icon={<BookOpen className="size-4" />} label="Abrir Cuaderno" onClick={() => onNavigate("cuaderno")} />
-        </div>
-      </section>
-    </div>
-  )
+    <section className="grid gap-2.5 lg:grid-cols-2">
+      <div><CompactCard title="Resumen de asignaturas" action="Ver todas" onAction={() => onNavigate("materias")}>
+        <div className="divide-y divide-border/50">{data.subjects.slice(0, 6).map((subject) => {
+          const grades = data.grades.filter((grade) => grade.subjectId === subject.id)
+          const done = grades.filter((grade) => grade.score !== null).length
+          const percent = grades.length ? Math.round(done / grades.length * 100) : 0
+          const subjectAverage = calculateWeightedAverage(grades, data.settings.gradeScale).value
+          return <button key={subject.id} onClick={() => onNavigate("materias")} className="grid min-h-9 w-full items-center gap-2 px-3 text-left hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" style={{ gridTemplateColumns: "minmax(0, 1fr) 5.5rem 2.25rem" }}>
+            <span className="flex min-w-0 items-center gap-2"><span className="size-2 rounded-sm" style={{ background: subject.color }} /><span className="truncate text-xs font-medium">{subject.name}</span></span>
+            <span className="flex items-center gap-1.5"><span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-primary" style={{ width: `${percent}%` }} /></span><span className="w-6 text-[9px] tabular-nums text-muted-foreground">{grades.length ? `${percent}%` : "—"}</span></span>
+            <span className="text-right text-xs font-semibold tabular-nums">{subjectAverage == null ? "—" : subjectAverage.toFixed(1)}</span>
+          </button>
+        })}</div>
+      </CompactCard></div>
+      <CompactCard title="Pendientes" action="Ver todos" onAction={() => onNavigate("recordatorios")}>
+        {pending.length ? <div className="divide-y divide-border/50">{pending.map(({ item, date: target }) => <button key={item.id} onClick={() => onNavigate("recordatorios")} className="grid min-h-11 w-full grid-cols-[1fr_auto] items-center gap-2 px-3 text-left hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><span className="min-w-0"><span className="block truncate text-xs font-medium">{item.title}</span><span className="block truncate text-[10px] text-muted-foreground">{data.subjects.find((subject) => subject.id === item.subjectId)?.name ?? "Recordatorio"}</span></span><RelativeDate date={target} now={now} /></button>)}</div> : <p className="px-3 py-5 text-center text-xs text-muted-foreground">Sin pendientes próximos.</p>}
+      </CompactCard>
+      <div className="lg:hidden"><MiniCalendar data={data} /></div>
+    </section>
+  </div>
 }
 
-function MetricCard({ icon, title, value, detail, accent, onClick }: { icon: React.ReactNode; title: string; value: string; detail: string; accent: "violet" | "blue" | "green" | "orange"; onClick: () => void }) {
-  const accentClasses = { violet: "border-violet-500/25 bg-violet-500/5 text-violet-400", blue: "border-blue-500/25 bg-blue-500/5 text-blue-400", green: "border-emerald-500/25 bg-emerald-500/5 text-emerald-400", orange: "border-orange-500/25 bg-orange-500/5 text-orange-400" }[accent]
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`group min-h-32 rounded-2xl border p-4 text-left shadow-sm transition-[transform,background-color,border-color] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-5 ${accentClasses}`}
-    >
-      <span className="flex items-center justify-between gap-3 text-muted-foreground">
-        <span className="grid size-9 place-items-center rounded-xl bg-current/10">{icon}</span>
-        <ArrowRight className="size-4 opacity-0 transition-opacity group-hover:opacity-100" />
-      </span>
-      <span className="mt-4 block truncate text-lg font-semibold tracking-tight text-foreground sm:text-xl">{value}</span>
-      <span className="mt-1 block text-xs font-medium text-foreground/80">{title}</span>
-      <span className="mt-1 hidden truncate text-[11px] text-muted-foreground/80 sm:block">{detail}</span>
-    </button>
-  )
+function Metric({ icon, title, value, detail, accent, progress, onClick }: { icon: React.ReactNode; title: string; value: string; detail: string; accent: "violet" | "blue" | "green" | "orange"; progress?: number; onClick: () => void }) {
+  const colors = { violet: "border-violet-500/25 text-violet-400", blue: "border-blue-500/25 text-blue-400", green: "border-emerald-500/25 text-emerald-400", orange: "border-orange-500/25 text-orange-400" }[accent]
+  return <button type="button" onClick={onClick} aria-label={`${title}: ${value}. ${detail}`} className={`min-h-[86px] rounded-xl border bg-card/75 p-2.5 text-left shadow-sm hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-[92px] sm:p-3 ${colors}`}>
+    <span className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground"><span className="[&>svg]:size-3.5">{icon}</span>{title}</span>
+    <span className="mt-2 block truncate text-xl font-semibold leading-none text-foreground sm:text-2xl">{value}</span>
+    {progress != null && <span className="mt-2 block h-1 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-emerald-500" style={{ width: `${progress}%` }} /></span>}
+    <span className="mt-1.5 block truncate text-[9px] text-muted-foreground sm:text-[10px]">{detail}</span>
+  </button>
 }
 
-function DailyCount({ label, value }: { label: string; value: number }) {
-  return <div><div className="text-lg font-semibold tabular-nums">{value}</div><div className="text-[11px] text-muted-foreground">{label}</div></div>
+function CompactCard({ title, action, onAction, children }: { title: string; action: string; onAction: () => void; children: React.ReactNode }) {
+  return <Card className="overflow-hidden rounded-xl border-border/70 bg-card/75 py-0 shadow-sm"><div className="flex min-h-10 items-center justify-between border-b border-border/55 px-3"><h2 className="text-xs font-semibold sm:text-sm">{title}</h2><button type="button" onClick={onAction} className="inline-flex min-h-10 items-center gap-1 text-[10px] font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{action}<ArrowRight className="size-3" /></button></div><CardContent className="p-0">{children}</CardContent></Card>
 }
 
-function LoadBar({ label, value, detail }: { label: string; value: number; detail: string }) {
-  return (
-    <div>
-      <div className="mb-1.5 flex items-center justify-between text-xs">
-        <span className="font-medium">{label}</span>
-        <span className="text-muted-foreground">{detail}</span>
-      </div>
-      <div className="h-2 overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-primary transition-[width] duration-300 motion-reduce:transition-none" style={{ width: `${value}%` }} />
-      </div>
-    </div>
-  )
+function MiniCalendar({ data }: { data: ScheduleStore["data"] }) {
+  const now = new Date(); const year = now.getFullYear(); const month = now.getMonth()
+  const firstDay = new Date(year, month, 1).getDay(); const days = new Date(year, month + 1, 0).getDate()
+  const eventDays = new Set([...data.reminders.map((item) => new Date(item.targetDateTime)), ...data.grades.map((item) => new Date(`${item.date}T12:00:00`))].filter((date) => !Number.isNaN(date.getTime()) && date.getMonth() === month && date.getFullYear() === year).map((date) => date.getDate()))
+  return <Card className="rounded-xl border-border/70 bg-card/75 py-0 shadow-sm"><div className="flex min-h-10 items-center gap-2 border-b border-border/55 px-3"><CalendarDays className="size-3.5 text-primary" /><h2 className="text-xs font-semibold capitalize sm:text-sm">{new Intl.DateTimeFormat("es-CL", { month: "long", year: "numeric" }).format(now)}</h2></div><CardContent className="p-2.5"><div className="grid text-center text-[9px] text-muted-foreground" style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))" }}>{"DLMMJVS".split("").map((day, i) => <span key={`${day}-${i}`}>{day}</span>)}</div><div className="mt-1 grid gap-y-0.5 text-center text-[10px]" style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))" }}>{Array.from({ length: firstDay }).map((_, i) => <span key={`blank-${i}`} />)}{Array.from({ length: days }, (_, i) => i + 1).map((day) => <span key={day} className={`relative grid h-5 place-items-center rounded-full ${day === now.getDate() ? "bg-primary font-semibold text-primary-foreground" : ""}`}>{day}{eventDays.has(day) && day !== now.getDate() && <span className="absolute bottom-0 size-0.5 rounded-full bg-primary" />}</span>)}</div></CardContent></Card>
 }
 
-function QuickAction({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
-  return (
-    <Button type="button" variant="outline" className="h-12 justify-start rounded-xl px-3" onClick={onClick}>
-      <span className="mr-2 text-primary">{icon}</span>
-      <span className="truncate">{label}</span>
-    </Button>
-  )
-}
+function RelativeDate({ date, now }: { date: Date; now: Date }) { const days = Math.ceil((date.getTime() - now.getTime()) / 86_400_000); return <span className={`text-[10px] font-medium ${days < 0 ? "text-destructive" : days === 0 ? "text-amber-400" : "text-muted-foreground"}`}>{days < 0 ? "Vencido" : days === 0 ? "Hoy" : days === 1 ? "Mañana" : `${days} días`}</span> }
 
-function EmptyState({ icon, title, body, action, compact = false }: { icon: React.ReactNode; title: string; body: string; action?: React.ReactNode; compact?: boolean }) {
-  return (
-    <div className={`flex flex-col items-center justify-center px-5 text-center ${compact ? "min-h-36 py-5" : "min-h-52 py-8"}`}>
-      <span className="grid size-11 place-items-center rounded-2xl bg-muted text-muted-foreground">{icon}</span>
-      <p className="mt-3 text-sm font-medium">{title}</p>
-      <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">{body}</p>
-      {action && <div className="mt-4">{action}</div>}
-    </div>
-  )
-}
-
-function StateCard({ icon, title, body, action }: { icon: React.ReactNode; title: string; body: string; action?: React.ReactNode }) {
-  return (
-    <Card className="mx-auto max-w-2xl border-border/70 bg-card/80 shadow-sm">
-      <CardHeader>
-        <div className="flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">{icon}</span>
-          <div>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription className="mt-1">{body}</CardDescription>
-          </div>
-        </div>
-      </CardHeader>
-      {action && <CardContent>{action}</CardContent>}
-    </Card>
-  )
-}
+function StateCard({ icon, title, body, action }: { icon: React.ReactNode; title: string; body: string; action?: React.ReactNode }) { return <Card><CardContent className="flex min-h-44 flex-col items-center justify-center p-5 text-center"><span className="text-primary">{icon}</span><h1 className="mt-2 text-base font-semibold">{title}</h1><p className="mt-1 max-w-md text-xs text-muted-foreground">{body}</p>{action && <div className="mt-3">{action}</div>}</CardContent></Card> }

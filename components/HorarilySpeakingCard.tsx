@@ -27,6 +27,7 @@ interface HorarilySpeakingCardProps {
   isLoading?: boolean
   autoSpeak?: boolean
   suspended?: boolean
+  hideMascot?: boolean
   className?: string
   commandContext?: {
     nextClassText?: string
@@ -63,6 +64,7 @@ export function HorarilySpeakingCard({
   isLoading = false,
   autoSpeak = true,
   suspended = false,
+  hideMascot = false,
   className = "",
   commandContext,
   commandActions,
@@ -601,11 +603,11 @@ export function HorarilySpeakingCard({
 
   return (
     <div className={`horarily-card ${className}`}>
-      <div className="horarily-svg-wrapper">
+      {!hideMascot && <div className="horarily-svg-wrapper">
         <svg ref={svgRef} viewBox="180 140 310 530" xmlns="http://www.w3.org/2000/svg" className="horarily-svg" aria-hidden="true">
           {/* ... el SVG no cambia respecto al tuyo actual ... */}
         </svg>
-      </div>
+      </div>}
 
       <div className="horarily-dialog">
         {booting ? (

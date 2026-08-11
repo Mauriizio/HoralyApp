@@ -104,8 +104,19 @@ test("cambiar semestre actualiza datos visibles sin mezclar materias", () => {
     activeSemesterId: "b",
     semesters: [{ id: "a", name: "A", status: "planned" as const, createdAt: 1 }, { id: "b", name: "B", status: "active" as const, createdAt: 2 }],
     subjects: [{ id: "s-a", semesterId: "a", name: "A", color: "#000", difficulty: 3 as const, createdAt: 1 }, { id: "s-b", semesterId: "b", name: "B", color: "#000", difficulty: 3 as const, createdAt: 2 }],
+    blocks: [{ id: "h-a", semesterId: "a", subjectId: "s-a", day: "lunes" as const, moduleIds: ["m1"] }, { id: "h-b", semesterId: "b", subjectId: "s-b", day: "martes" as const, moduleIds: ["m1"] }],
+    grades: [{ id: "g-a", semesterId: "a", subjectId: "s-a", title: "A", score: 5, weight: 100, date: "2026-01-01", createdAt: 1 }, { id: "g-b", semesterId: "b", subjectId: "s-b", title: "B", score: 6, weight: 100, date: "2026-08-01", createdAt: 2 }],
+    reminders: [{ id: "r-a", semesterId: "a", title: "A", priority: "media" as const, triggers: [], targetDateTime: "2026-01-01T10:00:00Z", createdAt: 1, notifiedTriggerIndexes: [] }, { id: "r-b", semesterId: "b", title: "B", priority: "media" as const, triggers: [], targetDateTime: "2026-08-12T10:00:00Z", createdAt: 2, notifiedTriggerIndexes: [] }],
+    studyBlocks: [{ id: "e-a", semesterId: "a", title: "A", day: "lunes" as const, start: "10:00", end: "11:00" }, { id: "e-b", semesterId: "b", title: "B", day: "martes" as const, start: "10:00", end: "11:00" }],
+    subjectNotes: [{ id: "n-a", semesterId: "a", subjectId: "s-a", title: "A", content: "A", createdAt: 1, updatedAt: 1 }, { id: "n-b", semesterId: "b", subjectId: "s-b", title: "B", content: "B", createdAt: 2, updatedAt: 2 }],
   }
-  assert.deepEqual(filterDataByActiveSemester(data).subjects.map((subject) => subject.id), ["s-b"])
+  const visible = filterDataByActiveSemester(data)
+  assert.deepEqual(visible.subjects.map((item) => item.id), ["s-b"])
+  assert.deepEqual(visible.blocks.map((item) => item.id), ["h-b"])
+  assert.deepEqual(visible.grades.map((item) => item.id), ["g-b"])
+  assert.deepEqual(visible.reminders.map((item) => item.id), ["r-b"])
+  assert.deepEqual(visible.studyBlocks.map((item) => item.id), ["e-b"])
+  assert.deepEqual(visible.subjectNotes.map((item) => item.id), ["n-b"])
 })
 
 test("crear y editar semestre preserva datos por reemplazo completo", () => {
