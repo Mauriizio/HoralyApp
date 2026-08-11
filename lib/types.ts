@@ -125,6 +125,17 @@ export interface StudyBlock {
   notes?: string
 }
 
+export interface SubjectNote {
+  id: string
+  semesterId: string
+  subjectId: string
+  title: string
+  unit?: string
+  content: string
+  createdAt: number
+  updatedAt: number
+}
+
 export type ReminderPriority = "baja" | "media" | "alta"
 
 export type ReminderTrigger =
@@ -249,6 +260,8 @@ export interface AppSettings {
   googleCalendarConnected: boolean
   gradeScale: GradeScale
   onboarding: OnboardingState
+  advancedModeEnabled: boolean
+  tutorialProgress?: Partial<Record<string, { version: number; status: "not-started" | "in-progress" | "completed" | "skipped"; currentStep: number; updatedAt?: string }>>
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -265,6 +278,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   googleCalendarConnected: false,
   gradeScale: { min: 1, max: 7, passing: 4 },
   onboarding: { currentStep: 0, completed: false },
+  advancedModeEnabled: false,
 }
 
 export interface AppData {
@@ -275,11 +289,12 @@ export interface AppData {
   modules: TimeModule[]
   grades: Grade[]
   assessmentGroups: AssessmentGroup[]
+  subjectNotes: SubjectNote[]
   profile: UserProfile
   settings: AppSettings
   semesters: Semester[]
   activeSemesterId?: string
-  version: 4
+  version: 5
 }
 
 export const EMPTY_APP_DATA: AppData = {
@@ -290,9 +305,10 @@ export const EMPTY_APP_DATA: AppData = {
   modules: DEFAULT_MODULES,
   grades: [],
   assessmentGroups: [],
+  subjectNotes: [],
   profile: DEFAULT_PROFILE,
   settings: DEFAULT_SETTINGS,
   semesters: [],
   activeSemesterId: undefined,
-  version: 4,
+  version: 5,
 }

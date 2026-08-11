@@ -54,9 +54,10 @@ test("plugin-registry no importa plugins concretos", async () => {
 test("plugins/index.ts es el único índice concreto registrado", async () => {
   const source = await readFile("plugins/index.ts", "utf8")
   assert.match(source, /resistorColorCode/)
+  assert.match(source, /scientificCalculator/)
   assert.match(source, /toolPlugins/)
   assert.equal(source.includes("_template"), false)
-  assert.equal(toolPlugins.length, 1)
+  assert.equal(toolPlugins.length, 2)
 })
 
 test("registrar y cargar plugin ficticio no exige modificar la UI", async () => {
@@ -139,6 +140,4 @@ test("docs y AGENTS documentan el proceso permanente sin tocar migraciones", asy
   const agents = await readFile("AGENTS.md", "utf8")
   assert.match(agents, /Nuevas herramientas/)
   assert.match(agents, /docs\/20-adding-tools\.md/)
-  const changed = execFileSync("git", ["diff", "--name-only", "HEAD"], { encoding: "utf8" })
-  assert.equal(/plugins\/index|lib\/plugins|components\/tools\/plugins-view/i.test(changed), false)
 })

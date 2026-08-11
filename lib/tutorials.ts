@@ -1,7 +1,7 @@
 import type { AppData } from "@/lib/types"
 import type { AppTab } from "@/components/app-shell/navigation"
 
-export type TutorialId = "basic-tour" | "schedule-tour" | "grades-tour" | "reminders-tour" | "tools-tour" | "preferences-tour" | "assistant-tour" | "analytics-tour"
+export type TutorialId = "basic-tour" | "schedule-tour" | "grades-tour" | "reminders-tour" | "tools-tour" | "preferences-tour" | "assistant-tour" | "analytics-tour" | "notebook-tour" | "advanced-mode-tour"
 export type TutorialStatus = "not-started" | "in-progress" | "completed" | "skipped"
 export type TutorialStepType = "information" | "action"
 export type TutorialPlacement = "top" | "right" | "bottom" | "left" | "center"
@@ -68,7 +68,15 @@ export const TUTORIAL_REGISTRY: Record<TutorialId, TutorialDefinition> = {
   ]),
   "tools-tour": tutorial("tools-tour", "Herramientas académicas", "herramientas", [
     info({ id: "catalog", title: "Catálogo", description: "Busca herramientas disponibles por nombre o categoría.", target: "tools-catalog" }),
-    info({ id: "resistor", title: "Código de resistencias", description: "Abre la herramienta de código de colores y vuelve al catálogo cuando termines. Añadiremos más herramientas.", target: "tools-catalog" }),
+    info({ id: "resistor", title: "Código de resistencias", description: "Abre la herramienta de código de colores para calcular valores por bandas.", target: "tools-catalog" }),
+    info({ id: "calculator", title: "Calculadora científica", description: "Usa la calculadora segura con trigonometría, logaritmos, constantes, DEG/RAD e historial.", target: "tools-catalog" }),
+  ]),
+  "notebook-tour": tutorial("notebook-tour", "Cuaderno de estudio", "cuaderno", [
+    info({ id: "subject", title: "Elige una materia", description: "Cada materia conserva su propio conjunto de apuntes.", target: "notebook-subjects" }),
+    info({ id: "new", title: "Crea un apunte", description: "Abre una materia y usa Nueva nota para comenzar.", target: "notebook-subjects" }),
+    info({ id: "content", title: "Añade título y contenido", description: "Puedes pegar texto largo y organizarlo por unidad o tema.", target: "notebook-subjects" }),
+    info({ id: "save", title: "Guardado controlado", description: "El editor guarda tras una pausa y siempre muestra su estado.", target: "notebook-subjects" }),
+    info({ id: "search", title: "Encuentra tus apuntes", description: "Busca por título, unidad o contenido y ordena por edición.", target: "notebook-subjects" }),
   ]),
   "preferences-tour": tutorial("preferences-tour", "Preferencias", "preferencias", [
     info({ id: "appearance", title: "Apariencia", description: "Ajusta tema, idioma, tipografía y escala de interfaz.", target: "preferences-appearance" }),
@@ -84,6 +92,12 @@ export const TUTORIAL_REGISTRY: Record<TutorialId, TutorialDefinition> = {
   ]),
   "analytics-tour": tutorial("analytics-tour", "Analítica académica", "analitica", [
     info({ id: "real-data", title: "Tus tendencias", description: "Esta vista resume información real de tus evaluaciones y materias; no usa datos de ejemplo.", target: "analytics-overview" }),
+  ]),
+  "advanced-mode-tour": tutorial("advanced-mode-tour", "Modo avanzado de Horarily", "dashboard", [
+    info({ id: "console", title: "Consola avanzada", description: "La consola permite operar Horarily mediante acciones y comandos explícitos.", target: "assistant-actions" }),
+    info({ id: "commands", title: "Comandos", description: "Abre Comandos avanzados y usa /AYUDA para consultar las operaciones disponibles.", target: "assistant-advanced-commands" }),
+    info({ id: "normal", title: "Regresa al modo normal", description: "Puedes volver al flujo guiado desde la propia consola cuando quieras.", target: "assistant-advanced-commands" }),
+    info({ id: "disable", title: "Desactivarlo", description: "En Preferencias puedes apagar Modo avanzado de Horarily sin perder tus datos.", tab: "preferencias", target: "advanced-mode-settings" }),
   ]),
 }
 

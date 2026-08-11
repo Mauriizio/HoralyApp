@@ -64,7 +64,7 @@ test("módulos personalizados sobreviven round-trip en user_settings", () => {
 
 test("resumen de migración cuenta materias, bloques, notas, recordatorios y estudio", () => {
   const summary = summarizeLocalData({ ...EMPTY_APP_DATA, subjects: [{} as never], blocks: [{} as never], grades: [{} as never], reminders: [{} as never], studyBlocks: [{} as never] })
-  assert.deepEqual(summary, { materias: 1, bloques: 1, notas: 1, recordatorios: 1, bloquesDeEstudio: 1 })
+  assert.deepEqual(summary, { materias: 1, bloques: 1, notas: 1, apuntes: 0, recordatorios: 1, bloquesDeEstudio: 1 })
 })
 
 test("validación básica de sesión, email, contraseña y avatar", () => {
@@ -269,7 +269,7 @@ test("deleteSubject limpia dependencias remotas y desvincula study_blocks", asyn
   const calls: Call[] = []
   const repo = new SupabaseAcademicRepository(createRepositoryClient({}, calls), "u1")
   await repo.deleteSubject("s1")
-  assert.deepEqual(calls.filter((call) => call.action === "delete").map((call) => call.table), ["schedule_blocks", "grades", "assessment_groups", "reminders", "subjects"])
+  assert.deepEqual(calls.filter((call) => call.action === "delete").map((call) => call.table), ["schedule_blocks", "grades", "assessment_groups", "reminders", "subject_notes", "subjects"])
   assert.equal(calls.some((call) => call.table === "study_blocks" && call.action === "update"), true)
 })
 

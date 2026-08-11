@@ -991,3 +991,7 @@ La prioridad es:
 > **producto útil + datos seguros + cálculos correctos + arquitectura mantenible + avance rápido sin bucles**
 
 Cada cambio debe dejar HoralyApp más estable, no solamente más grande.
+# Actualización Fase B (2026-07-29)
+
+Cuaderno usa `SubjectNote`/`subject_notes`; la calculadora científica es un
+plugin seguro sin acceso a datos académicos.

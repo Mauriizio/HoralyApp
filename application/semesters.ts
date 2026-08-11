@@ -44,6 +44,7 @@ export function migrateLegacyDataToInitialSemester(data: AppData): AppData {
     reminders: data.reminders.map((r) => ({ ...r, semesterId: r.semesterId ?? semester.id })),
     grades: data.grades.map((g) => ({ ...g, semesterId: g.semesterId ?? semester.id })),
     assessmentGroups: data.assessmentGroups.map((g) => ({ ...g, semesterId: g.semesterId ?? semester.id })),
+    subjectNotes: data.subjectNotes.map((note) => ({ ...note, semesterId: note.semesterId || semester.id })),
   }
 }
 
@@ -60,5 +61,6 @@ export function filterDataByActiveSemester(data: AppData): AppData {
     reminders: data.reminders.filter((r) => r.semesterId === active),
     grades: data.grades.filter((g) => g.semesterId === active && subjectIds.has(g.subjectId)),
     assessmentGroups: data.assessmentGroups.filter((g) => g.semesterId === active && subjectIds.has(g.subjectId)),
+    subjectNotes: data.subjectNotes.filter((note) => note.semesterId === active && subjectIds.has(note.subjectId)),
   }
 }

@@ -19,7 +19,7 @@ test("nombre visible conserva nombres compuestos y deja el escape a React", () =
 test("recorrido básico tiene seis pasos y tutoriales estables versionados", () => {
   assert.equal(TUTORIAL_REGISTRY["basic-tour"].steps.length, 6)
   assert.deepEqual(Object.keys(TUTORIAL_REGISTRY), [
-    "basic-tour", "schedule-tour", "grades-tour", "reminders-tour", "tools-tour", "preferences-tour", "assistant-tour", "analytics-tour",
+    "basic-tour", "schedule-tour", "grades-tour", "reminders-tour", "tools-tour", "notebook-tour", "preferences-tour", "assistant-tour", "analytics-tour", "advanced-mode-tour",
   ])
   assert.equal(TUTORIAL_REGISTRY["basic-tour"].version, 2)
   assert.deepEqual(
@@ -33,6 +33,8 @@ test("recorrido básico tiene seis pasos y tutoriales estables versionados", () 
       "preferences-tour": "preferencias",
       "assistant-tour": "dashboard",
       "analytics-tour": "analitica",
+      "notebook-tour": "cuaderno",
+      "advanced-mode-tour": "dashboard",
     },
   )
 })

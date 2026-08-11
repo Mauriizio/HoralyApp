@@ -3,7 +3,7 @@ import type { AppData } from "@/lib/types"
 import { appDataToSupabaseRows, supabaseRowsToAppData, type SupabaseDataset } from "@/lib/repositories/supabase-mappers"
 
 export function summarizeLocalData(data: AppData) {
-  return { materias: data.subjects.length, bloques: data.blocks.length, notas: data.grades.length, recordatorios: data.reminders.length, bloquesDeEstudio: data.studyBlocks.length }
+  return { materias: data.subjects.length, bloques: data.blocks.length, notas: data.grades.length, apuntes: data.subjectNotes.length, recordatorios: data.reminders.length, bloquesDeEstudio: data.studyBlocks.length }
 }
 
 function ids(values: { id: string }[]) {
@@ -16,11 +16,12 @@ function verifyMigratedData(expected: AppData, actual: AppData) {
     && ids(expected.studyBlocks).join("|") === ids(actual.studyBlocks).join("|")
     && ids(expected.reminders).join("|") === ids(actual.reminders).join("|")
     && ids(expected.grades).join("|") === ids(actual.grades).join("|")
+    && ids(expected.subjectNotes).join("|") === ids(actual.subjectNotes).join("|")
 }
 
 export async function loadMigratedData(client: SupabaseClient, userId: string): Promise<AppData> {
   const dataset: Partial<SupabaseDataset> = {}
-  for (const table of ["subjects", "schedule_blocks", "study_blocks", "reminders", "grades", "user_settings", "profiles"] as const) {
+  for (const table of ["subjects", "schedule_blocks", "study_blocks", "reminders", "grades", "subject_notes", "user_settings", "profiles"] as const) {
     const { data, error } = await client.from(table).select("*").eq("user_id", userId)
     if (error) throw new Error("No se pudieron verificar los datos migrados.")
     dataset[table] = data ?? []

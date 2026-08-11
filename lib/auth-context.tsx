@@ -49,9 +49,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
     setTransitioning(true)
-    supabase.auth.getSession().then(({ data }) => {
+    const initialSessionTimeout = new Promise<never>((_, reject) => {
+      window.setTimeout(() => reject(new Error("INITIAL_SESSION_TIMEOUT")), 5000)
+    })
+    Promise.race([supabase.auth.getSession(), initialSessionTimeout]).then(({ data }) => {
       if (!mounted) return
       applySession(data.session, "INITIAL_SESSION")
+    }).catch(() => {
+      if (!mounted) return
+      applySession(null, "INITIAL_SESSION_ERROR")
     })
     const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!mounted) return

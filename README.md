@@ -1,5 +1,8 @@
 # HoralyApp
 
+Cuaderno mantiene apuntes de texto por materia con búsqueda, autosave y
+persistencia local/cloud. Herramientas incluye una calculadora científica segura.
+
 HoralyApp es una aplicación web académica para organizar materias, horario semanal, bloques de estudio, recordatorios, notas y analítica básica con el asistente local Horarily.
 
 La primera entrada usa una activación guiada breve: la cuenta es opcional, pero

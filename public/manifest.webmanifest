@@ -49,6 +49,13 @@
       "description": "Abrir la sección de notas.",
       "url": "/?tab=notas",
       "icons": [{ "src": "/android-chrome-192x192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Abrir Cuaderno",
+      "short_name": "Cuaderno",
+      "description": "Abrir tus apuntes por materia.",
+      "url": "/?tab=cuaderno",
+      "icons": [{ "src": "/android-chrome-192x192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }

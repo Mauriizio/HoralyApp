@@ -31,6 +31,11 @@ test("regresión A/B: la barrera de identidad está presente en Auth, Store, Rep
   assert.match(app, /Cambiando de cuenta…/)
 })
 
+test("AuthProvider sale de transición de forma segura si falla la sesión inicial", async () => {
+  const source = await readFile("lib/auth-context.tsx", "utf8")
+  assert.match(source, /getSession\(\)[\s\S]*?\.catch\([\s\S]*?applySession\(null,\s*"INITIAL_SESSION_ERROR"\)/)
+})
+
 test("repositoryOwner=A y expected=B rechaza operaciones cloud", () => {
   const repo = new SupabaseAcademicRepository({} as never, "user-a")
   assert.throws(() => repo.assertRepositoryOwner("user-b"), SessionIdentityMismatchError)

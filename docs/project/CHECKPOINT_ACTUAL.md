@@ -155,3 +155,9 @@ Organizar correctamente:
 - La próxima clase usa una duración humana centralizada en vez de minutos crudos.
 - El service worker v4 limita su alcance a GET same-origin público, excluye Auth/Supabase/Vercel feedback y resuelve fallos de red con fallback seguro.
 - La CSP se mantiene estricta. En Preview, el widget de feedback de Vercel puede registrar un aviso al ser bloqueado; no se autoriza debilitar CSP para silenciarlo.
+# Fase B: Cuaderno y calculadora científica (2026-07-29)
+
+- `AppData` v5 añade `subjectNotes`.
+- `subject_notes` tiene RLS CRUD por propietario.
+- Cuaderno ofrece búsqueda, orden y autosave.
+- La calculadora científica es un plugin sin red ni ejecución de JavaScript.

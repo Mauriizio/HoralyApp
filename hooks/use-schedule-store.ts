@@ -14,6 +14,7 @@ import {
   type ScheduleBlock,
   type StudyBlock,
   type Subject,
+  type SubjectNote,
   type Semester,
   type TimeModule,
   type UserProfile,
@@ -249,12 +250,70 @@ export function useScheduleStore() {
       reminders: d.reminders.filter((r) => r.subjectId !== id),
       grades: d.grades.filter((g) => g.subjectId !== id),
       assessmentGroups: d.assessmentGroups.filter((g) => g.subjectId !== id),
+      subjectNotes: d.subjectNotes.filter((note) => note.subjectId !== id),
       studyBlocks: d.studyBlocks.map((sb) =>
         sb.subjectId === id ? { ...sb, subjectId: undefined } : sb,
       ),
     }))
     void persistCloud(dataOwnerUserId, (repository) => repository.deleteSubject(id))
   }, [dataOwnerUserId, persistCloud])
+
+  const saveSubjectNoteConfirmed = useCallback(async (
+    input: Omit<SubjectNote, "id" | "createdAt" | "updatedAt"> & Partial<Pick<SubjectNote, "id" | "createdAt" | "updatedAt">>,
+    context?: OperationIdentityContext,
+  ): Promise<SubjectNote> => {
+    const snapshot = dataRef.current
+    const subject = snapshot.subjects.find((item) => item.id === input.subjectId)
+    if (!subject || subject.semesterId !== input.semesterId) throw new Error("La materia del apunte no está disponible en este semestre.")
+    const title = input.title.trim()
+    if (!title) throw new Error("Escribe un título para el apunte.")
+    const now = Date.now()
+    const existing = input.id ? snapshot.subjectNotes.find((item) => item.id === input.id) : undefined
+    const note: SubjectNote = {
+      id: existing?.id ?? input.id ?? uid(),
+      semesterId: input.semesterId,
+      subjectId: input.subjectId,
+      title,
+      unit: input.unit?.trim() || undefined,
+      content: input.content,
+      createdAt: existing?.createdAt ?? input.createdAt ?? now,
+      updatedAt: now,
+    }
+    const expectedUserId = context?.expectedUserId ?? dataOwnerUserId
+    if (authenticated) {
+      await persistCloud(expectedUserId, (repository) => repository.saveSubjectNote(note), {
+        throwOnError: true,
+        expectedAuthGeneration: context?.expectedAuthGeneration,
+        operationName: "subjectNote.saveConfirmed",
+      })
+    }
+    const latest = dataRef.current
+    const nextData = {
+      ...latest,
+      subjectNotes: latest.subjectNotes.some((item) => item.id === note.id)
+        ? latest.subjectNotes.map((item) => item.id === note.id ? note : item)
+        : [...latest.subjectNotes, note],
+    }
+    dataRef.current = nextData
+    setData(nextData)
+    return note
+  }, [authenticated, dataOwnerUserId, persistCloud])
+
+  const deleteSubjectNoteConfirmed = useCallback(async (id: string, context?: OperationIdentityContext) => {
+    const existing = dataRef.current.subjectNotes.find((item) => item.id === id)
+    if (!existing) return
+    const expectedUserId = context?.expectedUserId ?? dataOwnerUserId
+    if (authenticated) {
+      await persistCloud(expectedUserId, (repository) => repository.deleteSubjectNote(id), {
+        throwOnError: true,
+        expectedAuthGeneration: context?.expectedAuthGeneration,
+        operationName: "subjectNote.deleteConfirmed",
+      })
+    }
+    const nextData = { ...dataRef.current, subjectNotes: dataRef.current.subjectNotes.filter((item) => item.id !== id) }
+    dataRef.current = nextData
+    setData(nextData)
+  }, [authenticated, dataOwnerUserId, persistCloud])
 
   // --- Schedule blocks ---
   const upsertBlock = useCallback((block: ScheduleBlock, options: { replaceConflicts?: boolean } = {}) => {
@@ -605,6 +664,8 @@ export function useScheduleStore() {
     createSubject,
     updateSubject,
     deleteSubject,
+    saveSubjectNoteConfirmed,
+    deleteSubjectNoteConfirmed,
     upsertBlock,
     moveBlock,
     deleteBlock,

@@ -46,6 +46,7 @@ import { HorarilySpeakingCard } from "@/components/HorarilySpeakingCard"
 import { AcademicDashboard } from "@/components/dashboard/academic-dashboard"
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow"
 import { PluginsView } from "@/components/tools/plugins-view"
+import { NotebookView } from "@/components/notebook/notebook-view"
 import { usePwaInstall } from "@/hooks/use-pwa-install"
 import { I18nProvider, useI18n } from "@/components/i18n-provider"
 import type { DayKey, Subject } from "@/lib/types"
@@ -59,6 +60,7 @@ import { GuidedTour } from "@/components/tutorials/guided-tour"
 import { FirstStepsChecklist } from "@/components/tutorials/first-steps-checklist"
 import { useTutorialProgress } from "@/hooks/use-tutorial-progress"
 import { TUTORIAL_REGISTRY, type TutorialId } from "@/lib/tutorials"
+import type { TutorialProgressMap } from "@/lib/tutorial-progress"
 
 type TutorialStartMode = "manual" | "automatic" | "resume"
 
@@ -87,7 +89,13 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
   const [tab, setTab] = useState<AppTab>("dashboard")
   const [quickOpen, setQuickOpen] = useState(false)
   const { authenticated, loading: authLoading, transitioning } = useAuth()
-  const tutorials = useTutorialProgress()
+  const persistTutorialProgress = useCallback((progress: TutorialProgressMap, context: { expectedUserId: string; expectedAuthGeneration: number }) => {
+    return store.updateSettingsConfirmed({ tutorialProgress: progress }, context)
+  }, [store.updateSettingsConfirmed])
+  const tutorials = useTutorialProgress({
+    cloudProgress: data.settings.tutorialProgress as TutorialProgressMap | undefined,
+    persistCloudProgress: persistTutorialProgress,
+  })
   const [activeTutorial, setActiveTutorial] = useState<TutorialId | null>(null)
 
   const [subjectOpen, setSubjectOpen] = useState(false)
@@ -142,6 +150,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
       notas: "grades-tour",
       recordatorios: "reminders-tour",
       herramientas: "tools-tour",
+      cuaderno: "notebook-tour",
       preferencias: "preferences-tour",
     }
     const id = contextual[tab]
@@ -449,7 +458,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         }
       >
           {/* Greeting */}
-          <div className="mb-4">
+          {data.settings.advancedModeEnabled && <div className="mb-4">
             <HorarilySpeakingCard
               suspended={Boolean(activeTutorial)}
               userName={data.profile.displayName}
@@ -491,6 +500,24 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
                 openSchedule: () => navigateTo("horario"),
                 openReminderForm: () => setReminderOpen(true),
                 openTools: () => navigateTo("herramientas"),
+                openNotebook: () => navigateTo("cuaderno"),
+                createNote: async ({ subjectId, title, unit, content }) => {
+                  const subject = data.subjects.find((item) => item.id === subjectId)
+                  if (!subject?.semesterId) return false
+                  try {
+                    await store.saveSubjectNoteConfirmed({ semesterId: subject.semesterId, subjectId, title, unit, content }, store.dataOwnerUserId ? {
+                      expectedUserId: store.dataOwnerUserId,
+                      expectedAuthGeneration: store.authGeneration,
+                    } : undefined)
+                    return true
+                  } catch {
+                    return false
+                  }
+                },
+                openScientificCalculator: () => {
+                  setTab("herramientas")
+                  window.history.replaceState(null, "", "?tab=herramientas&tool=scientific-calculator")
+                },
                 openPreferences: () => navigateTo("preferencias"),
               }}
               grade={data.grades.length > 0 ? (data.grades[data.grades.length - 1]?.score ?? undefined) : undefined}
@@ -503,7 +530,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
               })}
               isLoading={!store.hydrated}
             />
-          </div>
+          </div>}
 
           {/* Welcome banner when empty */}
           {subjectCount === 0 && (
@@ -640,6 +667,10 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
               <GradesPanel store={store} />
             </TabsContent>
 
+            <TabsContent value="cuaderno" className="mt-4">
+              <NotebookView store={store} onAddSubject={openSubjectCreation} />
+            </TabsContent>
+
             <TabsContent value="analitica" className="mt-4" data-tour="analytics-overview">
               <AnalyticsView store={store} />
             </TabsContent>
@@ -652,7 +683,11 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
               <div data-tour="preferences-overview">
                 <SettingsView
                   store={store}
-                  onRestartTutorial={(id) => startTutorial({ id, mode: "manual" })}
+                  onRestartTutorial={(id) => {
+                    tutorials.reset(id)
+                    requestAnimationFrame(() => startTutorial({ id, mode: "manual" }))
+                  }}
+                  onAdvancedModeFirstEnabled={() => startTutorial({ id: "advanced-mode-tour", mode: "automatic" })}
                 />
               </div>
             </TabsContent>
