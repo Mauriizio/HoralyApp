@@ -10,6 +10,7 @@ export type SupabaseDataset = {
   grades: SupabaseRow[]
   assessment_groups: SupabaseRow[]
   subject_notes: SupabaseRow[]
+  subject_note_attachments: SupabaseRow[]
   user_settings: SupabaseRow[]
   semesters: SupabaseRow[]
   profiles: SupabaseRow[]
@@ -131,6 +132,7 @@ export function appDataToSupabaseRows(data: AppData, userId: string, email?: str
     assessment_groups: dataWithGradeGroups.assessmentGroups.map((g) => assessmentGroupToSupabaseRow({ ...g, semesterId: g.semesterId ?? dataWithGradeGroups.activeSemesterId }, userId)),
     grades: dataWithGradeGroups.grades.map((g) => gradeToSupabaseRow({ ...g, semesterId: g.semesterId ?? dataWithGradeGroups.activeSemesterId }, userId)),
     subject_notes: dataWithGradeGroups.subjectNotes.map((note) => subjectNoteToSupabaseRow(note, userId)),
+    subject_note_attachments: dataWithGradeGroups.subjectNoteAttachments.map((item) => ({ id: item.id, user_id: userId, semester_id: item.semesterId, subject_id: item.subjectId, note_id: item.noteId, kind: item.kind, storage_path: item.storagePath ?? "", filename: item.filename, mime_type: item.mimeType, size_bytes: item.sizeBytes, created_at: iso(item.createdAt) })),
     user_settings: [{ id: "settings", user_id: userId, settings: { ...dataWithGradeGroups.settings, modules: dataWithGradeGroups.modules, activeSemesterId: dataWithGradeGroups.activeSemesterId }, created_at: now, updated_at: now }],
     profiles: [profileRow(dataWithGradeGroups, userId, email)],
   }
@@ -152,6 +154,7 @@ export function supabaseRowsToAppData(rows: Partial<SupabaseDataset>): AppData {
     assessmentGroups: (rows.assessment_groups ?? []).map((g) => ({ id: str(g.id), semesterId: str(g.semester_id), subjectId: str(g.subject_id), name: str(g.name), kind: str(g.kind, "continuous") as AppData["assessmentGroups"][number]["kind"], courseWeight: Number(g.course_weight) || 0, position: Number(g.position) || 0, createdAt: ms(g.created_at) })),
     grades: (rows.grades ?? []).map((g) => ({ id: str(g.id), semesterId: optStr(g.semester_id), subjectId: str(g.subject_id), groupId: optStr(g.group_id), title: str(g.title), score: g.score === null || g.score === undefined ? null : Number(g.score), weight: Number(g.weight) || 0, weightWithinGroup: Number(g.weight) || 0, date: str(g.grade_date), status: str(g.status, g.score === null ? "planned" : "graded") as AppData["grades"][number]["status"], notes: optStr(g.notes), createdAt: ms(g.created_at) })),
     subjectNotes: (rows.subject_notes ?? []).map((note) => ({ id: str(note.id), semesterId: str(note.semester_id), subjectId: str(note.subject_id), title: str(note.title), unit: optStr(note.unit), content: str(note.content), ...(note.document && typeof note.document === "object" ? { document: note.document as AppData["subjectNotes"][number]["document"] } : {}), createdAt: ms(note.created_at), updatedAt: ms(note.updated_at) })),
+    subjectNoteAttachments: (rows.subject_note_attachments ?? []).map((item) => ({ id: str(item.id), semesterId: str(item.semester_id), subjectId: str(item.subject_id), noteId: str(item.note_id), kind: str(item.kind) as AppData["subjectNoteAttachments"][number]["kind"], filename: str(item.filename), mimeType: str(item.mime_type) as AppData["subjectNoteAttachments"][number]["mimeType"], sizeBytes: Number(item.size_bytes), storagePath: optStr(item.storage_path), createdAt: ms(item.created_at) })),
     modules,
     settings,
     profile: { displayName: str(profileRow?.display_name), avatar: optStr(profileRow?.avatar_url), institution: optStr(profileRow?.institution), career: optStr(profileRow?.career), timezone: optStr(profileRow?.timezone), onboardingCompletedAt: optStr(profileRow?.onboarding_completed_at) },

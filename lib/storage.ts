@@ -15,7 +15,7 @@ import { defaultAssessmentGroupId, ensureGradeAssessmentGroup } from "./assessme
 
 export const STORAGE_KEY = "horario-escolar:v1"
 
-const ARRAY_FIELDS = ["subjects", "blocks", "studyBlocks", "reminders", "modules", "grades", "assessmentGroups", "subjectNotes", "semesters"] as const
+const ARRAY_FIELDS = ["subjects", "blocks", "studyBlocks", "reminders", "modules", "grades", "assessmentGroups", "subjectNotes", "subjectNoteAttachments", "semesters"] as const
 
 const daySchema = z.enum(["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"])
 const difficultySchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)])
@@ -153,6 +153,7 @@ const subjectNoteSchema = z.object({
   createdAt: z.number().finite(),
   updatedAt: z.number().finite(),
 })
+const subjectNoteAttachmentSchema = z.object({ id: z.string().min(1), semesterId: z.string().min(1), subjectId: z.string().min(1), noteId: z.string().min(1), kind: z.enum(["image", "pdf", "drawing"]), filename: z.string().min(1), mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]), sizeBytes: z.number().nonnegative(), storagePath: z.string().optional(), createdAt: z.number().finite() })
 
 const appDataSchema = z.object({
   subjects: z.array(subjectSchema),
@@ -163,6 +164,7 @@ const appDataSchema = z.object({
   grades: z.array(gradeSchema),
   assessmentGroups: z.array(assessmentGroupSchema),
   subjectNotes: z.array(subjectNoteSchema),
+  subjectNoteAttachments: z.array(subjectNoteAttachmentSchema),
   profile: profileSchema,
   settings: settingsSchema,
   semesters: z.array(semesterSchema),
@@ -266,6 +268,7 @@ export function migrateData(parsed: Partial<AppData> & Record<string, unknown>):
       const legacy = note as SubjectNote
       return legacy.document ? legacy : { ...legacy, document: { version: 1 as const, blocks: [{ id: `legacy-${legacy.id}`, type: "paragraph" as const, content: [{ text: legacy.content }] }] } }
     }) : [],
+    subjectNoteAttachments: Array.isArray(parsed.subjectNoteAttachments) ? parsed.subjectNoteAttachments : [],
     profile: { ...DEFAULT_PROFILE, ...(parsed.profile ?? {}) },
     semesters: Array.isArray(parsed.semesters) ? parsed.semesters : [],
     activeSemesterId: typeof parsed.activeSemesterId === "string" ? parsed.activeSemesterId : undefined,

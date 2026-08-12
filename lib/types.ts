@@ -152,6 +152,7 @@ export type NoteBlock =
   | { id: string; type: "image" | "drawing"; attachmentId: string; alt: string }
   | { id: string; type: "attachmentReference"; attachmentId: string; filename: string }
 export interface NoteDocumentV1 { version: 1; blocks: NoteBlock[] }
+export interface SubjectNoteAttachment { id: string; semesterId: string; subjectId: string; noteId: string; kind: "image" | "pdf" | "drawing"; filename: string; mimeType: "image/jpeg" | "image/png" | "image/webp" | "application/pdf"; sizeBytes: number; storagePath?: string; createdAt: number }
 
 export type ReminderPriority = "baja" | "media" | "alta"
 
@@ -309,6 +310,7 @@ export interface AppData {
   grades: Grade[]
   assessmentGroups: AssessmentGroup[]
   subjectNotes: SubjectNote[]
+  subjectNoteAttachments: SubjectNoteAttachment[]
   profile: UserProfile
   settings: AppSettings
   semesters: Semester[]
@@ -325,6 +327,7 @@ export const EMPTY_APP_DATA: AppData = {
   grades: [],
   assessmentGroups: [],
   subjectNotes: [],
+  subjectNoteAttachments: [],
   profile: DEFAULT_PROFILE,
   settings: DEFAULT_SETTINGS,
   semesters: [],

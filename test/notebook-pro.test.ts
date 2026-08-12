@@ -1,0 +1,9 @@
+import assert from "node:assert/strict"
+import test from "node:test"
+import { attachmentStoragePath, safeAttachmentFilename, validateNoteFile } from "../domain/notebook/attachments.ts"
+import { documentPlainText, legacyTextToDocument, toggleRunMark } from "../domain/notebook/document.ts"
+import { renderNotebookPdf } from "../domain/notebook/pdf.ts"
+
+test("documento estructurado conserva texto literal y marks sin HTML", () => { const value = "<script>alert(1)</script>\n\n<img onerror=alert(1)>"; const document = legacyTextToDocument("n", value); assert.equal(documentPlainText(document), value); assert.deepEqual(toggleRunMark({ text: "x" }, "bold").marks, ["bold"]) })
+test("archivos rechazan MIME, extensión, oversize y traversal", () => { assert.match(validateNoteFile({ name: "x.js", type: "application/javascript", size: 1 })!, /no permitido/); assert.match(validateNoteFile({ name: "x.svg", type: "image/svg+xml", size: 1 })!, /no permitido/); assert.match(validateNoteFile({ name: "x.jpg", type: "image/jpeg", size: 9 * 1024 * 1024 })!, /límite/); assert.equal(safeAttachmentFilename("../guía laboratorio.pdf"), "guia-laboratorio.pdf"); assert.equal(attachmentStoragePath({ userId: "user-a", semesterId: "sem-1", subjectId: "sub-1", noteId: "note-1", attachmentId: "att-1", filename: "../a.pdf" }), "user-a/sem-1/sub-1/note-1/att-1-a.pdf") })
+test("PDF de nota incluye contenido y branding sin URLs públicas", async () => { const pdf = await renderNotebookPdf({ subject: { name: "Electrotecnia" }, notes: [{ id: "n", semesterId: "s", subjectId: "x", title: "Ley", content: "Texto", createdAt: 1, updatedAt: 2 }], attachments: [{ id: "a", semesterId: "s", subjectId: "x", noteId: "n", kind: "pdf", filename: "guia.pdf", mimeType: "application/pdf", sizeBytes: 2, createdAt: 3 }] }); const text = Buffer.from(pdf.bytes).toString("latin1"); assert.match(text, /Horarily/); assert.doesNotMatch(text, /storage\/v1\/object\/public/) })
