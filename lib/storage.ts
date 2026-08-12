@@ -1,10 +1,13 @@
 import { z } from "zod"
 import {
   type AppData,
+  type AppSettings,
   DEFAULT_PROFILE,
   EMPTY_APP_DATA,
   type GradeScale,
   type Subject,
+  type SubjectNote,
+  WEEKDAY_KEYS,
 } from "./types.ts"
 import { commandKeyForSubjectName, ensureUniqueCommandKey, normalizeCommandKey } from "./command-key.ts"
 import { validateModules } from "./time-modules.ts"
@@ -12,7 +15,7 @@ import { defaultAssessmentGroupId, ensureGradeAssessmentGroup } from "./assessme
 
 export const STORAGE_KEY = "horario-escolar:v1"
 
-const ARRAY_FIELDS = ["subjects", "blocks", "studyBlocks", "reminders", "modules", "grades", "assessmentGroups", "subjectNotes", "semesters"] as const
+const ARRAY_FIELDS = ["subjects", "blocks", "studyBlocks", "reminders", "modules", "grades", "assessmentGroups", "subjectNotes", "subjectNoteAttachments", "semesters"] as const
 
 const daySchema = z.enum(["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"])
 const difficultySchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)])
@@ -118,6 +121,7 @@ const settingsSchema = z.object({
   blockOpacity: z.number().finite().positive(),
   focusMode: z.boolean(),
   enableSaturday: z.boolean(),
+  visibleScheduleDays: z.array(z.enum(["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"])).min(1),
   googleCalendarConnected: z.boolean(),
   advancedModeEnabled: z.boolean().default(false),
   tutorialProgress: z.record(z.string(), z.object({
@@ -145,9 +149,11 @@ const subjectNoteSchema = z.object({
   title: z.string().min(1),
   unit: z.string().optional(),
   content: z.string(),
+  document: z.object({ version: z.literal(1), blocks: z.array(z.unknown()) }).optional(),
   createdAt: z.number().finite(),
   updatedAt: z.number().finite(),
 })
+const subjectNoteAttachmentSchema = z.object({ id: z.string().min(1), semesterId: z.string().min(1), subjectId: z.string().min(1), noteId: z.string().min(1), kind: z.enum(["image", "pdf", "drawing"]), filename: z.string().min(1), mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]), sizeBytes: z.number().nonnegative(), storagePath: z.string().optional(), createdAt: z.number().finite() })
 
 const appDataSchema = z.object({
   subjects: z.array(subjectSchema),
@@ -158,11 +164,12 @@ const appDataSchema = z.object({
   grades: z.array(gradeSchema),
   assessmentGroups: z.array(assessmentGroupSchema),
   subjectNotes: z.array(subjectNoteSchema),
+  subjectNoteAttachments: z.array(subjectNoteAttachmentSchema),
   profile: profileSchema,
   settings: settingsSchema,
   semesters: z.array(semesterSchema),
   activeSemesterId: z.string().optional(),
-  version: z.literal(5),
+  version: z.literal(6),
 })
 
 export type LoadDataResult =
@@ -246,18 +253,26 @@ function normalizeGradeAssessment(grade: AppData["grades"][number], data: AppDat
 }
 
 export function migrateData(parsed: Partial<AppData> & Record<string, unknown>): AppData {
+  const legacySettings = parsed.settings as Partial<AppSettings> | undefined
+  const visibleScheduleDays = legacySettings?.visibleScheduleDays?.length
+    ? legacySettings.visibleScheduleDays
+    : [...WEEKDAY_KEYS, ...(legacySettings?.enableSaturday ? ["sabado" as const] : [])]
   const migrated = {
     ...EMPTY_APP_DATA,
     ...parsed,
-    settings: { ...EMPTY_APP_DATA.settings, ...(parsed.settings ?? {}) },
+    settings: { ...EMPTY_APP_DATA.settings, ...(parsed.settings ?? {}), visibleScheduleDays },
     modules: Array.isArray(parsed.modules) && parsed.modules.length ? parsed.modules : EMPTY_APP_DATA.modules,
     grades: Array.isArray(parsed.grades) ? parsed.grades : [],
     assessmentGroups: Array.isArray(parsed.assessmentGroups) ? parsed.assessmentGroups : [],
-    subjectNotes: Array.isArray(parsed.subjectNotes) ? parsed.subjectNotes : [],
+    subjectNotes: Array.isArray(parsed.subjectNotes) ? parsed.subjectNotes.map((note) => {
+      const legacy = note as SubjectNote
+      return legacy.document ? legacy : { ...legacy, document: { version: 1 as const, blocks: [{ id: `legacy-${legacy.id}`, type: "paragraph" as const, content: [{ text: legacy.content }] }] } }
+    }) : [],
+    subjectNoteAttachments: Array.isArray(parsed.subjectNoteAttachments) ? parsed.subjectNoteAttachments : [],
     profile: { ...DEFAULT_PROFILE, ...(parsed.profile ?? {}) },
     semesters: Array.isArray(parsed.semesters) ? parsed.semesters : [],
     activeSemesterId: typeof parsed.activeSemesterId === "string" ? parsed.activeSemesterId : undefined,
-    version: 5,
+    version: 6,
   } as AppData
 
   migrated.subjects = normalizeSubjects(Array.isArray(migrated.subjects) ? migrated.subjects : [])
@@ -352,9 +367,10 @@ export function validateImportedData(input: unknown): ImportValidationResult {
     if (!parsed.success) {
       return { ok: false, errors: parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`) }
     }
-    const relationErrors = validateRelations(parsed.data)
+    const validated = parsed.data as AppData
+    const relationErrors = validateRelations(validated)
     if (relationErrors.length > 0) return { ok: false, errors: relationErrors }
-    return { ok: true, data: parsed.data, errors: [] }
+    return { ok: true, data: validated, errors: [] }
   } catch (error) {
     return { ok: false, errors: [error instanceof Error ? error.message : "Error desconocido de importación."] }
   }

@@ -161,3 +161,15 @@ Organizar correctamente:
 - `subject_notes` tiene RLS CRUD por propietario.
 - Cuaderno ofrece búsqueda, orden y autosave.
 - La calculadora científica es un plugin sin red ni ejecución de JavaScript.
+# Horario y Cuaderno Pro v2 — 2026-08-12
+
+- PR #23 incorpora edición inline de módulos con draft, días visibles,
+  PDF adaptativo, branding Horarily y corrección de iconos Lucide como Orbit.
+- Cuaderno usa documento estructurado v1, rich text seguro, imágenes, PDF,
+  dibujo, IndexedDB guest, Storage privado cloud, exportación y Web Share.
+- Migración aditiva `202608120001_notebook_rich_content_attachments.sql`
+  aplicada al proyecto `iexqkxqdkpryuhxeiaeg`; migration list local/remota
+  alineada.
+- Database Security run `31609118111`: backfill PASS, reset PASS, pgTAP 41/41
+  PASS y Storage API A/B/anon PASS.
+- Suite de aplicación: 257/257 PASS.

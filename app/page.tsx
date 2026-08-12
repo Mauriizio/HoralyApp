@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import Image from "next/image"
 import {
   CalendarDays,
   BookOpen,
@@ -317,12 +318,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         <header className="sticky top-0 z-30 border-b border-border/80 bg-background/88 backdrop-blur-xl">
           <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-2 px-3 sm:gap-3 sm:px-5 lg:px-8">
             <div className="flex min-w-0 flex-1 items-center gap-2 font-semibold sm:flex-initial lg:hidden">
-              <div
-                className="h-7 w-7 rounded-md flex items-center justify-center shrink-0"
-                style={{ backgroundColor: "var(--primary)", color: "var(--primary-foreground)" }}
-              >
-                <CalendarDays className="h-4 w-4" />
-              </div>
+              <div className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-md bg-primary/10"><Image src="/logo/horarily_mascot_logo.svg" alt="" width={32} height={32} className="size-8 object-contain" /></div>
               <span className="text-sm sm:text-base truncate">{t("app.title")}</span>
               {showFocus && (
                 <Badge variant="secondary" className="ml-1 hidden md:inline-flex shrink-0">
@@ -555,9 +551,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
                   <h2 className="text-lg font-semibold truncate">
                     {showFocus
                       ? t("schedule.todayTitle", { day: tDay(focusDay!) })
-                      : data.settings.enableSaturday
-                        ? t("schedule.weekTitleWithSaturday")
-                        : t("schedule.weekTitle")}
+                      : `Días de clase: ${data.settings.visibleScheduleDays.map((key) => ({ lunes: "Lun", martes: "Mar", miercoles: "Mié", jueves: "Jue", viernes: "Vie", sabado: "Sáb", domingo: "Dom" })[key]).join(" · ")}`}
                   </h2>
                   <p className="text-sm text-muted-foreground hidden sm:block">
                     {t("schedule.help")}
@@ -591,6 +585,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
                 onEditSubject={openEditSubject}
                 restrictedDay={showFocus ? focusDay! : undefined}
                 showSaturday={data.settings.enableSaturday}
+                visibleDays={data.settings.visibleScheduleDays}
                 timeFormat={data.settings.timeFormat}
                 reminders={data.reminders}
                 onOpenReminders={() => navigateTo("recordatorios")}

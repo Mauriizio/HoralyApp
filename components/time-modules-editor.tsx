@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { useI18n } from "@/components/i18n-provider"
-import { MODULE_PRESETS, type TimeModule } from "@/lib/types"
+import { MODULE_PRESET_SEEDS, type TimeModule } from "@/lib/types"
 import { validateModules } from "@/lib/time-modules"
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
 
@@ -36,12 +36,11 @@ export function TimeModulesEditor({ store }: { store: ScheduleStore }) {
   }
 
   const applyPreset = (id: "morning" | "afternoon" | "evening") => {
-    const preset = MODULE_PRESETS.find((p) => p.id === id)
-    if (!preset) return
-    const nextModules = preset.modules.map((m, i) => ({ ...m, label: `${t("schedule.module")} ${i + 1}` }))
+    const seed = MODULE_PRESET_SEEDS[id]
+    const nextModules = [{ ...seed, id: `${id}-${crypto.randomUUID()}` }]
     if (modules.length > 0) {
-      const ok = window.confirm(t("settings.modules.preset.applyConfirm"))
-      if (!ok) return
+      setDraftStart(seed.start); setDraftEnd(seed.end); setDraftLabel(`${t("schedule.module")} ${modules.length + 1}`)
+      return
     }
     if (!confirmAffectedBlocks(nextModules)) return
     setModules(nextModules)
@@ -63,10 +62,6 @@ export function TimeModulesEditor({ store }: { store: ScheduleStore }) {
     const nextModules = modules.filter((module) => module.id !== moduleId)
     if (!confirmAffectedBlocks(nextModules)) return
     deleteModule(moduleId)
-  }
-
-  const onModuleChange = (m: TimeModule, patch: Partial<TimeModule>) => {
-    updateModule(m.id, patch)
   }
 
   return (
@@ -97,45 +92,7 @@ export function TimeModulesEditor({ store }: { store: ScheduleStore }) {
               {t("common.empty")}
             </div>
           )}
-          {sorted.map((m, idx) => (
-            <div
-              key={m.id}
-              className="grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-2 rounded-md border bg-card px-2 py-1.5"
-            >
-              <span className="font-mono text-xs text-muted-foreground w-6 text-center">
-                {idx + 1}
-              </span>
-              <Input
-                aria-label={`${t("schedule.module")} ${idx + 1}`}
-                value={m.label}
-                onChange={(e) => onModuleChange(m, { label: e.target.value })}
-                className="h-8"
-              />
-              <Input
-                type="time"
-                aria-label={t("study.start")}
-                value={m.start}
-                onChange={(e) => onModuleChange(m, { start: e.target.value })}
-                className="h-8 w-[110px]"
-              />
-              <Input
-                type="time"
-                aria-label={t("study.end")}
-                value={m.end}
-                onChange={(e) => onModuleChange(m, { end: e.target.value })}
-                className="h-8 w-[110px]"
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                onClick={() => onDelete(m.id)}
-                aria-label={t("common.delete")}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
+          {sorted.map((m, idx) => <TimeModuleDraftRow key={m.id} module={m} index={idx} onSave={(draft) => updateModule(m.id, draft)} onDelete={() => onDelete(m.id)} />)}
         </div>
 
         {validationErr && (
@@ -179,4 +136,10 @@ export function TimeModulesEditor({ store }: { store: ScheduleStore }) {
       </CardContent>
     </Card>
   )
+}
+
+function TimeModuleDraftRow({ module, index, onSave, onDelete }: { module: TimeModule; index: number; onSave: (draft: TimeModule) => void; onDelete: () => void }) {
+  const [draft, setDraft] = useState(module)
+  const [error, setError] = useState("")
+  return <div className="grid gap-2 rounded-md border bg-card p-2 sm:grid-cols-[auto_1fr_auto_auto_auto] sm:items-center"><span className="w-6 text-center font-mono text-xs text-muted-foreground">{index + 1}</span><Input aria-label={`Módulo ${index + 1}`} value={draft.label} onChange={(event) => setDraft({ ...draft, label: event.target.value })} className="h-9" /><Input type="time" aria-label="Inicio" value={draft.start} onChange={(event) => setDraft({ ...draft, start: event.target.value })} className="h-9 sm:w-[110px]" /><Input type="time" aria-label="Fin" value={draft.end} onChange={(event) => setDraft({ ...draft, end: event.target.value })} className="h-9 sm:w-[110px]" /><div className="flex gap-1"><Button size="sm" onClick={() => { if (draft.start >= draft.end) { setError("La hora de término debe ser posterior al inicio."); return } setError(""); onSave(draft) }}>Guardar</Button><Button variant="ghost" size="icon" onClick={onDelete} aria-label="Eliminar módulo"><Trash2 className="size-4" /></Button></div>{error && <p className="text-xs text-destructive sm:col-start-3 sm:col-span-3">{error}</p>}</div>
 }

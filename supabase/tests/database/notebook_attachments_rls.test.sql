@@ -1,0 +1,56 @@
+begin;
+select plan(41);
+select results_eq($$select count(*)::int from information_schema.columns where table_schema='public' and table_name='subject_notes' and column_name='document'$$, array[1], 'subject_notes.document existe');
+select results_eq($$select count(*)::int from information_schema.tables where table_schema='public' and table_name='subject_note_attachments'$$, array[1], 'tabla attachments existe');
+select results_eq($$select count(*)::int from pg_indexes where schemaname='public' and tablename='subject_note_attachments' and indexname='subject_note_attachments_note_idx'$$, array[1], 'índice note existe');
+select results_eq($$select count(*)::int from pg_policies where schemaname='public' and tablename='subject_note_attachments' and policyname='subject_note_attachments_select_own'$$, array[1], 'policy metadata SELECT existe');
+select results_eq($$select count(*)::int from pg_policies where schemaname='public' and tablename='subject_note_attachments' and policyname='subject_note_attachments_insert_own'$$, array[1], 'policy metadata INSERT existe');
+select results_eq($$select count(*)::int from pg_policies where schemaname='public' and tablename='subject_note_attachments' and policyname='subject_note_attachments_update_own'$$, array[1], 'policy metadata UPDATE existe');
+select results_eq($$select count(*)::int from pg_policies where schemaname='public' and tablename='subject_note_attachments' and policyname='subject_note_attachments_delete_own'$$, array[1], 'policy metadata DELETE existe');
+select results_eq($$select count(*)::int from pg_policies where schemaname='storage' and tablename='objects' and policyname='subject_note_files_select_own'$$, array[1], 'policy Storage SELECT existe');
+select results_eq($$select count(*)::int from pg_policies where schemaname='storage' and tablename='objects' and policyname='subject_note_files_insert_own'$$, array[1], 'policy Storage INSERT existe');
+select results_eq($$select count(*)::int from pg_policies where schemaname='storage' and tablename='objects' and policyname='subject_note_files_update_own'$$, array[1], 'policy Storage UPDATE existe');
+select results_eq($$select count(*)::int from pg_policies where schemaname='storage' and tablename='objects' and policyname='subject_note_files_delete_own'$$, array[1], 'policy Storage DELETE existe');
+select results_eq($$select public from storage.buckets where id = 'subject-note-files'$$, array[false], 'bucket privado');
+select results_eq($$select relrowsecurity from pg_class where oid = 'public.subject_note_attachments'::regclass$$, array[true], 'RLS activo en metadata');
+select results_eq($$select relrowsecurity from pg_class where oid = 'storage.objects'::regclass$$, array[true], 'RLS activo en Storage');
+select results_eq($$select count(*)::int from pg_policies where schemaname='storage' and tablename='objects' and policyname like 'subject_note_files_%' and roles <> array['authenticated']::name[]$$, array[0], 'políticas del bucket solo authenticated');
+
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000a1','na@example.test'), ('00000000-0000-0000-0000-0000000000b2','nb@example.test') on conflict do nothing;
+insert into public.semesters(id,user_id,name,status) values ('note-sem-a','00000000-0000-0000-0000-0000000000a1','A','active');
+insert into public.subjects(id,user_id,semester_id,name,color,difficulty) values ('note-sub-a','00000000-0000-0000-0000-0000000000a1','note-sem-a','A','#000',3);
+insert into public.subject_notes(id,user_id,semester_id,subject_id,title,content) values ('note-a','00000000-0000-0000-0000-0000000000a1','note-sem-a','note-sub-a','A','A');
+select set_config('request.jwt.claim.role','authenticated',true); select set_config('role','authenticated',true); select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a1',true);
+select lives_ok($$insert into public.subject_note_attachments(id,user_id,semester_id,subject_id,note_id,kind,storage_path,filename,mime_type,size_bytes) values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','00000000-0000-0000-0000-0000000000a1','note-sem-a','note-sub-a','note-a','image','00000000-0000-0000-0000-0000000000a1/n','a.jpg','image/jpeg',10)$$,'A inserta A');
+select results_eq($$select count(*)::int from public.subject_note_attachments$$,array[1],'A lee A');
+select lives_ok($$update public.subject_note_attachments set filename='b.jpg' where id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'$$,'A actualiza A');
+select lives_ok($$insert into storage.objects(bucket_id,name,owner,metadata) values ('subject-note-files','00000000-0000-0000-0000-0000000000a1/note-sem-a/note-sub-a/note-a/a.jpg','00000000-0000-0000-0000-0000000000a1','{}')$$,'A escribe carpeta A');
+select results_eq($$select count(*)::int from storage.objects where bucket_id='subject-note-files'$$,array[1],'A lee carpeta A');
+select throws_ok($$insert into storage.objects(bucket_id,name,owner,metadata) values ('subject-note-files','00000000-0000-0000-0000-0000000000b2/x.jpg','00000000-0000-0000-0000-0000000000a1','{}')$$,null,null,'A no escribe carpeta B');
+
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000b2',true);
+select results_eq($$select count(*)::int from public.subject_note_attachments$$,array[0],'B no lee A');
+select lives_ok($$update public.subject_note_attachments set filename='evil.jpg' where id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'$$,'UPDATE B no rompe');
+select results_eq($$select count(*)::int from public.subject_note_attachments where filename='evil.jpg'$$,array[0],'B no actualiza A');
+select lives_ok($$delete from public.subject_note_attachments where id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'$$,'DELETE B no rompe');
+select throws_ok($$insert into public.subject_note_attachments(id,user_id,semester_id,subject_id,note_id,kind,storage_path,filename,mime_type,size_bytes) values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','00000000-0000-0000-0000-0000000000a1','note-sem-a','note-sub-a','note-a','pdf','x','x.pdf','application/pdf',1)$$,null,null,'B no inserta como A');
+select results_eq($$select count(*)::int from storage.objects where bucket_id='subject-note-files'$$,array[0],'B no lee carpeta A');
+select lives_ok($$update storage.objects set metadata='{"attacker":true}' where bucket_id='subject-note-files' and name like '00000000-0000-0000-0000-0000000000a1/%'$$,'UPDATE Storage B no rompe');
+select throws_ok($$delete from storage.objects where bucket_id='subject-note-files' and name like '00000000-0000-0000-0000-0000000000a1/%'$$,null,null,'SQL directo no puede eludir Storage API');
+
+select set_config('request.jwt.claim.role','anon',true); select set_config('role','anon',true); select set_config('request.jwt.claim.sub','',true);
+select throws_ok($$select count(*)::int from public.subject_note_attachments$$,null,null,'anon no tiene grant metadata');
+select results_eq($$select count(*)::int from storage.objects where bucket_id='subject-note-files'$$,array[0],'anon no lee Storage');
+select throws_ok($$insert into public.subject_note_attachments(id,user_id,semester_id,subject_id,note_id,kind,storage_path,filename,mime_type,size_bytes) values ('cccccccc-cccc-cccc-cccc-cccccccccccc','00000000-0000-0000-0000-0000000000a1','note-sem-a','note-sub-a','note-a','pdf','x','x.pdf','application/pdf',1)$$,null,null,'anon no inserta');
+select throws_ok($$insert into storage.objects(bucket_id,name,owner,metadata) values ('subject-note-files','00000000-0000-0000-0000-0000000000a1/anon.pdf',null,'{}')$$,null,null,'anon no escribe Storage');
+
+select set_config('request.jwt.claim.role','authenticated',true); select set_config('role','authenticated',true); select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a1',true);
+select results_eq($$select count(*)::int from public.subject_note_attachments$$,array[1],'A conserva metadata tras ataques B/anon');
+select results_eq($$select filename from public.subject_note_attachments where id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'$$,array['b.jpg'],'A conserva actualización propia');
+select results_eq($$select metadata from storage.objects where bucket_id='subject-note-files'$$,array['{}'::jsonb],'B no actualiza Storage A');
+select lives_ok($$delete from public.subject_note_attachments where id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'$$,'A elimina metadata A');
+select results_eq($$select count(*)::int from public.subject_note_attachments$$,array[0],'metadata A eliminada');
+select lives_ok($$update storage.objects set metadata='{"owner":true}' where bucket_id='subject-note-files'$$,'A actualiza Storage A');
+select throws_ok($$delete from storage.objects where bucket_id='subject-note-files'$$,null,null,'incluso A debe borrar mediante Storage API');
+select results_eq($$select count(*)::int from storage.objects where bucket_id='subject-note-files'$$,array[1],'objeto permanece ante DELETE SQL directo');
+select * from finish(); rollback;

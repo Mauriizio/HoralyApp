@@ -16,6 +16,7 @@ import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Bell, Download, Upload, RotateCcw, Calendar, Languages } from "lucide-react"
+import { DAYS } from "@/lib/types"
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
 import { downloadJson, exportAsJson, importFromJson } from "@/lib/storage"
 import { getPermission, requestPermission } from "@/lib/notifications"
@@ -376,6 +377,11 @@ export function SettingsView({ store, onRestartTutorial, onAdvancedModeFirstEnab
               checked={settings.enableSaturday}
               onCheckedChange={(v) => updateSettings({ enableSaturday: v })}
             />
+          </div>
+
+          <div className="space-y-2 rounded-md border p-3">
+            <div><div className="text-sm font-medium">Días de clase</div><div className="text-xs text-muted-foreground">Ocultar un día no elimina sus bloques.</div></div>
+            <div className="flex flex-wrap gap-2">{DAYS.map((day) => { const active = settings.visibleScheduleDays.includes(day.key); return <Button key={day.key} type="button" size="sm" variant={active ? "default" : "outline"} aria-pressed={active} onClick={() => { const next = active ? settings.visibleScheduleDays.filter((key) => key !== day.key) : [...settings.visibleScheduleDays, day.key]; if (next.length === 0) return; updateSettings({ visibleScheduleDays: next, enableSaturday: next.includes("sabado") }) }}>{day.short}</Button> })}</div>
           </div>
 
           <div className="pt-2">

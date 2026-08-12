@@ -1,0 +1,62 @@
+name: Database Security
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  database-tests:
+    name: Supabase DB, RLS and Storage
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependencias fijadas
+        run: pnpm install --frozen-lockfile
+
+      - name: Comprobar Docker
+        run: docker version
+
+      - name: Arrancar Supabase local
+        run: pnpm supabase start
+
+      - name: Probar backfill desde esquema legacy
+        run: |
+          pnpm supabase db reset --local --version 202607290001 --no-seed
+          docker exec -i supabase_db_horary psql -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/tests/fixtures/notebook_backfill_fixture.sql
+          pnpm supabase migration up --local
+          docker exec -i supabase_db_horary psql -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/tests/fixtures/notebook_backfill_assert.sql
+
+      - name: Reconstruir base completa desde cero
+        run: pnpm supabase db reset --local
+
+      - name: Ejecutar pgTAP de DB, RLS y Storage
+        run: pnpm supabase test db supabase/tests/database/notebook_attachments_rls.test.sql
+
+      - name: Probar Storage API con identidades A/B
+        run: |
+          eval "$(pnpm supabase status -o env)"
+          export API_URL ANON_KEY
+          node scripts/verify-local-note-storage.mjs
+
+      - name: Detener Supabase
+        if: always()
+        run: pnpm supabase stop --no-backup

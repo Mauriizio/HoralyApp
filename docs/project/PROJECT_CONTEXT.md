@@ -995,3 +995,13 @@ Cada cambio debe dejar HoralyApp más estable, no solamente más grande.
 
 Cuaderno usa `SubjectNote`/`subject_notes`; la calculadora científica es un
 plugin seguro sin acceso a datos académicos.
+# Macrofase Horario y Cuaderno Pro v2 — 2026-08-12
+
+- `AppData` v6 persiste `visibleScheduleDays` sin borrar bloques ocultos.
+- Los apuntes conservan `content` y añaden `document` JSON estructurado v1.
+- Los adjuntos privados se normalizan en `subject_note_attachments`; el bucket
+  privado `subject-note-files` usa `{userId}/{semesterId}/{subjectId}/{noteId}`.
+- Guest guarda blobs en IndexedDB, nunca en localStorage.
+- La migración `202608120001_notebook_rich_content_attachments.sql` fue aplicada
+  al project ref canónico `iexqkxqdkpryuhxeiaeg` tras Database Security run
+  `31609118111` (reset, backfill, pgTAP 41/41 y Storage API A/B/anon PASS).

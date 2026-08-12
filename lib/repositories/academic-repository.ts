@@ -56,8 +56,8 @@ export class LocalAcademicRepository implements AcademicRepository {
   assertRepositoryOwner() {}
 }
 
-const DATA_TABLES = ["semesters", "subjects", "schedule_blocks", "study_blocks", "reminders", "assessment_groups", "grades", "subject_notes", "user_settings", "profiles"] as const
-const REPLACE_DELETE_TABLES = ["schedule_blocks", "study_blocks", "reminders", "grades", "assessment_groups", "subject_notes", "subjects", "semesters"] as const
+const DATA_TABLES = ["semesters", "subjects", "schedule_blocks", "study_blocks", "reminders", "assessment_groups", "grades", "subject_notes", "subject_note_attachments", "user_settings", "profiles"] as const
+const REPLACE_DELETE_TABLES = ["schedule_blocks", "study_blocks", "reminders", "grades", "assessment_groups", "subject_note_attachments", "subject_notes", "subjects", "semesters"] as const
 
 export class SupabaseAcademicRepository implements AcademicRepository {
   readonly kind = "supabase" as const
@@ -117,9 +117,10 @@ export class SupabaseAcademicRepository implements AcademicRepository {
       assessment_groups: data.assessmentGroups.map((item) => item.id),
       grades: data.grades.map((item) => item.id),
       subject_notes: data.subjectNotes.map((item) => item.id),
+      subject_note_attachments: data.subjectNoteAttachments.map((item) => item.id),
     }
     for (const table of REPLACE_DELETE_TABLES) await this.deleteObsolete(table, keepByTable[table])
-    for (const table of ["profiles", "user_settings", "semesters", "subjects", "assessment_groups", "schedule_blocks", "study_blocks", "reminders", "grades", "subject_notes"] as (keyof SupabaseDataset)[]) {
+    for (const table of ["profiles", "user_settings", "semesters", "subjects", "assessment_groups", "schedule_blocks", "study_blocks", "reminders", "grades", "subject_notes", "subject_note_attachments"] as (keyof SupabaseDataset)[]) {
       await this.upsert(table, rows[table])
     }
   }
