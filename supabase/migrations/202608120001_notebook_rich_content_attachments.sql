@@ -15,9 +15,9 @@ where document is null;
 create table if not exists public.subject_note_attachments (
   id uuid primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
-  semester_id uuid not null,
-  subject_id uuid not null,
-  note_id uuid not null,
+  semester_id text not null,
+  subject_id text not null,
+  note_id text not null,
   kind text not null check (kind in ('image', 'pdf', 'drawing')),
   storage_path text not null,
   filename text not null,
@@ -38,9 +38,13 @@ create table if not exists public.subject_note_attachments (
 
 create index if not exists subject_note_attachments_note_idx on public.subject_note_attachments(user_id, note_id, created_at);
 alter table public.subject_note_attachments enable row level security;
+drop policy if exists subject_note_attachments_select_own on public.subject_note_attachments;
 create policy subject_note_attachments_select_own on public.subject_note_attachments for select using (auth.uid() = user_id);
+drop policy if exists subject_note_attachments_insert_own on public.subject_note_attachments;
 create policy subject_note_attachments_insert_own on public.subject_note_attachments for insert with check (auth.uid() = user_id);
+drop policy if exists subject_note_attachments_update_own on public.subject_note_attachments;
 create policy subject_note_attachments_update_own on public.subject_note_attachments for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists subject_note_attachments_delete_own on public.subject_note_attachments;
 create policy subject_note_attachments_delete_own on public.subject_note_attachments for delete using (auth.uid() = user_id);
 grant select, insert, update, delete on public.subject_note_attachments to authenticated;
 revoke all on public.subject_note_attachments from anon;
@@ -49,12 +53,16 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 values ('subject-note-files', 'subject-note-files', false, 15728640, array['image/jpeg','image/png','image/webp','application/pdf'])
 on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
 
+drop policy if exists subject_note_files_select_own on storage.objects;
 create policy subject_note_files_select_own on storage.objects for select to authenticated
 using (bucket_id = 'subject-note-files' and (storage.foldername(name))[1] = auth.uid()::text);
+drop policy if exists subject_note_files_insert_own on storage.objects;
 create policy subject_note_files_insert_own on storage.objects for insert to authenticated
 with check (bucket_id = 'subject-note-files' and (storage.foldername(name))[1] = auth.uid()::text);
+drop policy if exists subject_note_files_update_own on storage.objects;
 create policy subject_note_files_update_own on storage.objects for update to authenticated
 using (bucket_id = 'subject-note-files' and (storage.foldername(name))[1] = auth.uid()::text)
 with check (bucket_id = 'subject-note-files' and (storage.foldername(name))[1] = auth.uid()::text);
+drop policy if exists subject_note_files_delete_own on storage.objects;
 create policy subject_note_files_delete_own on storage.objects for delete to authenticated
 using (bucket_id = 'subject-note-files' and (storage.foldername(name))[1] = auth.uid()::text);

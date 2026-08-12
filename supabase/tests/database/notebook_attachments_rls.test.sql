@@ -1,0 +1,42 @@
+begin;
+select plan(30);
+select has_column('public', 'subject_notes', 'document');
+select has_table('public', 'subject_note_attachments');
+select has_index('public', 'subject_note_attachments', 'subject_note_attachments_note_idx');
+select has_policy('public', 'subject_note_attachments', 'subject_note_attachments_select_own');
+select has_policy('public', 'subject_note_attachments', 'subject_note_attachments_insert_own');
+select has_policy('public', 'subject_note_attachments', 'subject_note_attachments_update_own');
+select has_policy('public', 'subject_note_attachments', 'subject_note_attachments_delete_own');
+select has_policy('storage', 'objects', 'subject_note_files_select_own');
+select has_policy('storage', 'objects', 'subject_note_files_insert_own');
+select has_policy('storage', 'objects', 'subject_note_files_update_own');
+select has_policy('storage', 'objects', 'subject_note_files_delete_own');
+select results_eq($$select public from storage.buckets where id = 'subject-note-files'$$, array[false], 'bucket privado');
+
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000a1','na@example.test'), ('00000000-0000-0000-0000-0000000000b2','nb@example.test') on conflict do nothing;
+select set_config('request.jwt.claim.role','authenticated',true); select set_config('role','authenticated',true); select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a1',true);
+insert into public.profiles(id,user_id,display_name) values ('00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000a1','A') on conflict do nothing;
+insert into public.semesters(id,user_id,name,status) values ('note-sem-a','00000000-0000-0000-0000-0000000000a1','A','active');
+insert into public.subjects(id,user_id,semester_id,name,color,difficulty) values ('note-sub-a','00000000-0000-0000-0000-0000000000a1','note-sem-a','A','#000',3);
+insert into public.subject_notes(id,user_id,semester_id,subject_id,title,content) values ('note-a','00000000-0000-0000-0000-0000000000a1','note-sem-a','note-sub-a','A','A');
+select lives_ok($$insert into public.subject_note_attachments(id,user_id,semester_id,subject_id,note_id,kind,storage_path,filename,mime_type,size_bytes) values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','00000000-0000-0000-0000-0000000000a1','note-sem-a','note-sub-a','note-a','image','00000000-0000-0000-0000-0000000000a1/n','a.jpg','image/jpeg',10)$$,'A inserta A');
+select results_eq($$select count(*)::int from public.subject_note_attachments$$,array[1],'A lee A');
+select lives_ok($$update public.subject_note_attachments set filename='b.jpg' where id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'$$,'A actualiza A');
+select lives_ok($$insert into storage.objects(bucket_id,name,owner,metadata) values ('subject-note-files','00000000-0000-0000-0000-0000000000a1/note-sem-a/note-sub-a/note-a/a.jpg','00000000-0000-0000-0000-0000000000a1','{}')$$,'A escribe carpeta A');
+select results_eq($$select count(*)::int from storage.objects where bucket_id='subject-note-files'$$,array[1],'A lee carpeta A');
+select throws_ok($$insert into storage.objects(bucket_id,name,owner,metadata) values ('subject-note-files','00000000-0000-0000-0000-0000000000b2/x.jpg','00000000-0000-0000-0000-0000000000a1','{}')$$,null,null,'A no escribe carpeta B');
+
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000b2',true);
+select results_eq($$select count(*)::int from public.subject_note_attachments$$,array[0],'B no lee A');
+select lives_ok($$update public.subject_note_attachments set filename='evil.jpg' where id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'$$,'UPDATE B no rompe');
+select results_eq($$select count(*)::int from public.subject_note_attachments where filename='evil.jpg'$$,array[0],'B no actualiza A');
+select lives_ok($$delete from public.subject_note_attachments where id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'$$,'DELETE B no rompe');
+select throws_ok($$insert into public.subject_note_attachments(id,user_id,semester_id,subject_id,note_id,kind,storage_path,filename,mime_type,size_bytes) values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','00000000-0000-0000-0000-0000000000a1','note-sem-a','note-sub-a','note-a','pdf','x','x.pdf','application/pdf',1)$$,null,null,'B no inserta como A');
+select results_eq($$select count(*)::int from storage.objects where bucket_id='subject-note-files'$$,array[0],'B no lee carpeta A');
+select lives_ok($$delete from storage.objects where bucket_id='subject-note-files' and name like '00000000-0000-0000-0000-0000000000a1/%'$$,'DELETE Storage B no rompe');
+
+select set_config('request.jwt.claim.role','anon',true); select set_config('role','anon',true); select set_config('request.jwt.claim.sub','',true);
+select results_eq($$select count(*)::int from public.subject_note_attachments$$,array[0],'anon no lee metadata');
+select results_eq($$select count(*)::int from storage.objects where bucket_id='subject-note-files'$$,array[0],'anon no lee Storage');
+select throws_ok($$insert into public.subject_note_attachments(id,user_id,semester_id,subject_id,note_id,kind,storage_path,filename,mime_type,size_bytes) values ('cccccccc-cccc-cccc-cccc-cccccccccccc','00000000-0000-0000-0000-0000000000a1','note-sem-a','note-sub-a','note-a','pdf','x','x.pdf','application/pdf',1)$$,null,null,'anon no inserta');
+select * from finish(); rollback;

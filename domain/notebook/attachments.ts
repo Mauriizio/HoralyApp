@@ -5,7 +5,7 @@ export interface NoteAttachment { id: string; semesterId: string; subjectId: str
 
 export function safeAttachmentFilename(filename: string): string {
   const base = filename.replace(/\\/g, "/").split("/").pop() ?? "archivo"
-  return base.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^\.+/, "").slice(0, 100) || "archivo"
+  return base.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^[.-]+/, "").slice(0, 100) || "archivo"
 }
 
 export function validateNoteFile(file: Pick<File, "name" | "type" | "size">): string | null {
