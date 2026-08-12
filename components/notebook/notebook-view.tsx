@@ -14,6 +14,9 @@ import { legacyTextToDocument } from "@/domain/notebook/document"
 import { validateNoteFile } from "@/domain/notebook/attachments"
 import { notebookBlobRepository } from "@/lib/notebook-blob-repository"
 import { renderNotebookPdf, shareNotebookPdf } from "@/domain/notebook/pdf"
+import { useAuth } from "@/lib/auth-context"
+import { createSupabaseBrowserClient } from "@/lib/supabase/client"
+import { deleteCloudNoteAttachment, NOTE_FILES_BUCKET, uploadCloudNoteAttachment } from "@/lib/note-attachment-storage"
 
 type SaveStatus = "idle" | "saving" | "saved" | "error"
 type Draft = Pick<SubjectNote, "id" | "semesterId" | "subjectId" | "title" | "unit" | "content" | "document" | "createdAt" | "updatedAt">
@@ -31,6 +34,7 @@ const emptyDraft = (semesterId: string, subjectId: string): Draft => ({
 
 export function NotebookView({ store, onAddSubject }: { store: ScheduleStore; onAddSubject: () => void }) {
   const { data } = store
+  const auth = useAuth()
   const [subjectId, setSubjectId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
@@ -104,10 +108,40 @@ export function NotebookView({ store, onAddSubject }: { store: ScheduleStore; on
     const saved = draft.id ? draft : await save(draft); if (!saved) return
     const file = source instanceof File ? source : new File([source], "dibujo.png", { type: "image/png" }); const issue = validateNoteFile(file)
     if (issue) { setError(issue); setStatus("error"); return }
-    const id = crypto.randomUUID(); const storagePath = `guest/${saved.semesterId}/${saved.subjectId}/${saved.id}/${id}`
-    await notebookBlobRepository.put(storagePath, file)
-    store.replaceAll({ ...store.allData, subjectNoteAttachments: [...store.allData.subjectNoteAttachments, { id, semesterId: saved.semesterId, subjectId: saved.subjectId, noteId: saved.id, kind: forcedKind ?? (file.type === "application/pdf" ? "pdf" : "image"), filename: file.name, mimeType: file.type as "image/jpeg" | "image/png" | "image/webp" | "application/pdf", sizeBytes: file.size, storagePath, createdAt: Date.now() }] })
+    let attachment
+    if (auth.authenticated) {
+      const expectedUserId = store.dataOwnerUserId; const client = createSupabaseBrowserClient()
+      if (!expectedUserId || !client || expectedUserId !== store.repositoryOwnerUserId || !store.identityReady) throw new Error("No se pudo verificar la identidad para subir el archivo.")
+      attachment = await uploadCloudNoteAttachment({ client, file, expectedUserId, semesterId: saved.semesterId, subjectId: saved.subjectId, noteId: saved.id, kind: forcedKind, verifyCurrentUser: async () => (await auth.verifyCurrentUser()).id })
+    } else {
+      const id = crypto.randomUUID(); const storagePath = `guest/${saved.semesterId}/${saved.subjectId}/${saved.id}/${id}`
+      await notebookBlobRepository.put(storagePath, file)
+      attachment = { id, semesterId: saved.semesterId, subjectId: saved.subjectId, noteId: saved.id, kind: forcedKind ?? (file.type === "application/pdf" ? "pdf" as const : "image" as const), filename: file.name, mimeType: file.type as "image/jpeg" | "image/png" | "image/webp" | "application/pdf", sizeBytes: file.size, storagePath, createdAt: Date.now() }
+    }
+    store.replaceAll({ ...store.allData, subjectNoteAttachments: [...store.allData.subjectNoteAttachments, attachment] })
     setDraft(saved); setSelectedId(saved.id)
+  }
+
+  const attachmentBlob = async (item: (typeof data.subjectNoteAttachments)[number]) => {
+    if (!item.storagePath) throw new Error("El archivo no está disponible.")
+    if (!auth.authenticated) return notebookBlobRepository.get(item.storagePath)
+    const client = createSupabaseBrowserClient(); const expectedUserId = store.dataOwnerUserId
+    if (!client || !expectedUserId || !item.storagePath.startsWith(`${expectedUserId}/`) || (await auth.verifyCurrentUser()).id !== expectedUserId) throw new Error("No se pudo verificar el propietario del archivo.")
+    const { data: result, error } = await client.storage.from(NOTE_FILES_BUCKET).download(item.storagePath); if (error) throw error
+    if ((await auth.verifyCurrentUser()).id !== expectedUserId) throw new Error("La sesión cambió durante la descarga.")
+    return result
+  }
+  const openAttachment = async (item: (typeof data.subjectNoteAttachments)[number], download = false) => { const blob = await attachmentBlob(item); if (!blob) return; const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; if (download) anchor.download = item.filename; else { anchor.target = "_blank"; anchor.rel = "noopener noreferrer" } anchor.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000) }
+  const removeAttachment = async (item: (typeof data.subjectNoteAttachments)[number]) => {
+    if (auth.authenticated) { const client = createSupabaseBrowserClient(); const expectedUserId = store.dataOwnerUserId; if (!client || !expectedUserId) throw new Error("No se pudo verificar la identidad."); await deleteCloudNoteAttachment(client, item, expectedUserId, async () => (await auth.verifyCurrentUser()).id) }
+    else if (item.storagePath) await notebookBlobRepository.remove(item.storagePath)
+    store.replaceAll({ ...store.allData, subjectNoteAttachments: store.allData.subjectNoteAttachments.filter((candidate) => candidate.id !== item.id) })
+  }
+  const removeCurrentNote = async () => {
+    if (!selectedId) return
+    for (const attachment of data.subjectNoteAttachments.filter((item) => item.noteId === selectedId)) await removeAttachment(attachment)
+    const context = store.dataOwnerUserId ? { expectedUserId: store.dataOwnerUserId, expectedAuthGeneration: store.authGeneration } : undefined
+    await store.deleteSubjectNoteConfirmed(selectedId, context); setDraft(null); setSelectedId(null)
   }
 
   const exportPdf = async (all: boolean, share: boolean) => {
@@ -191,13 +225,13 @@ export function NotebookView({ store, onAddSubject }: { store: ScheduleStore; on
             <Input aria-label="Unidad o tema" placeholder="Unidad o tema (opcional)" value={draft.unit ?? ""} onChange={(event) => setDraft({ ...draft, unit: event.target.value })} />
             <div className="sticky top-0 z-10 flex max-w-full gap-1 overflow-x-auto rounded-lg border bg-background p-2" aria-label="Formato del apunte"><Button size="icon" variant="ghost" aria-label="Negrita" onClick={() => formatDocument("bold")}><Bold className="size-4" /></Button><Button size="icon" variant="ghost" aria-label="Cursiva" onClick={() => formatDocument("italic")}><Italic className="size-4" /></Button><Button size="icon" variant="ghost" aria-label="Subrayado" onClick={() => formatDocument("underline")}><Underline className="size-4" /></Button><Button variant="ghost" onClick={() => formatDocument("heading")}>Título</Button><Button size="icon" variant="ghost" aria-label="Lista" onClick={() => formatDocument("bulletList")}><List className="size-4" /></Button><Button size="icon" variant="ghost" aria-label="Lista numerada" onClick={() => formatDocument("numberedList")}><ListOrdered className="size-4" /></Button><select aria-label="Fuente" className="rounded border bg-background px-2 text-sm"><option>Sans</option><option>Serif</option><option>Mono</option><option>Rounded</option><option>Clean</option></select><label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded px-3 text-sm"><ImagePlus className="size-4" />Foto<input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(e) => { const file = e.target.files?.[0]; if (file) void addGuestFile(file) }} /></label><label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded px-3 text-sm"><Paperclip className="size-4" />PDF<input className="sr-only" type="file" accept="application/pdf" onChange={(e) => { const file = e.target.files?.[0]; if (file) void addGuestFile(file) }} /></label><Button variant="ghost" onClick={() => setDrawingOpen(true)}><Pencil className="mr-2 size-4" />Dibujar</Button></div>
             <Textarea aria-label="Contenido" className="min-h-[42vh] whitespace-pre-wrap" placeholder="Escribe o pega aquí tus apuntes…" value={draft.content} onChange={(event) => setDraft({ ...draft, content: event.target.value })} />
-            <div>{data.subjectNoteAttachments.filter((item) => item.noteId === draft.id).map((item) => <div key={item.id} className="flex items-center justify-between rounded-lg border p-3 text-sm"><span>{item.filename} · {(item.sizeBytes / 1024 / 1024).toFixed(1)} MB</span><Button variant="ghost" size="sm" onClick={async () => { if (item.storagePath) await notebookBlobRepository.remove(item.storagePath); store.replaceAll({ ...store.allData, subjectNoteAttachments: store.allData.subjectNoteAttachments.filter((candidate) => candidate.id !== item.id) }) }}>Quitar</Button></div>)}</div>
+            <div>{data.subjectNoteAttachments.filter((item) => item.noteId === draft.id).map((item) => <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm"><span>{item.filename} · {(item.sizeBytes / 1024 / 1024).toFixed(1)} MB</span><span className="flex gap-1"><Button variant="outline" size="sm" onClick={() => void openAttachment(item)}>Abrir</Button><Button variant="outline" size="sm" onClick={() => void openAttachment(item, true)}>Descargar</Button><Button variant="ghost" size="sm" onClick={() => void removeAttachment(item)}>Quitar</Button></span></div>)}</div>
             <DrawingCanvas open={drawingOpen} onOpenChange={setDrawingOpen} onInsert={(blob) => { void addGuestFile(blob, "drawing"); setDrawingOpen(false) }} />
             <div className="sticky bottom-16 flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-background/95 p-2 backdrop-blur md:bottom-2">
               <p role="status" className={`text-sm ${status === "error" ? "text-destructive" : "text-muted-foreground"}`}>{status === "saving" ? "Guardando…" : status === "saved" ? "Guardado" : status === "error" ? `Error al guardar: ${error}` : "Los cambios se guardan automáticamente"}</p>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => void exportPdf(false, false)}><FileDown className="mr-2 size-4" />Exportar PDF</Button><Button variant="outline" size="sm" onClick={() => void exportPdf(false, true)}><Share2 className="mr-2 size-4" />Compartir</Button>
-                {selectedId && <Button variant="destructive" size="sm" onClick={async () => { const context = store.dataOwnerUserId ? { expectedUserId: store.dataOwnerUserId, expectedAuthGeneration: store.authGeneration } : undefined; await store.deleteSubjectNoteConfirmed(selectedId, context); setDraft(null); setSelectedId(null) }}><Trash2 className="mr-2 size-4" />Eliminar</Button>}
+                {selectedId && <Button variant="destructive" size="sm" onClick={() => { if (window.confirm("Esta nota y sus archivos adjuntos se eliminarán.")) void removeCurrentNote() }}><Trash2 className="mr-2 size-4" />Eliminar</Button>}
                 <Button size="sm" disabled={!draft.title.trim() || status === "saving"} onClick={() => void save()}><Save className="mr-2 size-4" />Guardar</Button>
               </div>
             </div>

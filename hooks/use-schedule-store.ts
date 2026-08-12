@@ -276,6 +276,7 @@ export function useScheduleStore() {
       title,
       unit: input.unit?.trim() || undefined,
       content: input.content,
+      document: input.document,
       createdAt: existing?.createdAt ?? input.createdAt ?? now,
       updatedAt: now,
     }
@@ -310,7 +311,7 @@ export function useScheduleStore() {
         operationName: "subjectNote.deleteConfirmed",
       })
     }
-    const nextData = { ...dataRef.current, subjectNotes: dataRef.current.subjectNotes.filter((item) => item.id !== id) }
+    const nextData = { ...dataRef.current, subjectNotes: dataRef.current.subjectNotes.filter((item) => item.id !== id), subjectNoteAttachments: dataRef.current.subjectNoteAttachments.filter((item) => item.noteId !== id) }
     dataRef.current = nextData
     setData(nextData)
   }, [authenticated, dataOwnerUserId, persistCloud])

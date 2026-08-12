@@ -4,7 +4,7 @@ import type { SubjectNoteAttachment } from "@/lib/types"
 
 export const NOTE_FILES_BUCKET = "subject-note-files"
 
-export async function uploadCloudNoteAttachment(input: { client: SupabaseClient; file: File; expectedUserId: string; semesterId: string; subjectId: string; noteId: string; verifyCurrentUser: () => Promise<string | null> }): Promise<SubjectNoteAttachment> {
+export async function uploadCloudNoteAttachment(input: { client: SupabaseClient; file: File; expectedUserId: string; semesterId: string; subjectId: string; noteId: string; kind?: "image" | "pdf" | "drawing"; verifyCurrentUser: () => Promise<string | null> }): Promise<SubjectNoteAttachment> {
   const validation = validateNoteFile(input.file); if (validation) throw new Error(validation)
   if (await input.verifyCurrentUser() !== input.expectedUserId) throw new Error("La sesión cambió. Se canceló la subida.")
   const id = crypto.randomUUID(); const filename = safeAttachmentFilename(input.file.name)
@@ -13,7 +13,7 @@ export async function uploadCloudNoteAttachment(input: { client: SupabaseClient;
   if (uploadError) throw uploadError
   try {
     if (await input.verifyCurrentUser() !== input.expectedUserId) throw new Error("La sesión cambió. Se canceló la subida.")
-    const attachment: SubjectNoteAttachment = { id, semesterId: input.semesterId, subjectId: input.subjectId, noteId: input.noteId, kind: input.file.type === "application/pdf" ? "pdf" : "image", filename, mimeType: input.file.type as SubjectNoteAttachment["mimeType"], sizeBytes: input.file.size, storagePath, createdAt: Date.now() }
+    const attachment: SubjectNoteAttachment = { id, semesterId: input.semesterId, subjectId: input.subjectId, noteId: input.noteId, kind: input.kind ?? (input.file.type === "application/pdf" ? "pdf" : "image"), filename, mimeType: input.file.type as SubjectNoteAttachment["mimeType"], sizeBytes: input.file.size, storagePath, createdAt: Date.now() }
     const { error } = await input.client.from("subject_note_attachments").insert({ id, user_id: input.expectedUserId, semester_id: attachment.semesterId, subject_id: attachment.subjectId, note_id: attachment.noteId, kind: attachment.kind, storage_path: storagePath, filename, mime_type: attachment.mimeType, size_bytes: attachment.sizeBytes })
     if (error) throw error
     if (await input.verifyCurrentUser() !== input.expectedUserId) throw new Error("La sesión cambió. Se canceló la subida.")
