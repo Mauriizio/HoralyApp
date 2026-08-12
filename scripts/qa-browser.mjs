@@ -8,7 +8,7 @@ const pages = await fetch(`${endpoint}/json`).then((response) => response.json()
 const page = pages.find((item) => item.type === "page")
 if (!page) throw new Error("No browser page target")
 const socket = new WebSocket(page.webSocketDebuggerUrl); await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject })
-let id = 0; const pending = new Map(); socket.onmessage = (event) => { const message = JSON.parse(event.data); pending.get(message.id)?.(message) }
+let id = 0; const pending = new Map(); socket.onmessage = (event) => { const message = JSON.parse(event.data); const resolveMessage = pending.get(message.id); if (typeof resolveMessage === "function") resolveMessage(message) }
 const call = (method, params = {}) => new Promise((resolve) => { const callId = ++id; pending.set(callId, (message) => { pending.delete(callId); resolve(message.result) }); socket.send(JSON.stringify({ id: callId, method, params })) })
 const modules = Array.from({ length: 8 }, (_, index) => ({ id: `m${index + 1}`, label: `Módulo ${index + 1}`, start: `${String(8 + index).padStart(2, "0")}:00`, end: `${String(8 + index).padStart(2, "0")}:45` }))
 const semesterId = "qa-semester", subjectId = "qa-subject", noteId = "qa-note"
