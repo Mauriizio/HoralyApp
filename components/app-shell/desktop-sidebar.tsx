@@ -1,6 +1,6 @@
 "use client"
 
-import { CalendarDays } from "lucide-react"
+import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { NAVIGATION_ITEMS, type AppTab } from "./navigation"
 
@@ -14,8 +14,8 @@ export function DesktopSidebar({ activeTab, onNavigate, syncMessage }: DesktopSi
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-sidebar-border bg-sidebar/95 backdrop-blur-xl lg:flex lg:flex-col">
       <div className="flex h-20 items-center gap-3 border-b border-sidebar-border px-5">
-        <span className="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground shadow-[0_8px_28px_-12px_var(--primary)]">
-          <CalendarDays className="size-5" aria-hidden="true" />
+        <span className="grid size-10 place-items-center overflow-hidden rounded-xl bg-primary/10">
+          <Image src="/logo/horarily_mascot_logo.svg" alt="" width={40} height={40} className="size-10 object-contain" />
         </span>
         <span>
           <span className="block text-base font-semibold tracking-tight">Horarily</span>

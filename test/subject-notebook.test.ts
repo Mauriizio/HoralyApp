@@ -9,11 +9,11 @@ const semester = { id: "semester", name: "Semestre", status: "active" as const, 
 const subject = { id: "subject", semesterId: "semester", name: "Física", color: "#2563eb", difficulty: 3 as const, createdAt: 1, commandKey: "FISICA" }
 const note = { id: "note", semesterId: "semester", subjectId: "subject", title: "Leyes de Newton", unit: "Unidad 1", content: "<script>alert(1)</script>\nTexto largo", createdAt: 2, updatedAt: 3 }
 
-test("migración v4 a v5 conserva datos y añade subjectNotes idempotentemente", () => {
+test("migración legacy a v6 conserva datos y añade documento estructurado idempotentemente", () => {
   const legacy = { ...EMPTY_APP_DATA, version: 4, subjects: [subject], semesters: [semester], activeSemesterId: "semester" }
   delete (legacy as Partial<typeof legacy>).subjectNotes
   const migrated = migrateData(legacy as unknown as Partial<typeof EMPTY_APP_DATA> & Record<string, unknown>)
-  assert.equal(migrated.version, 5)
+  assert.equal(migrated.version, 6)
   assert.deepEqual(migrated.subjectNotes, [])
   assert.deepEqual(migrateData(migrated as unknown as Partial<typeof EMPTY_APP_DATA> & Record<string, unknown>), migrated)
   assert.equal(migrated.subjects[0].name, "Física")

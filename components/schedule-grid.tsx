@@ -3,6 +3,9 @@
 import { useMemo, useState } from "react"
 import { Plus, Trash2, Pencil, GripVertical, Bell, StickyNote } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -26,6 +29,7 @@ interface ScheduleGridProps {
   onEditSubject: (subject: Subject) => void
   restrictedDay?: DayKey // focus mode
   showSaturday?: boolean
+  visibleDays?: DayKey[]
   timeFormat?: "12h" | "24h"
   reminders?: Reminder[]
   onOpenReminders?: () => void
@@ -37,21 +41,20 @@ export function ScheduleGrid({
   onEditSubject,
   restrictedDay,
   showSaturday = false,
+  visibleDays,
   timeFormat = "24h",
   reminders = [],
   onOpenReminders,
 }: ScheduleGridProps) {
   const { data, upsertBlock, deleteBlock, moveBlock, subjectsById } = store
   const { subjects, blocks, studyBlocks, modules } = data
+  const [editingModule, setEditingModule] = useState<TimeModule | null>(null)
+  const [moduleError, setModuleError] = useState("")
 
   const classDays = useMemo(
     () =>
-      DAYS.filter((d) =>
-        showSaturday
-          ? d.key !== "domingo"
-          : ["lunes", "martes", "miercoles", "jueves", "viernes"].includes(d.key),
-      ),
-    [showSaturday],
+      DAYS.filter((d) => (visibleDays ?? (showSaturday ? [...DAY_KEYS].filter((day) => day !== "domingo") : DAY_KEYS.slice(0, 5))).includes(d.key)),
+    [showSaturday, visibleDays],
   )
   const daysToShow = restrictedDay ? classDays.filter((d) => d.key === restrictedDay) : classDays
 
@@ -103,7 +106,7 @@ export function ScheduleGrid({
   }, [studyBlocks])
 
   const downloadSchedulePdf = async () => {
-    const model = buildScheduleDocumentModel({ profile: { displayName: data.profile.displayName || "Estudiante", institution: data.profile.institution, career: data.profile.career }, semester: data.semesters.find((semester) => semester.id === data.activeSemesterId) ?? { id: "active", name: "Semestre activo" }, subjects, modules, schedule: blocks, studyBlocks, generatedAt: new Date(), options: { includeSaturday: showSaturday, includeSunday: false, includeStudyBlocks: true, hidePersonalData: false } })
+    const model = buildScheduleDocumentModel({ profile: { displayName: data.profile.displayName || "Estudiante", institution: data.profile.institution, career: data.profile.career }, semester: data.semesters.find((semester) => semester.id === data.activeSemesterId) ?? { id: "active", name: "Semestre activo" }, subjects, modules, schedule: blocks, studyBlocks, generatedAt: new Date(), visibleDays: classDays.map((day) => day.key), options: { includeSaturday: showSaturday, includeSunday: false, includeStudyBlocks: true, hidePersonalData: false } })
     const rendered = await createSchedulePdfRenderer().render(model)
     const blob = new Blob([rendered.bytes], { type: rendered.mimeType })
     const url = URL.createObjectURL(blob)
@@ -115,7 +118,7 @@ export function ScheduleGrid({
   }
 
   const previewSchedulePdf = async () => {
-    const model = buildScheduleDocumentModel({ profile: { displayName: data.profile.displayName || "Estudiante", institution: data.profile.institution, career: data.profile.career }, semester: data.semesters.find((semester) => semester.id === data.activeSemesterId) ?? { id: "active", name: "Semestre activo" }, subjects, modules, schedule: blocks, studyBlocks, generatedAt: new Date(), options: { includeSaturday: showSaturday, includeSunday: false, includeStudyBlocks: true, hidePersonalData: false } })
+    const model = buildScheduleDocumentModel({ profile: { displayName: data.profile.displayName || "Estudiante", institution: data.profile.institution, career: data.profile.career }, semester: data.semesters.find((semester) => semester.id === data.activeSemesterId) ?? { id: "active", name: "Semestre activo" }, subjects, modules, schedule: blocks, studyBlocks, generatedAt: new Date(), visibleDays: classDays.map((day) => day.key), options: { includeSaturday: showSaturday, includeSunday: false, includeStudyBlocks: true, hidePersonalData: false } })
     const rendered = await createSchedulePdfRenderer().render(model)
     const blob = new Blob([rendered.bytes], { type: rendered.mimeType })
     const url = URL.createObjectURL(blob)
@@ -124,6 +127,13 @@ export function ScheduleGrid({
 
   return (
     <div className="w-full">
+      <Dialog open={Boolean(editingModule)} onOpenChange={(open) => { if (!open) { setEditingModule(null); setModuleError("") } }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Editar módulo</DialogTitle><DialogDescription>Los cambios se aplican al guardar, sin mover la fila mientras escribes.</DialogDescription></DialogHeader>
+          {editingModule && <div className="grid gap-4"><div><Label htmlFor="module-label">Nombre</Label><Input id="module-label" value={editingModule.label} onChange={(event) => setEditingModule({ ...editingModule, label: event.target.value })} /></div><div className="grid grid-cols-2 gap-3"><div><Label htmlFor="module-start">Inicio</Label><Input id="module-start" type="time" value={editingModule.start} onChange={(event) => setEditingModule({ ...editingModule, start: event.target.value })} /></div><div><Label htmlFor="module-end">Fin</Label><Input id="module-end" type="time" value={editingModule.end} onChange={(event) => setEditingModule({ ...editingModule, end: event.target.value })} /></div></div>{moduleError && <p className="text-sm text-destructive">{moduleError}</p>}<div><Label>Formato</Label><div className="mt-1 flex gap-2"><Button type="button" variant={timeFormat === "12h" ? "default" : "outline"} onClick={() => store.updateSettings({ timeFormat: "12h" })}>12 horas</Button><Button type="button" variant={timeFormat === "24h" ? "default" : "outline"} onClick={() => store.updateSettings({ timeFormat: "24h" })}>24 horas</Button></div></div></div>}
+          <DialogFooter><Button variant="outline" onClick={() => setEditingModule(null)}>Cancelar</Button><Button onClick={() => { if (!editingModule) return; if (editingModule.start >= editingModule.end) { setModuleError("La hora de término debe ser posterior al inicio."); return } store.updateModule(editingModule.id, editingModule); setEditingModule(null) }}>Guardar</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
       <div className="mb-3 flex flex-wrap justify-end gap-2">
         <Button size="sm" variant="outline" onClick={previewSchedulePdf}>Vista previa PDF</Button>
         <Button size="sm" onClick={downloadSchedulePdf}>Descargar PDF</Button>
@@ -208,17 +218,18 @@ export function ScheduleGrid({
 
         {/* Time column */}
         {modules.map((mod, mi) => (
-          <div
+          <button type="button" aria-label={`Editar ${mod.label}`} onClick={() => setEditingModule({ ...mod })}
             key={mod.id}
             style={{ gridRow: mi + 2, gridColumn: 1 }}
-            className="flex flex-col justify-center px-2 py-2 text-xs text-muted-foreground border-r border-border"
+            className="group relative flex min-h-11 flex-col justify-center border-r border-border px-2 py-2 text-left text-xs text-muted-foreground hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <div className="font-mono font-medium text-foreground">
               {formatTime(mod.start, timeFormat)}
             </div>
             <div className="font-mono text-[11px]">{formatTime(mod.end, timeFormat)}</div>
             <div className="text-[10px] uppercase tracking-wide mt-0.5">{mod.label}</div>
-          </div>
+            <Pencil className="absolute right-1 top-1 size-3 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100" />
+          </button>
         ))}
 
         {/* Day cells */}
@@ -337,10 +348,10 @@ export function ScheduleGrid({
                   const subject = info ? subjectsById.get(info.block.subjectId) : undefined
                   return (
                     <div key={mod.id} className="flex items-stretch">
-                      <div className="w-20 shrink-0 px-3 py-2 text-xs text-muted-foreground bg-muted/40">
+                      <button type="button" aria-label={`Editar ${mod.label}`} onClick={() => setEditingModule({ ...mod })} className="min-h-11 w-20 shrink-0 bg-muted/40 px-3 py-2 text-left text-xs text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary">
                         <div>{formatTime(mod.start, timeFormat)}</div>
                         <div className="text-[10px]">{formatTime(mod.end, timeFormat)}</div>
-                      </div>
+                      </button>
                       <div className="flex-1 p-2">
                         {info && subject ? (
                           <BlockPill

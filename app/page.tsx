@@ -591,6 +591,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
                 onEditSubject={openEditSubject}
                 restrictedDay={showFocus ? focusDay! : undefined}
                 showSaturday={data.settings.enableSaturday}
+                visibleDays={data.settings.visibleScheduleDays}
                 timeFormat={data.settings.timeFormat}
                 reminders={data.reminders}
                 onOpenReminders={() => navigateTo("recordatorios")}

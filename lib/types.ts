@@ -84,6 +84,13 @@ export const MODULE_PRESETS: { id: "morning" | "afternoon" | "evening"; modules:
   },
 ]
 
+/** One editable seed per day-part; presets never imply a full schedule. */
+export const MODULE_PRESET_SEEDS: Record<(typeof MODULE_PRESETS)[number]["id"], Omit<TimeModule, "id">> = {
+  morning: { start: "07:30", end: "08:15", label: "Módulo 1" },
+  afternoon: { start: "13:30", end: "14:15", label: "Módulo 1" },
+  evening: { start: "18:30", end: "19:15", label: "Módulo 1" },
+}
+
 export type DifficultyLevel = 1 | 2 | 3 | 4 | 5
 
 export const DIFFICULTY_LABELS: Record<DifficultyLevel, string> = {
@@ -132,9 +139,19 @@ export interface SubjectNote {
   title: string
   unit?: string
   content: string
+  document?: NoteDocumentV1
   createdAt: number
   updatedAt: number
 }
+
+export type NoteTextMark = "bold" | "italic" | "underline"
+export interface NoteTextRun { text: string; marks?: NoteTextMark[]; font?: "sans" | "serif" | "mono" | "rounded" | "clean" }
+export type NoteBlock =
+  | { id: string; type: "paragraph" | "heading"; content: NoteTextRun[]; level?: 1 | 2 }
+  | { id: string; type: "bulletList" | "numberedList"; items: NoteTextRun[][] }
+  | { id: string; type: "image" | "drawing"; attachmentId: string; alt: string }
+  | { id: string; type: "attachmentReference"; attachmentId: string; filename: string }
+export interface NoteDocumentV1 { version: 1; blocks: NoteBlock[] }
 
 export type ReminderPriority = "baja" | "media" | "alta"
 
@@ -257,6 +274,7 @@ export interface AppSettings {
   blockOpacity: number
   focusMode: boolean
   enableSaturday: boolean
+  visibleScheduleDays: DayKey[]
   googleCalendarConnected: boolean
   gradeScale: GradeScale
   onboarding: OnboardingState
@@ -275,6 +293,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   blockOpacity: 0.9,
   focusMode: false,
   enableSaturday: false,
+  visibleScheduleDays: WEEKDAY_KEYS,
   googleCalendarConnected: false,
   gradeScale: { min: 1, max: 7, passing: 4 },
   onboarding: { currentStep: 0, completed: false },
@@ -294,7 +313,7 @@ export interface AppData {
   settings: AppSettings
   semesters: Semester[]
   activeSemesterId?: string
-  version: 5
+  version: 6
 }
 
 export const EMPTY_APP_DATA: AppData = {
@@ -310,5 +329,5 @@ export const EMPTY_APP_DATA: AppData = {
   settings: DEFAULT_SETTINGS,
   semesters: [],
   activeSemesterId: undefined,
-  version: 5,
+  version: 6,
 }

@@ -3,7 +3,7 @@ import type { DayKey, DifficultyLevel, Language, ReminderPriority } from "./type
 // All UI strings. Keep keys flat and stable; values can have {placeholders}.
 export const TRANSLATIONS = {
   es: {
-    "app.title": "Horarily Note",
+    "app.title": "Horarily",
     "app.tagline": "Tus datos se guardan en este dispositivo. Puedes exportarlos desde Preferencias.",
     "app.loading": "Cargando tu horario…",
     "app.welcome.title": "Organiza tu semana en pocos pasos",
@@ -280,7 +280,7 @@ export const TRANSLATIONS = {
     "install.banner.dismiss": "Ahora no",
   },
   en: {
-    "app.title": "Horarily Note",
+    "app.title": "Horarily",
     "app.tagline": "Your data is stored on this device. You can export it from Settings.",
     "app.loading": "Loading your schedule…",
     "app.welcome.title": "Organize your week in a few steps",

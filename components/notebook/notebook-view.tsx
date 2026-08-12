@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
 import type { SubjectNote } from "@/lib/types"
+import { getLucideIcon } from "@/lib/icons"
 
 type SaveStatus = "idle" | "saving" | "saved" | "error"
 type Draft = Pick<SubjectNote, "id" | "semesterId" | "subjectId" | "title" | "unit" | "content" | "createdAt" | "updatedAt">
@@ -112,11 +113,12 @@ export function NotebookView({ store, onAddSubject }: { store: ScheduleStore; on
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {data.subjects.map((subject) => {
+            const SubjectIcon = getLucideIcon(subject.icon)
             const notes = data.subjectNotes.filter((note) => note.subjectId === subject.id)
             const latest = notes.sort((a, b) => b.updatedAt - a.updatedAt)[0]
             return (
               <Card key={subject.id} style={{ borderTopColor: subject.color, borderTopWidth: 4 }}>
-                <CardHeader><CardTitle className="text-lg">{subject.icon ?? "📘"} {subject.name}</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex items-center gap-2 text-lg">{SubjectIcon ? <SubjectIcon className="size-5" style={{ color: subject.color }} aria-hidden /> : <BookOpen className="size-5" style={{ color: subject.color }} aria-hidden />}<span>{subject.name}</span></CardTitle></CardHeader>
                 <CardContent className="space-y-3">
                   <p className="text-sm text-muted-foreground">{notes.length} {notes.length === 1 ? "apunte" : "apuntes"}</p>
                   <p className="text-xs text-muted-foreground">{latest ? `Actualizado ${new Date(latest.updatedAt).toLocaleDateString("es-CL")}` : "Sin apuntes todavía"}</p>

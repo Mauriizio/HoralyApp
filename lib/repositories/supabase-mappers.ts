@@ -85,6 +85,7 @@ export function subjectNoteToSupabaseRow(note: AppData["subjectNotes"][number], 
     title: note.title,
     unit: note.unit ?? null,
     content: note.content,
+    document: note.document ?? null,
     created_at: iso(note.createdAt),
     updated_at: iso(note.updatedAt),
   }
@@ -150,11 +151,11 @@ export function supabaseRowsToAppData(rows: Partial<SupabaseDataset>): AppData {
     reminders: (rows.reminders ?? []).map((r) => ({ id: str(r.id), semesterId: optStr(r.semester_id), subjectId: optStr(r.subject_id), studyBlockId: optStr(r.study_block_id), title: str(r.title), description: optStr(r.description), priority: str(r.priority, "media") as ReminderPriority, triggers: Array.isArray(r.triggers) ? r.triggers as AppData["reminders"][number]["triggers"] : [], targetDateTime: str(r.target_date_time), createdAt: ms(r.created_at), notifiedTriggerIndexes: Array.isArray(r.notified_trigger_indexes) ? r.notified_trigger_indexes.filter((n): n is number => typeof n === "number") : [] })),
     assessmentGroups: (rows.assessment_groups ?? []).map((g) => ({ id: str(g.id), semesterId: str(g.semester_id), subjectId: str(g.subject_id), name: str(g.name), kind: str(g.kind, "continuous") as AppData["assessmentGroups"][number]["kind"], courseWeight: Number(g.course_weight) || 0, position: Number(g.position) || 0, createdAt: ms(g.created_at) })),
     grades: (rows.grades ?? []).map((g) => ({ id: str(g.id), semesterId: optStr(g.semester_id), subjectId: str(g.subject_id), groupId: optStr(g.group_id), title: str(g.title), score: g.score === null || g.score === undefined ? null : Number(g.score), weight: Number(g.weight) || 0, weightWithinGroup: Number(g.weight) || 0, date: str(g.grade_date), status: str(g.status, g.score === null ? "planned" : "graded") as AppData["grades"][number]["status"], notes: optStr(g.notes), createdAt: ms(g.created_at) })),
-    subjectNotes: (rows.subject_notes ?? []).map((note) => ({ id: str(note.id), semesterId: str(note.semester_id), subjectId: str(note.subject_id), title: str(note.title), unit: optStr(note.unit), content: str(note.content), createdAt: ms(note.created_at), updatedAt: ms(note.updated_at) })),
+    subjectNotes: (rows.subject_notes ?? []).map((note) => ({ id: str(note.id), semesterId: str(note.semester_id), subjectId: str(note.subject_id), title: str(note.title), unit: optStr(note.unit), content: str(note.content), ...(note.document && typeof note.document === "object" ? { document: note.document as AppData["subjectNotes"][number]["document"] } : {}), createdAt: ms(note.created_at), updatedAt: ms(note.updated_at) })),
     modules,
     settings,
     profile: { displayName: str(profileRow?.display_name), avatar: optStr(profileRow?.avatar_url), institution: optStr(profileRow?.institution), career: optStr(profileRow?.career), timezone: optStr(profileRow?.timezone), onboardingCompletedAt: optStr(profileRow?.onboarding_completed_at) },
-    version: 5 as const,
+    version: 6 as const,
   }
   return restored.grades.reduce((current, grade, index) => {
     const ensured = ensureGradeAssessmentGroup(current, grade)
