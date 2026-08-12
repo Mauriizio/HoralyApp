@@ -1,16 +1,16 @@
 begin;
 select plan(41);
-select has_column('public', 'subject_notes', 'document');
-select has_table('public', 'subject_note_attachments');
-select has_index('public', 'subject_note_attachments', 'subject_note_attachments_note_idx');
-select has_policy('public', 'subject_note_attachments', 'subject_note_attachments_select_own');
-select has_policy('public', 'subject_note_attachments', 'subject_note_attachments_insert_own');
-select has_policy('public', 'subject_note_attachments', 'subject_note_attachments_update_own');
-select has_policy('public', 'subject_note_attachments', 'subject_note_attachments_delete_own');
-select has_policy('storage', 'objects', 'subject_note_files_select_own');
-select has_policy('storage', 'objects', 'subject_note_files_insert_own');
-select has_policy('storage', 'objects', 'subject_note_files_update_own');
-select has_policy('storage', 'objects', 'subject_note_files_delete_own');
+select results_eq($$select count(*)::int from information_schema.columns where table_schema='public' and table_name='subject_notes' and column_name='document'$$, array[1], 'subject_notes.document existe');
+select results_eq($$select count(*)::int from information_schema.tables where table_schema='public' and table_name='subject_note_attachments'$$, array[1], 'tabla attachments existe');
+select results_eq($$select count(*)::int from pg_indexes where schemaname='public' and tablename='subject_note_attachments' and indexname='subject_note_attachments_note_idx'$$, array[1], 'índice note existe');
+select results_eq($$select count(*)::int from pg_policies where schemaname='public' and tablename='subject_note_attachments' and policyname='subject_note_attachments_select_own'$$, array[1], 'policy metadata SELECT existe');
+select results_eq($$select count(*)::int from pg_policies where schemaname='public' and tablename='subject_note_attachments' and policyname='subject_note_attachments_insert_own'$$, array[1], 'policy metadata INSERT existe');
+select results_eq($$select count(*)::int from pg_policies where schemaname='public' and tablename='subject_note_attachments' and policyname='subject_note_attachments_update_own'$$, array[1], 'policy metadata UPDATE existe');
+select results_eq($$select count(*)::int from pg_policies where schemaname='public' and tablename='subject_note_attachments' and policyname='subject_note_attachments_delete_own'$$, array[1], 'policy metadata DELETE existe');
+select results_eq($$select count(*)::int from pg_policies where schemaname='storage' and tablename='objects' and policyname='subject_note_files_select_own'$$, array[1], 'policy Storage SELECT existe');
+select results_eq($$select count(*)::int from pg_policies where schemaname='storage' and tablename='objects' and policyname='subject_note_files_insert_own'$$, array[1], 'policy Storage INSERT existe');
+select results_eq($$select count(*)::int from pg_policies where schemaname='storage' and tablename='objects' and policyname='subject_note_files_update_own'$$, array[1], 'policy Storage UPDATE existe');
+select results_eq($$select count(*)::int from pg_policies where schemaname='storage' and tablename='objects' and policyname='subject_note_files_delete_own'$$, array[1], 'policy Storage DELETE existe');
 select results_eq($$select public from storage.buckets where id = 'subject-note-files'$$, array[false], 'bucket privado');
 select results_eq($$select relrowsecurity from pg_class where oid = 'public.subject_note_attachments'::regclass$$, array[true], 'RLS activo en metadata');
 select results_eq($$select relrowsecurity from pg_class where oid = 'storage.objects'::regclass$$, array[true], 'RLS activo en Storage');
@@ -18,7 +18,6 @@ select results_eq($$select count(*)::int from pg_policies where schemaname='stor
 
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000a1','na@example.test'), ('00000000-0000-0000-0000-0000000000b2','nb@example.test') on conflict do nothing;
 select set_config('request.jwt.claim.role','authenticated',true); select set_config('role','authenticated',true); select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a1',true);
-insert into public.profiles(id,user_id,display_name) values ('00000000-0000-0000-0000-0000000000a1','00000000-0000-0000-0000-0000000000a1','A') on conflict do nothing;
 insert into public.semesters(id,user_id,name,status) values ('note-sem-a','00000000-0000-0000-0000-0000000000a1','A','active');
 insert into public.subjects(id,user_id,semester_id,name,color,difficulty) values ('note-sub-a','00000000-0000-0000-0000-0000000000a1','note-sem-a','A','#000',3);
 insert into public.subject_notes(id,user_id,semester_id,subject_id,title,content) values ('note-a','00000000-0000-0000-0000-0000000000a1','note-sem-a','note-sub-a','A','A');

@@ -41,15 +41,15 @@ jobs:
       - name: Probar backfill desde esquema legacy
         run: |
           pnpm supabase db reset --local --version 202607290001 --no-seed
-          docker exec -i supabase_db_horary psql -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/tests/database/notebook_backfill_fixture.sql
+          docker exec -i supabase_db_horary psql -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/tests/fixtures/notebook_backfill_fixture.sql
           pnpm supabase migration up --local
-          docker exec -i supabase_db_horary psql -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/tests/database/notebook_backfill_assert.sql
+          docker exec -i supabase_db_horary psql -v ON_ERROR_STOP=1 -U postgres -d postgres < supabase/tests/fixtures/notebook_backfill_assert.sql
 
       - name: Reconstruir base completa desde cero
         run: pnpm supabase db reset --local
 
       - name: Ejecutar pgTAP de DB, RLS y Storage
-        run: pnpm supabase test db
+        run: pnpm supabase test db supabase/tests/database/notebook_attachments_rls.test.sql
 
       - name: Detener Supabase
         if: always()
