@@ -17,10 +17,10 @@ select results_eq($$select relrowsecurity from pg_class where oid = 'storage.obj
 select results_eq($$select count(*)::int from pg_policies where schemaname='storage' and tablename='objects' and policyname like 'subject_note_files_%' and roles <> array['authenticated']::name[]$$, array[0], 'políticas del bucket solo authenticated');
 
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000a1','na@example.test'), ('00000000-0000-0000-0000-0000000000b2','nb@example.test') on conflict do nothing;
-select set_config('request.jwt.claim.role','authenticated',true); select set_config('role','authenticated',true); select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a1',true);
 insert into public.semesters(id,user_id,name,status) values ('note-sem-a','00000000-0000-0000-0000-0000000000a1','A','active');
 insert into public.subjects(id,user_id,semester_id,name,color,difficulty) values ('note-sub-a','00000000-0000-0000-0000-0000000000a1','note-sem-a','A','#000',3);
 insert into public.subject_notes(id,user_id,semester_id,subject_id,title,content) values ('note-a','00000000-0000-0000-0000-0000000000a1','note-sem-a','note-sub-a','A','A');
+select set_config('request.jwt.claim.role','authenticated',true); select set_config('role','authenticated',true); select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a1',true);
 select lives_ok($$insert into public.subject_note_attachments(id,user_id,semester_id,subject_id,note_id,kind,storage_path,filename,mime_type,size_bytes) values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','00000000-0000-0000-0000-0000000000a1','note-sem-a','note-sub-a','note-a','image','00000000-0000-0000-0000-0000000000a1/n','a.jpg','image/jpeg',10)$$,'A inserta A');
 select results_eq($$select count(*)::int from public.subject_note_attachments$$,array[1],'A lee A');
 select lives_ok($$update public.subject_note_attachments set filename='b.jpg' where id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'$$,'A actualiza A');
