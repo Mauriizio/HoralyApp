@@ -36,10 +36,10 @@ select lives_ok($$delete from public.subject_note_attachments where id='aaaaaaaa
 select throws_ok($$insert into public.subject_note_attachments(id,user_id,semester_id,subject_id,note_id,kind,storage_path,filename,mime_type,size_bytes) values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','00000000-0000-0000-0000-0000000000a1','note-sem-a','note-sub-a','note-a','pdf','x','x.pdf','application/pdf',1)$$,null,null,'B no inserta como A');
 select results_eq($$select count(*)::int from storage.objects where bucket_id='subject-note-files'$$,array[0],'B no lee carpeta A');
 select lives_ok($$update storage.objects set metadata='{"attacker":true}' where bucket_id='subject-note-files' and name like '00000000-0000-0000-0000-0000000000a1/%'$$,'UPDATE Storage B no rompe');
-select lives_ok($$delete from storage.objects where bucket_id='subject-note-files' and name like '00000000-0000-0000-0000-0000000000a1/%'$$,'DELETE Storage B no rompe');
+select throws_ok($$delete from storage.objects where bucket_id='subject-note-files' and name like '00000000-0000-0000-0000-0000000000a1/%'$$,null,null,'SQL directo no puede eludir Storage API');
 
 select set_config('request.jwt.claim.role','anon',true); select set_config('role','anon',true); select set_config('request.jwt.claim.sub','',true);
-select results_eq($$select count(*)::int from public.subject_note_attachments$$,array[0],'anon no lee metadata');
+select throws_ok($$select count(*)::int from public.subject_note_attachments$$,null,null,'anon no tiene grant metadata');
 select results_eq($$select count(*)::int from storage.objects where bucket_id='subject-note-files'$$,array[0],'anon no lee Storage');
 select throws_ok($$insert into public.subject_note_attachments(id,user_id,semester_id,subject_id,note_id,kind,storage_path,filename,mime_type,size_bytes) values ('cccccccc-cccc-cccc-cccc-cccccccccccc','00000000-0000-0000-0000-0000000000a1','note-sem-a','note-sub-a','note-a','pdf','x','x.pdf','application/pdf',1)$$,null,null,'anon no inserta');
 select throws_ok($$insert into storage.objects(bucket_id,name,owner,metadata) values ('subject-note-files','00000000-0000-0000-0000-0000000000a1/anon.pdf',null,'{}')$$,null,null,'anon no escribe Storage');
@@ -51,6 +51,6 @@ select results_eq($$select metadata from storage.objects where bucket_id='subjec
 select lives_ok($$delete from public.subject_note_attachments where id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'$$,'A elimina metadata A');
 select results_eq($$select count(*)::int from public.subject_note_attachments$$,array[0],'metadata A eliminada');
 select lives_ok($$update storage.objects set metadata='{"owner":true}' where bucket_id='subject-note-files'$$,'A actualiza Storage A');
-select lives_ok($$delete from storage.objects where bucket_id='subject-note-files'$$,'A elimina Storage A');
-select results_eq($$select count(*)::int from storage.objects where bucket_id='subject-note-files'$$,array[0],'Storage A eliminado');
+select throws_ok($$delete from storage.objects where bucket_id='subject-note-files'$$,null,null,'incluso A debe borrar mediante Storage API');
+select results_eq($$select count(*)::int from storage.objects where bucket_id='subject-note-files'$$,array[1],'objeto permanece ante DELETE SQL directo');
 select * from finish(); rollback;

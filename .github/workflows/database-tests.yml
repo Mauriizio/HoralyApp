@@ -51,6 +51,12 @@ jobs:
       - name: Ejecutar pgTAP de DB, RLS y Storage
         run: pnpm supabase test db supabase/tests/database/notebook_attachments_rls.test.sql
 
+      - name: Probar Storage API con identidades A/B
+        run: |
+          eval "$(pnpm supabase status -o env)"
+          export API_URL ANON_KEY
+          node scripts/verify-local-note-storage.mjs
+
       - name: Detener Supabase
         if: always()
         run: pnpm supabase stop --no-backup
