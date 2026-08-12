@@ -147,7 +147,9 @@ export function NotebookView({ store, onAddSubject }: { store: ScheduleStore; on
   const exportPdf = async (all: boolean, share: boolean) => {
     const subject = data.subjects.find((item) => item.id === subjectId); if (!subject) return
     const notes = all ? data.subjectNotes.filter((note) => note.subjectId === subject.id) : draft ? [{ ...draft, document: draft.document ?? legacyTextToDocument(draft.id || "draft", draft.content) }] : []
-    const pdf = await renderNotebookPdf({ subject, notes, attachments: data.subjectNoteAttachments })
+    const relevantAttachments = data.subjectNoteAttachments.filter((item) => notes.some((note) => note.id === item.noteId)); const assets = new Map<string, Blob>()
+    for (const item of relevantAttachments.filter((attachment) => attachment.kind !== "pdf")) { const blob = await attachmentBlob(item); if (blob) assets.set(item.id, blob) }
+    const pdf = await renderNotebookPdf({ subject, notes, attachments: relevantAttachments, assets })
     if (share) { if (await shareNotebookPdf({ ...pdf, subjectName: subject.name }) === "download") setError("El PDF se descargó. Adjunta el archivo en la aplicación que prefieras."); return }
     const url = URL.createObjectURL(new Blob([pdf.bytes], { type: "application/pdf" })); const anchor = document.createElement("a"); anchor.href = url; anchor.download = pdf.filename; anchor.click(); URL.revokeObjectURL(url)
   }
