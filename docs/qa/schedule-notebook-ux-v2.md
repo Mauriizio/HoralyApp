@@ -10,4 +10,20 @@ Verificado visualmente: mascota y Horarily; cuatro días sin viernes; ocho módu
 
 `notebook-pro-v2-export.pdf` fue renderizado con PyMuPDF: 1 página con heading, lista, imagen, dibujo, PDF privado listado y footer Horarily.
 
-Limitación: Docker Desktop no está disponible; `supabase db reset` y `supabase test db` no conectaron. Las pruebas pgTAP quedan versionadas pero no se presentan como ejecutadas. No hay credenciales A/B disponibles para QA manual real.
+El gate reproducible `Database Security` se ejecutó en GitHub Actions sobre
+`ubuntu-latest` para el commit `9a239e199b0ee29e78f2c4315eb72ab71fcd3461`:
+
+- run `31609118111`: PASS;
+- upgrade legacy y backfill `content` → `NoteDocumentV1`: PASS;
+- `supabase db reset` desde cero: PASS;
+- pgTAP de attachments/RLS: 41/41 PASS;
+- Storage API con identidades locales A/B: A CRUD propio, B sin acceso a A y
+  anónimo sin lectura, PASS;
+- cleanup `supabase stop --no-backup`: PASS.
+
+La migración aditiva `202608120001_notebook_rich_content_attachments.sql` se
+aplicó después de ese gate al proyecto documentado `iexqkxqdkpryuhxeiaeg`.
+`supabase migration list` confirmó local = remote y la inspección remota mostró
+`public.subject_note_attachments`; `db lint` de `public,storage` no reportó
+errores. No había credenciales QA A/B remotas, por lo que el aislamiento
+conductual se comprobó con dos usuarios reales del Auth local aislado en CI.
