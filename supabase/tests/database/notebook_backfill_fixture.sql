@@ -1,13 +1,6 @@
 insert into auth.users (id, email)
 values ('00000000-0000-0000-0000-0000000000c3', 'legacy-note@example.test');
 
-insert into public.profiles (id, user_id, display_name)
-values (
-  '00000000-0000-0000-0000-0000000000c3',
-  '00000000-0000-0000-0000-0000000000c3',
-  'Legacy note owner'
-);
-
 insert into public.semesters (id, user_id, name, status)
 values (
   'legacy-semester',
