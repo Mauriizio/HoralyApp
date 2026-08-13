@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react"
 import type { NoteBlock, NoteDocumentV1, NoteTextRun } from "@/lib/types"
 import { insertText, type ActiveTextStyle, type TextSelection } from "@/domain/notebook/editor"
+import type { DrawingDraft } from "@/domain/notebook/drawing-draft"
 
 const FONT_CLASSES: Record<NonNullable<NoteTextRun["font"]>, string> = {
   sans: "font-sans", serif: "font-serif", mono: "font-mono", rounded: "font-sans tracking-wide", clean: "font-sans",
@@ -43,12 +44,14 @@ function StyledRuns({ runs }: { runs: NoteTextRun[] }) {
   ))
 }
 
-export function StructuredNoteEditor({ document, activeStyle, onChange, onSelection, renderMedia }: {
+export function StructuredNoteEditor({ document, activeStyle, onChange, onSelection, renderMedia, drawingDraft, renderDrawingDraft }: {
   document: NoteDocumentV1
   activeStyle: ActiveTextStyle
   onChange: (document: NoteDocumentV1) => void
   onSelection: (selection: TextSelection) => void
   renderMedia: (block: Extract<NoteBlock, { attachmentId: string }>) => React.ReactNode
+  drawingDraft?: DrawingDraft | null
+  renderDrawingDraft?: (draft: DrawingDraft) => React.ReactNode
 }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const pendingCaret = useRef<{ blockId: string; offset: number } | null>(null)
@@ -96,15 +99,20 @@ export function StructuredNoteEditor({ document, activeStyle, onChange, onSelect
   return (
     <div ref={rootRef} aria-label="Contenido" className="min-h-[42vh] space-y-3 rounded-md border bg-background p-4" data-testid="structured-note-editor">
       {document.blocks.map((block) => {
-        if (block.type === "image" || block.type === "drawing" || block.type === "attachmentReference") return <div key={block.id}>{renderMedia(block)}</div>
+        let content: React.ReactNode
+        if (block.type === "image" || block.type === "drawing" || block.type === "attachmentReference") content = <div>{renderMedia(block)}</div>
+        else {
         const common = { contentEditable: true, suppressContentEditableWarning: true, "data-block-id": block.id, onPaste: (event: React.ClipboardEvent<HTMLElement>) => { const offsets = selectionOffsets(event.currentTarget); if (!offsets) return; event.preventDefault(); const value = event.clipboardData.getData("text/plain"); pendingCaret.current = { blockId: block.id, offset: offsets.start + value.length }; onChange(insertText(document, { blockId: block.id, ...offsets }, value, activeStyle)) }, onMouseUp: (event: React.MouseEvent<HTMLElement>) => rememberSelection(block.id, event.currentTarget), onKeyUp: (event: React.KeyboardEvent<HTMLElement>) => rememberSelection(block.id, event.currentTarget), onFocus: (event: React.FocusEvent<HTMLElement>) => rememberSelection(block.id, event.currentTarget), className: "min-h-7 whitespace-pre-wrap rounded px-1 outline-none focus:ring-2 focus:ring-ring" }
-        if (block.type === "heading") return <h2 key={block.id} {...common} className={`${common.className} text-xl font-semibold`}><StyledRuns runs={block.content} /></h2>
+        if (block.type === "heading") content = <h2 {...common} className={`${common.className} text-xl font-semibold`}><StyledRuns runs={block.content} /></h2>
         if (block.type === "bulletList" || block.type === "numberedList") {
           const Tag = block.type === "bulletList" ? "ul" : "ol"
-          return <Tag key={block.id} className={block.type === "bulletList" ? "list-disc pl-6" : "list-decimal pl-6"}>{block.items.map((item, index) => <li key={index} {...common}><StyledRuns runs={item} /></li>)}</Tag>
+          content = <Tag className={block.type === "bulletList" ? "list-disc pl-6" : "list-decimal pl-6"}>{block.items.map((item, index) => <li key={index} {...common}><StyledRuns runs={item} /></li>)}</Tag>
+        } else if (block.type !== "heading") {
+          const runs = blockRuns(block)
+          content = <p {...common}><StyledRuns runs={runs} />{runs.every((run) => !run.text) ? <br /> : null}</p>
         }
-        const runs = blockRuns(block)
-        return <p key={block.id} {...common}><StyledRuns runs={runs} />{runs.every((run) => !run.text) ? <br /> : null}</p>
+        }
+        return <div key={block.id}>{content}{drawingDraft?.afterBlockId === block.id && renderDrawingDraft ? <div data-testid="drawing-draft-block">{renderDrawingDraft(drawingDraft)}</div> : null}</div>
       })}
     </div>
   )
