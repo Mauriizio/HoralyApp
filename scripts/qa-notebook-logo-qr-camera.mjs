@@ -7,7 +7,7 @@ const pages = await fetch(`${endpoint}/json`).then((response) => response.json()
 const page = pages.find((item) => item.type === "page"); if (!page) throw new Error("No browser page target")
 const socket = new WebSocket(page.webSocketDebuggerUrl); await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject })
 let id = 0; const pending = new Map()
-socket.onmessage = (event) => { const message = JSON.parse(event.data); if (!Number.isInteger(message.id)) return; pending.get(message.id)?.(message.result); pending.delete(message.id) }
+socket.onmessage = (event) => { const message = JSON.parse(event.data); if (!Number.isInteger(message.id)) return; const callback = pending.get(message.id); if (typeof callback === "function") callback(message.result); pending.delete(message.id) }
 const call = (method, params = {}) => new Promise((resolve) => { const callId = ++id; pending.set(callId, resolve); socket.send(JSON.stringify({ id: callId, method, params })) })
 const invoke = async (functionDeclaration, args = []) => { const target = await call("Runtime.evaluate", { expression: "globalThis" }); const result = await call("Runtime.callFunctionOn", { objectId: target.result.objectId, functionDeclaration, arguments: args.map((value) => ({ value })), awaitPromise: true, returnByValue: true }); if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text); return result.result?.value }
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
