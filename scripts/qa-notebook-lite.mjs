@@ -6,13 +6,14 @@ const pages = await fetch(`${endpoint}/json`).then((response) => response.json()
 const page = pages.find((item) => item.type === "page"); if (!page) throw new Error("No browser page target")
 const socket = new WebSocket(page.webSocketDebuggerUrl); await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject })
 let id = 0; const pending = new Map()
-socket.onmessage = (event) => { const message = JSON.parse(event.data); if (!Number.isInteger(message.id)) return; pending.get(message.id)?.(message.result); pending.delete(message.id) }
+socket.onmessage = (event) => { const message = JSON.parse(event.data); if (!Number.isInteger(message.id)) return; const callback = pending.get(message.id); if (typeof callback === "function") callback(message.result); pending.delete(message.id) }
 const call = (method, params = {}) => new Promise((resolve) => { const callId = ++id; pending.set(callId, resolve); socket.send(JSON.stringify({ id: callId, method, params })) })
 const evaluate = async (expression) => { const result = await call("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true }); if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text); return result.result?.value }
+const invoke = async (functionDeclaration, args = []) => { const target = await call("Runtime.evaluate", { expression: "globalThis" }); const result = await call("Runtime.callFunctionOn", { objectId: target.result.objectId, functionDeclaration, arguments: args.map((value) => ({ value })), awaitPromise: true, returnByValue: true }); if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text); return result.result?.value }
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const assert = (condition, message) => { if (!condition) throw new Error(message) }
-const clickText = async (text) => { assert(await evaluate(`(() => { const node=[...document.querySelectorAll('button')].find((item)=>item.textContent?.includes(${JSON.stringify(text)})); if(!node)return false; node.click(); return true })()`), `No se encontró ${text}`); await wait(300) }
-const clickLabel = async (label) => { assert(await evaluate(`(() => { const node=document.querySelector('button[aria-label=${JSON.stringify(label)}]'); if(!node)return false; node.click(); return true })()`), `No se encontró ${label}`); await wait(200) }
+const clickText = async (label) => { assert(await invoke("function(label) { const node=[...document.querySelectorAll('button')].find((item)=>item.textContent?.includes(label)); if(!node)return false; node.click(); return true }", [label]), `No se encontró ${label}`); await wait(300) }
+const clickLabel = async (label) => { assert(await invoke("function(label) { const node=[...document.querySelectorAll('button[aria-label]')].find((item)=>item.getAttribute('aria-label')===label); if(!node)return false; node.click(); return true }", [label]), `No se encontró ${label}`); await wait(200) }
 
 const semesterId = "qa-lite-semester", subjectId = "qa-lite-subject", noteId = "qa-lite-note"
 const tutorialProgress = Object.fromEntries(["basic-tour","schedule-tour","grades-tour","reminders-tour","tools-tour","preferences-tour","assistant-tour","analytics-tour","notebook-tour","advanced-mode-tour"].map((key) => [key, { version: 2, status: "completed", currentStep: 99 }]))
@@ -20,7 +21,7 @@ const data = { subjects: [{ id: subjectId, semesterId, name: "ELECTROTECNIA II",
 
 await call("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false })
 await call("Page.navigate", { url: baseUrl }); await wait(1200)
-await evaluate(`localStorage.setItem('horario-escolar:v1', ${JSON.stringify(JSON.stringify(data))})`)
+await invoke("function(value) { localStorage.setItem('horario-escolar:v1', value) }", [JSON.stringify(data)])
 await call("Page.navigate", { url: `${baseUrl}/?tab=cuaderno` }); await wait(1800); await clickText("Abrir cuaderno"); await clickText("Prueba real")
 assert(await evaluate(`document.body.innerText.includes('Archivos de una versión anterior') && document.body.innerText.includes('guia-antigua.pdf')`), "No se preservaron attachments legacy")
 const editor = `[data-testid="notebook-lite-editor"] [contenteditable="true"]`
@@ -32,7 +33,7 @@ const immediateEnter = await evaluate(`(() => { const root=document.querySelecto
 assert(immediateEnter.paragraphs >= 2 && immediateEnter.caretInside, `Enter/caret no fue inmediato: ${JSON.stringify(immediateEnter)}`)
 await call("Input.insertText", { text: "Segunda línea" }); await call("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter" }); await call("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter" }); await call("Input.insertText", { text: "Tercera línea ñáé" }); await wait(300)
 
-const selectText = async (needle) => assert(await evaluate(`(() => { const root=document.querySelector('${editor}'); const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT); let node; while(node=walker.nextNode()){const at=node.textContent.indexOf(${JSON.stringify(needle)});if(at>=0){const range=document.createRange();range.setStart(node,at);range.setEnd(node,at+${needle.length});const selection=getSelection();selection.removeAllRanges();selection.addRange(range);return true}}return false})()`), `No seleccionó ${needle}`)
+const selectText = async (needle) => assert(await invoke("function(needle) { const root=document.querySelector('[data-testid=\"notebook-lite-editor\"] [contenteditable=\"true\"]'); const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT); let node; while(node=walker.nextNode()){const at=node.textContent.indexOf(needle);if(at>=0){const range=document.createRange();range.setStart(node,at);range.setEnd(node,at+needle.length);const selection=getSelection();selection.removeAllRanges();selection.addRange(range);return true}}return false }", [needle]), `No seleccionó ${needle}`)
 await selectText("Primera línea"); await clickLabel("Negrita")
 assert(await evaluate(`(() => { const root=document.querySelector('${editor}'); return [...root.querySelectorAll('strong,b,.font-bold')].some((node)=>node.textContent==='Primera línea') })()`), "Bold no aplicó exactamente")
 await selectText("Primera línea"); await clickLabel("Negrita")
