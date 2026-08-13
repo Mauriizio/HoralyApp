@@ -991,6 +991,15 @@ La prioridad es:
 > **producto útil + datos seguros + cálculos correctos + arquitectura mantenible + avance rápido sin bucles**
 
 Cada cambio debe dejar HoralyApp más estable, no solamente más grande.
+
+---
+
+## 27. Cuaderno Lite estable (2026-08-13)
+
+Cuaderno limita su editor a párrafos y B/I/U mediante Lexical. Las fotos nuevas
+son blobs locales de IndexedDB referenciados por `localAssetId`; no se suben a
+Supabase. El texto plano sigue siendo compatible/buscable, los adjuntos cloud
+históricos permanecen descargables y no se introducen migraciones.
 # Actualización Fase B (2026-07-29)
 
 Cuaderno usa `SubjectNote`/`subject_notes`; la calculadora científica es un
