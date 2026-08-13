@@ -316,6 +316,22 @@ export function useScheduleStore() {
     setData(nextData)
   }, [authenticated, dataOwnerUserId, persistCloud])
 
+  const commitSubjectNoteAttachment = useCallback((attachment: AppData["subjectNoteAttachments"][number]) => {
+    const latest = dataRef.current
+    const nextData = { ...latest, subjectNoteAttachments: latest.subjectNoteAttachments.some((item) => item.id === attachment.id) ? latest.subjectNoteAttachments.map((item) => item.id === attachment.id ? attachment : item) : [...latest.subjectNoteAttachments, attachment] }
+    dataRef.current = nextData
+    setData(nextData)
+    if (authenticated && dataOwnerUserId) saveCloudCache(dataOwnerUserId, nextData); else saveData(nextData)
+  }, [authenticated, dataOwnerUserId])
+
+  const forgetSubjectNoteAttachment = useCallback((id: string) => {
+    const latest = dataRef.current
+    const nextData = { ...latest, subjectNoteAttachments: latest.subjectNoteAttachments.filter((item) => item.id !== id) }
+    dataRef.current = nextData
+    setData(nextData)
+    if (authenticated && dataOwnerUserId) saveCloudCache(dataOwnerUserId, nextData); else saveData(nextData)
+  }, [authenticated, dataOwnerUserId])
+
   // --- Schedule blocks ---
   const upsertBlock = useCallback((block: ScheduleBlock, options: { replaceConflicts?: boolean } = {}) => {
     const semesterId = block.semesterId ?? requireActiveSemesterId(data.activeSemesterId, "bloques horarios")
@@ -667,6 +683,8 @@ export function useScheduleStore() {
     deleteSubject,
     saveSubjectNoteConfirmed,
     deleteSubjectNoteConfirmed,
+    commitSubjectNoteAttachment,
+    forgetSubjectNoteAttachment,
     upsertBlock,
     moveBlock,
     deleteBlock,
