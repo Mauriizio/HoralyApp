@@ -150,6 +150,7 @@ export type NoteBlock =
   | { id: string; type: "paragraph" | "heading"; content: NoteTextRun[]; level?: 1 | 2 }
   | { id: string; type: "bulletList" | "numberedList"; items: NoteTextRun[][] }
   | { id: string; type: "image" | "drawing"; attachmentId: string; alt: string }
+  | { id: string; type: "localImage"; localAssetId: string; alt: string; width?: number; height?: number }
   | { id: string; type: "attachmentReference"; attachmentId: string; filename: string }
 export interface NoteDocumentV1 { version: 1; blocks: NoteBlock[] }
 export interface SubjectNoteAttachment { id: string; semesterId: string; subjectId: string; noteId: string; kind: "image" | "pdf" | "drawing"; filename: string; mimeType: "image/jpeg" | "image/png" | "image/webp" | "application/pdf"; sizeBytes: number; storagePath?: string; createdAt: number }

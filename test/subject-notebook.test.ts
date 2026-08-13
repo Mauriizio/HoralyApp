@@ -52,7 +52,7 @@ test("UI de Cuaderno usa documento estructurado, autosave y barrera de identidad
   const store = await readFile("hooks/use-schedule-store.ts", "utf8")
   assert.match(ui, /Cuaderno de estudio/)
   assert.match(ui, /window\.setTimeout/)
-  assert.match(ui, /StructuredNoteEditor/)
+  assert.match(ui, /NotebookLiteEditor/)
   assert.doesNotMatch(ui, /<Textarea/)
   assert.match(ui, /expectedAuthGeneration/)
   assert.doesNotMatch(ui, /dangerouslySetInnerHTML/)

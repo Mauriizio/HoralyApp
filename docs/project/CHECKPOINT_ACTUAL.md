@@ -173,3 +173,11 @@ Organizar correctamente:
 - Database Security run `31609118111`: backfill PASS, reset PASS, pgTAP 41/41
   PASS y Storage API A/B/anon PASS.
 - Suite de aplicación: 257/257 PASS.
+
+## Estabilización Cuaderno Lite — 2026-08-13
+
+- Lexical sustituye el editor `contentEditable` manual.
+- La experiencia queda acotada a párrafos, B/I/U y fotos inline locales.
+- Nuevas fotos usan IndexedDB también con sesión autenticada; no hay cambios DB.
+- Dibujo, nuevos PDFs adjuntos, fuentes, headings y listas se retiran de la UI.
+- Adjuntos cloud existentes permanecen descargables en modo de solo lectura.
