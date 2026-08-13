@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Plus, Trash2, Pencil, GripVertical, Bell, StickyNote } from "lucide-react"
+import { Plus, Trash2, Pencil, GripVertical, Bell, StickyNote, BookOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -424,7 +424,7 @@ function BlockPill({
   onDelete: () => void
   onOpenReminders?: () => void
 }) {
-  const IconComp = getLucideIcon(subject.icon)
+  const IconComp = getLucideIcon(subject.icon) ?? BookOpen
   return (
     <div
       data-tour="schedule-existing-block"
@@ -443,9 +443,7 @@ function BlockPill({
     >
       <div className="flex items-start justify-between gap-1">
         <div className="flex items-center gap-1.5 min-w-0">
-          {IconComp ? (
-            <IconComp className="h-3.5 w-3.5 shrink-0" style={{ color: subject.color }} />
-          ) : null}
+          <IconComp className="h-3.5 w-3.5 shrink-0" style={{ color: subject.color }} aria-hidden />
           <span className="font-semibold truncate">{subject.name}</span>
         </div>
         <GripVertical className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition" />

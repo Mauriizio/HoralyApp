@@ -47,11 +47,13 @@ test("migración SQL crea RLS CRUD, FKs e índices focalizados", async () => {
   assert.match(sql, /revoke all on public\.subject_notes from anon/)
 })
 
-test("UI de Cuaderno usa textarea, autosave con debounce y barrera de identidad", async () => {
+test("UI de Cuaderno usa documento estructurado, autosave y barrera de identidad", async () => {
   const ui = await readFile("components/notebook/notebook-view.tsx", "utf8")
   const store = await readFile("hooks/use-schedule-store.ts", "utf8")
   assert.match(ui, /Cuaderno de estudio/)
   assert.match(ui, /window\.setTimeout/)
+  assert.match(ui, /StructuredNoteEditor/)
+  assert.doesNotMatch(ui, /<Textarea/)
   assert.match(ui, /expectedAuthGeneration/)
   assert.doesNotMatch(ui, /dangerouslySetInnerHTML/)
   assert.match(store, /subjectNote\.saveConfirmed/)
