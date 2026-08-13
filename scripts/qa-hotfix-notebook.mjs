@@ -9,13 +9,14 @@ const socket = new WebSocket(page.webSocketDebuggerUrl)
 await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject })
 let id = 0
 const pending = new Map()
-socket.onmessage = (event) => { const message = JSON.parse(event.data); pending.get(message.id)?.(message.result); pending.delete(message.id) }
+socket.onmessage = (event) => { const message = JSON.parse(event.data); if (!Number.isInteger(message.id)) return; const callback = pending.get(message.id); if (typeof callback === "function") callback(message.result); pending.delete(message.id) }
 const call = (method, params = {}) => new Promise((resolve) => { const callId = ++id; pending.set(callId, resolve); socket.send(JSON.stringify({ id: callId, method, params })) })
 const evaluate = async (expression) => { const result = await call("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true }); if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text); return result.result?.value }
+const invoke = async (functionDeclaration, args = []) => { const globalResult = await call("Runtime.evaluate", { expression: "globalThis" }); const result = await call("Runtime.callFunctionOn", { objectId: globalResult.result.objectId, functionDeclaration, arguments: args.map((value) => ({ value })), awaitPromise: true, returnByValue: true }); if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text); return result.result?.value }
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const assert = (condition, message) => { if (!condition) throw new Error(message) }
-const clickText = async (text) => { const result = await evaluate(`(() => { const node = [...document.querySelectorAll('button')].find((item) => item.textContent?.includes(${JSON.stringify(text)})); if (!node) return false; node.click(); return true })()`); assert(result, `No se encontró botón ${text}`); await wait(500) }
-const clickLabel = async (label) => { const result = await evaluate(`(() => { const node=document.querySelector('button[aria-label=${JSON.stringify(label)}]'); if(!node)return false; node.click(); return true })()`); assert(result, `No se encontró control ${label}`); await wait(500) }
+const clickText = async (text) => { const result = await invoke("function(text) { const node = [...document.querySelectorAll('button')].find((item) => item.textContent?.includes(text)); if (!node) return false; node.click(); return true }", [text]); assert(result, `No se encontró botón ${text}`); await wait(500) }
+const clickLabel = async (label) => { const result = await invoke("function(label) { const node=[...document.querySelectorAll('button[aria-label]')].find((item)=>item.getAttribute('aria-label')===label); if(!node)return false; node.click(); return true }", [label]); assert(result, `No se encontró control ${label}`); await wait(500) }
 
 const semesterId = "qa-semester", subjectId = "qa-subject", noteId = "qa-note"
 const tutorialProgress = Object.fromEntries(["basic-tour","schedule-tour","grades-tour","reminders-tour","tools-tour","preferences-tour","assistant-tour","analytics-tour","notebook-tour","advanced-mode-tour"].map((key) => [key, { version: 2, status: "completed", currentStep: 99 }]))
@@ -23,7 +24,7 @@ const data = { subjects: [{ id: subjectId, semesterId, name: "SISTEMAS ELECTRONE
 
 await call("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false })
 await call("Page.navigate", { url: baseUrl }); await wait(1200)
-await evaluate(`localStorage.setItem("horario-escolar:v1", ${JSON.stringify(JSON.stringify(data))})`)
+await invoke("function(key, value) { localStorage.setItem(key, value) }", ["horario-escolar:v1", JSON.stringify(data)])
 await call("Page.navigate", { url: `${baseUrl}/?tab=cuaderno` }); await wait(1800)
 await clickText("Abrir cuaderno"); await clickText("QA Rich")
 assert(await evaluate(`document.body.innerText.includes('Archivos sin insertar') && document.body.innerText.includes('legacy-orphan.pdf')`), "No se ofreció recuperación del attachment huérfano")
@@ -31,7 +32,7 @@ await clickText("Insertar en nota")
 assert(await evaluate(`document.querySelector('[data-testid="structured-note-editor"]')?.textContent.includes('legacy-orphan.pdf')`), "No se recuperó el attachment huérfano")
 
 const selectText = async (needle) => {
-  const result = await evaluate(`(() => { const root = document.querySelector('[data-block-id="p"]'); if (!root) return false; const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let offset = 0, node; while ((node = walker.nextNode())) { const index = node.textContent.indexOf(${JSON.stringify(needle)}); if (index >= 0) { const range = document.createRange(); range.setStart(node,index); range.setEnd(node,index+${needle.length}); const selection=getSelection(); selection.removeAllRanges(); selection.addRange(range); root.dispatchEvent(new MouseEvent('mouseup',{bubbles:true})); return true } offset += node.textContent.length } return false })()`)
+  const result = await invoke("function(needle) { const root = document.querySelector('[data-block-id=\"p\"]'); if (!root) return false; const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let node; while ((node = walker.nextNode())) { const index = node.textContent.indexOf(needle); if (index >= 0) { const range = document.createRange(); range.setStart(node,index); range.setEnd(node,index+needle.length); const selection=getSelection(); selection.removeAllRanges(); selection.addRange(range); root.dispatchEvent(new MouseEvent('mouseup',{bubbles:true})); return true } } return false }", [needle])
   assert(result, `No se pudo seleccionar ${needle}`)
 }
 await selectText("NEGRITA"); await clickLabel("Negrita")
