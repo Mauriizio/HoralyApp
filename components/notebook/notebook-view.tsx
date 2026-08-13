@@ -8,10 +8,11 @@ import { Input } from "@/components/ui/input"
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
 import type { NoteBlock, NoteTextMark, NoteTextRun, SubjectNote, SubjectNoteAttachment } from "@/lib/types"
 import { getLucideIcon } from "@/lib/icons"
-import { DrawingCanvas } from "./drawing-canvas"
+import { InlineDrawingBlock } from "./inline-drawing-block"
 import { documentPlainText, legacyTextToDocument, noteDocument } from "@/domain/notebook/document"
 import { applyBlockType, applyFont, insertAttachmentBlock, referencedAttachmentIds, removeAttachmentBlock, toggleMark, type ActiveTextStyle, type TextSelection } from "@/domain/notebook/editor"
 import { StructuredNoteEditor } from "./structured-note-editor"
+import { completeDrawingDraft, drawingDraftInsertion, type DrawingDraft } from "@/domain/notebook/drawing-draft"
 import { validateNoteFile } from "@/domain/notebook/attachments"
 import { notebookBlobRepository } from "@/lib/notebook-blob-repository"
 import { renderNotebookPdf, shareNotebookPdf } from "@/domain/notebook/pdf"
@@ -58,7 +59,7 @@ export function NotebookView({ store, onAddSubject }: { store: ScheduleStore; on
   const [status, setStatus] = useState<SaveStatus>("idle")
   const [error, setError] = useState("")
   const saveSequence = useRef(0)
-  const [drawingOpen, setDrawingOpen] = useState(false)
+  const [drawingDraft, setDrawingDraft] = useState<DrawingDraft | null>(null)
   const [selection, setSelection] = useState<TextSelection | null>(null)
   const [activeStyle, setActiveStyle] = useState<ActiveTextStyle>({})
   const [mediaStatus, setMediaStatus] = useState("")
@@ -133,7 +134,7 @@ export function NotebookView({ store, onAddSubject }: { store: ScheduleStore; on
     else changeDocument(applyFont(draft.document, selection, font))
   }
 
-  const addGuestFile = async (source: File | Blob, forcedKind?: "drawing") => {
+  const persistFile = async (source: File | Blob, forcedKind?: "drawing") => {
     if (!draft) return
     setMediaStatus(forcedKind ? "Guardando dibujo…" : "Subiendo…")
     const saved = draft.id ? draft : await save(draft); if (!saved) return
@@ -150,13 +151,34 @@ export function NotebookView({ store, onAddSubject }: { store: ScheduleStore; on
       attachment = { id, semesterId: saved.semesterId, subjectId: saved.subjectId, noteId: saved.id, kind: forcedKind ?? (file.type === "application/pdf" ? "pdf" as const : "image" as const), filename: file.name, mimeType: file.type as "image/jpeg" | "image/png" | "image/webp" | "application/pdf", sizeBytes: file.size, storagePath, createdAt: Date.now() }
     }
     store.commitSubjectNoteAttachment(attachment)
+    return { saved, attachment }
+  }
+
+  const addGuestFile = async (source: File | Blob) => {
+    const persisted = await persistFile(source); if (!persisted) return
+    const { saved, attachment } = persisted
     setMediaStatus("Insertando…")
     const baseDocument = saved.document ?? legacyTextToDocument(saved.id, saved.content)
     const document = insertAttachmentBlock(baseDocument, selection, attachment)
     const updated = await save({ ...saved, document, content: documentPlainText(document) })
     if (!updated) throw new Error("No se pudo insertar el archivo en la nota.")
-    setDraft(updated); setSelectedId(saved.id); setSelection({ blockId: `${attachment.id}-block`, start: 0, end: 0 }); setMediaStatus(forcedKind ? "Dibujo insertado" : "Guardado")
+    setDraft(updated); setSelectedId(saved.id); setSelection({ blockId: `${attachment.id}-block`, start: 0, end: 0 }); setMediaStatus("Guardado")
     return attachment
+  }
+
+  const startDrawing = () => {
+    if (!draft?.document || drawingDraft) return
+    setDrawingDraft(drawingDraftInsertion(draft.document, selection))
+  }
+  const completeDrawing = async (blob: Blob) => {
+    if (!draft?.document || !drawingDraft) throw new Error("El bloque de dibujo ya no está disponible.")
+    const activeDraft = drawingDraft, activeDocument = draft.document
+    const persisted = await persistFile(blob, "drawing")
+    if (!persisted) throw new Error("No se pudo guardar el archivo del dibujo.")
+    const document = completeDrawingDraft(activeDocument, activeDraft, persisted.attachment)
+    const updated = await save({ ...persisted.saved, document, content: documentPlainText(document) })
+    if (!updated || !updated.document?.blocks.some((block) => block.id === activeDraft.id && block.type === "drawing" && block.attachmentId === persisted.attachment.id)) throw new Error("No se pudo confirmar el dibujo en el apunte.")
+    setDraft(updated); setDrawingDraft(null); setSelection({ blockId: activeDraft.id, start: 0, end: 0 }); setMediaStatus("Dibujo guardado")
   }
 
   const attachmentBlob = async (item: (typeof data.subjectNoteAttachments)[number]) => {
@@ -274,11 +296,10 @@ export function NotebookView({ store, onAddSubject }: { store: ScheduleStore; on
               <select aria-label="Fuente" value={activeStyle.font ?? "sans"} onChange={(event) => changeFont(event.target.value as NonNullable<NoteTextRun["font"]>)} className="rounded border bg-background px-2 text-sm"><option value="sans">Sans</option><option value="serif">Serif</option><option value="mono">Mono</option><option value="rounded">Rounded</option><option value="clean">Clean</option></select>
               <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded px-3 text-sm"><ImagePlus className="size-4" />Foto<input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => { const file = event.target.files?.[0]; if (file) void addGuestFile(file).catch((reason) => { setError(reason instanceof Error ? reason.message : "No se pudo insertar la imagen."); setStatus("error"); setMediaStatus("Error al insertar") }) }} /></label>
               <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded px-3 text-sm"><Paperclip className="size-4" />PDF<input className="sr-only" type="file" accept="application/pdf" onChange={(event) => { const file = event.target.files?.[0]; if (file) void addGuestFile(file).catch((reason) => { setError(reason instanceof Error ? reason.message : "No se pudo insertar el PDF."); setStatus("error"); setMediaStatus("Error al insertar") }) }} /></label>
-              <Button variant="ghost" onClick={() => setDrawingOpen(true)}><Pencil className="mr-2 size-4" />Dibujar</Button>
+              <Button variant="ghost" disabled={Boolean(drawingDraft)} onClick={startDrawing}><Pencil className="mr-2 size-4" />Dibujar</Button>
             </div>
-            <StructuredNoteEditor document={draft.document ?? legacyTextToDocument(draft.id || "draft", draft.content)} activeStyle={activeStyle} onChange={changeDocument} onSelection={setSelection} renderMedia={(block) => <AttachmentBlockView block={block} attachment={data.subjectNoteAttachments.find((item) => item.id === block.attachmentId)} loadBlob={attachmentBlob} onOpen={openAttachment} onRemove={(item) => void removeAttachment(item)} />} />
+            <StructuredNoteEditor document={draft.document ?? legacyTextToDocument(draft.id || "draft", draft.content)} activeStyle={activeStyle} onChange={changeDocument} onSelection={setSelection} renderMedia={(block) => <AttachmentBlockView block={block} attachment={data.subjectNoteAttachments.find((item) => item.id === block.attachmentId)} loadBlob={attachmentBlob} onOpen={openAttachment} onRemove={(item) => void removeAttachment(item)} />} drawingDraft={drawingDraft} renderDrawingDraft={(drawing) => <InlineDrawingBlock blockId={drawing.id} onComplete={completeDrawing} onCancel={() => setDrawingDraft(null)} />} />
             {(() => { const document = draft.document ?? legacyTextToDocument(draft.id || "draft", draft.content); const referenced = referencedAttachmentIds(document); const orphans = data.subjectNoteAttachments.filter((item) => item.noteId === draft.id && !referenced.has(item.id)); return orphans.length ? <section className="space-y-2 rounded-lg border border-dashed p-3"><h3 className="font-medium">Archivos sin insertar</h3>{orphans.map((item) => <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 text-sm"><span>{item.filename}</span><span className="flex gap-1"><Button size="sm" onClick={() => { const next = insertAttachmentBlock(document, selection, item); void save({ ...draft, document: next, content: documentPlainText(next) }) }}>Insertar en nota</Button><Button variant="outline" size="sm" onClick={() => void openAttachment(item, true)}>Descargar</Button><Button variant="ghost" size="sm" onClick={() => void removeAttachment(item)}>Eliminar</Button></span></div>)}</section> : null })()}
-            {drawingOpen ? <DrawingCanvas open onOpenChange={setDrawingOpen} onInsert={async (blob) => { await addGuestFile(blob, "drawing"); setDrawingOpen(false) }} /> : null}
             {mediaStatus ? <p role="status" className="text-sm text-muted-foreground">{mediaStatus}</p> : null}
             <div className="sticky bottom-16 flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-background/95 p-2 backdrop-blur md:bottom-2">
               <p role="status" className={`text-sm ${status === "error" ? "text-destructive" : "text-muted-foreground"}`}>{status === "saving" ? "Guardando…" : status === "saved" ? "Guardado" : status === "error" ? `Error al guardar: ${error}` : "Los cambios se guardan automáticamente"}</p>
