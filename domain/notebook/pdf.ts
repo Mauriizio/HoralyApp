@@ -1,13 +1,13 @@
 import type { NoteTextRun, Subject, SubjectNote, SubjectNoteAttachment } from "../../lib/types"
 import { noteDocument } from "./document"
-import { drawNotebookFooter, drawNotebookHeader, loadHorarilyLogomark } from "./pdf-branding"
+import { drawNotebookFooter, drawNotebookHeader, loadHorarilyLogo, loadHorarilyQr, NOTEBOOK_PDF_FOOTER_TOP } from "./pdf-branding"
 
 export function splitStyledRuns(runs: NoteTextRun[]) { return runs.flatMap((run) => run.text.split(/(\s+)/).filter(Boolean).map((text) => ({ ...run, text }))) }
 
 export async function renderNotebookPdf(input: { subject: Pick<Subject, "name">; notes: SubjectNote[]; attachments: SubjectNoteAttachment[]; assets?: Map<string, Blob>; semesterName?: string }): Promise<{ bytes: Uint8Array; filename: string }> {
   const { jsPDF } = await import("jspdf")
-  const doc = new jsPDF({ unit: "pt", format: "a4" }); const margin = 42, width = 511, contentBottom = 775
-  const logo = await loadHorarilyLogomark(); let y = 0
+  const doc = new jsPDF({ unit: "pt", format: "a4" }); const margin = 42, width = 511, contentBottom = NOTEBOOK_PDF_FOOTER_TOP - 14
+  const [logo, qr] = await Promise.all([loadHorarilyLogo(), loadHorarilyQr()]); let y = 0
   const pageHeader = (note?: SubjectNote) => { y = drawNotebookHeader(doc, { subjectName: input.subject.name, title: note?.title, unit: note?.unit ?? (note ? undefined : input.semesterName), date: note ? new Date(note.updatedAt).toLocaleDateString("es-CL") : undefined }, logo) }
   const nextPage = (note?: SubjectNote) => { doc.addPage(); pageHeader(note) }
   const ensure = (height: number, note?: SubjectNote) => { if (y + height > contentBottom) nextPage(note) }
@@ -53,7 +53,7 @@ export async function renderNotebookPdf(input: { subject: Pick<Subject, "name">;
     const legacy = input.attachments.filter((item) => item.noteId === note.id)
     if (legacy.length) { ensure(30 + legacy.length * 14, note); y += 8; doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("Archivos de una versión anterior", margin, y); y += 15; doc.setFont("helvetica", "normal"); for (const item of legacy) { doc.text(item.filename, margin, y); y += 14 } }
   }
-  const total = doc.getNumberOfPages(); for (let page = 1; page <= total; page += 1) { doc.setPage(page); drawNotebookFooter(doc, { subjectName: input.subject.name }, page, total) }
+  const total = doc.getNumberOfPages(); for (let page = 1; page <= total; page += 1) { doc.setPage(page); drawNotebookFooter(doc, { subjectName: input.subject.name, qrAsset: qr }, page, total) }
   return { bytes: new Uint8Array(doc.output("arraybuffer")), filename: `${input.notes.length === 1 ? "apunte" : "cuaderno"}-${input.subject.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/gi, "-")}.pdf` }
 }
 
