@@ -29,10 +29,25 @@ Para bugs confirmados:
 
 ## Regla de alcance
 - Una rama y una PR por tarea.
-- No hacer merge desde el entorno de agente.
 - No ejecutar `db push` ni modificar Supabase Dashboard salvo instrucción explícita.
 - No introducir secretos, service role en cliente, tokens, cookies ni credenciales.
 - No modificar migraciones aplicadas, RLS o políticas Storage sin autorización explícita.
+
+## Regla de merge autónomo
+El propietario mantiene autorización permanente para que el agente cierre y fusione por **squash merge** las PRs creadas para tareas solicitadas por él, sin pedir una confirmación adicional cada vez, únicamente cuando TODAS estas condiciones se cumplan:
+- La PR corresponde a la tarea solicitada y no contiene cambios fuera de alcance relevantes.
+- La PR está `mergeable` y sin conflictos.
+- Se ha sacado de Draft antes del merge.
+- Los tests/local gates requeridos para el alcance pasan, o cualquier limitación de entorno está cubierta por un gate remoto equivalente válido.
+- Los checks remotos del **HEAD exacto** están verdes: Calidad, Database Security cuando aplique, CodeQL y Vercel Preview.
+- Si hubo migración, `db push` solo puede haberse ejecutado con autorización explícita y la verificación local/remota debe estar alineada antes del merge.
+- No existe un P0/P1 conocido, fallo de seguridad, pérdida de datos, mezcla de identidades o regresión crítica pendiente.
+- El merge debe usar `expected_head_sha` exacto para evitar fusionar un HEAD que cambió después de los gates.
+- Método por defecto: `squash`.
+
+Si cualquiera de esas condiciones falla, NO fusionar: corregir, volver a ejecutar gates o detenerse reportando el bloqueo real.
+
+Tras un merge autorizado, esperar Vercel Production y verificar el commit desplegado/smoke final cuando el entorno permita hacerlo. Esta autorización permanente elimina la necesidad de pedir al propietario que haga clic manualmente en “Ready for review” o “Merge” para cada PR válida.
 
 ## Regla multicuenta
 - QA A/B manual debe usar incógnito o perfiles de navegador separados.
