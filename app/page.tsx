@@ -53,6 +53,7 @@ import { NotebookView } from "@/components/notebook/notebook-view"
 import { I18nProvider, useI18n } from "@/components/i18n-provider"
 import type { DayKey, Subject } from "@/lib/types"
 import { getHorarilyCompanionMessages, weightUrgentCompanionMessages } from "@/domain/horarily-companion"
+import { getHorarilyDailyMotivation } from "@/domain/horarily-motivation"
 import { AuthProvider, useAuth } from "@/lib/auth-context"
 import { GuestAuthActions } from "@/components/auth/guest-auth-actions"
 import { AppShell } from "@/components/app-shell/app-shell"
@@ -225,12 +226,12 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
   const subjectCount = data.subjects.length
   const blockCount = data.blocks.length
 
-  const companionMessages = useMemo(() => {
+  const academicMessages = useMemo(() => {
     const modules = new Map(data.modules.map((module) => [module.id, module]))
     return getHorarilyCompanionMessages({
       timezone: data.profile.timezone,
       reminders: data.reminders.map((reminder) => ({ ...reminder, subjectName: reminder.subjectId ? data.subjects.find((subject) => subject.id === reminder.subjectId)?.name : undefined })),
-      assessments: data.grades,
+      assessments: data.grades.map((assessment) => ({ ...assessment, subjectName: data.subjects.find((subject) => subject.id === assessment.subjectId)?.name })),
       subjects: data.subjects.map((subject) => ({ name: subject.name, requiresAttention: subject.difficulty >= 4 })),
       classes: data.blocks.flatMap((block) => {
         const subject = data.subjects.find((item) => item.id === block.subjectId)
@@ -239,8 +240,8 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
       }),
     }, now)
   }, [data, now])
-  const companion = companionMessages[0]
-  const rotatingCompanionMessages = useMemo(() => weightUrgentCompanionMessages(companionMessages), [companionMessages])
+  const companion = academicMessages[0]
+  const companionMessages = useMemo(() => weightUrgentCompanionMessages([...academicMessages, getHorarilyDailyMotivation(now)]), [academicMessages, now])
 
   const hasAnyData =
     data.subjects.length > 0 ||
@@ -324,7 +325,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         activeTab={tab}
         onNavigate={navigateTo}
         syncMessage={store.syncMessage}
-        ticker={<AcademicTicker messages={companionMessages} onNavigate={navigateTo} />}
+        ticker={<AcademicTicker messages={academicMessages} onNavigate={navigateTo} />}
         header={
         <header className="border-b border-border/80 bg-background/88 backdrop-blur-xl">
           <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-2 px-3 sm:gap-3 sm:px-5 lg:px-8">
@@ -411,7 +412,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         </header>
         }
       >
-          {!activeTutorial && <HorarilyCompanion messages={rotatingCompanionMessages} suspended={Boolean(activeTutorial)} onNavigate={navigateTo} />}
+          {!activeTutorial && <HorarilyCompanion messages={companionMessages} suspended={Boolean(activeTutorial)} onNavigate={navigateTo} />}
 
           {/* Advanced console */}
           {data.settings.advancedModeEnabled && <div className="mb-4">
