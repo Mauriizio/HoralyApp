@@ -104,6 +104,27 @@ export function InstallAppButton({
                 <span className="flex-1 leading-relaxed">{t("install.ios.step3")}</span>
               </li>
             </ol>
+          ) : platform === "android" ? (
+            <ol className="space-y-3 text-sm pt-2">
+              <li className="flex items-start gap-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-xs">
+                  1
+                </span>
+                <span className="flex-1 leading-relaxed">{t("install.android.step1")}</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-xs">
+                  2
+                </span>
+                <span className="flex-1 leading-relaxed">{t("install.android.step2")}</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-xs">
+                  3
+                </span>
+                <span className="flex-1 leading-relaxed">{t("install.android.step3")}</span>
+              </li>
+            </ol>
           ) : (
             <ol className="space-y-3 text-sm pt-2">
               <li className="flex items-start gap-3">

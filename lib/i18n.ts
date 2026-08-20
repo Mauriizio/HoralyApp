@@ -269,6 +269,10 @@ export const TRANSLATIONS = {
     "install.ios.step2": "Desplázate y elige",
     "install.ios.addToHome": "Añadir a inicio",
     "install.ios.step3": "Confirma con Añadir y la app aparecerá en tu pantalla de inicio.",
+    "install.android.step1": "Abre HORARILY en Chrome para Android.",
+    "install.android.step2":
+      "Toca el menú de tres puntos y elige Instalar aplicación o Agregar a la pantalla principal.",
+    "install.android.step3": "Confirma la instalación y HORARILY aparecerá entre tus aplicaciones.",
     "install.desktop.step1":
       "Abre el menú de tu navegador (los tres puntos en la esquina).",
     "install.desktop.step2":
@@ -529,6 +533,10 @@ export const TRANSLATIONS = {
     "install.ios.step2": "Scroll and choose",
     "install.ios.addToHome": "Add to Home Screen",
     "install.ios.step3": "Confirm with Add and the app will appear on your home screen.",
+    "install.android.step1": "Open HORARILY in Chrome for Android.",
+    "install.android.step2":
+      "Tap the three-dot menu and choose Install app or Add to Home screen.",
+    "install.android.step3": "Confirm the installation and HORARILY will appear with your apps.",
     "install.desktop.step1": "Open your browser menu (the three dots in the corner).",
     "install.desktop.step2": "Choose Install app or Add to Home Screen.",
     "install.desktop.step3": "Confirm and the app will open in its own window.",
