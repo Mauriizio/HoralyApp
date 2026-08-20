@@ -76,6 +76,7 @@ const reminderSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
   priority: z.enum(["baja", "media", "alta"]),
+  kind: z.enum(["general", "assessment", "assignment", "event"]).default("general"),
   triggers: z.array(reminderTriggerSchema),
   targetDateTime: z.string().min(1),
   createdAt: z.number().finite(),

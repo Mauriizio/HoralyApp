@@ -21,13 +21,15 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import type { Reminder, ReminderPriority, ReminderTrigger, Subject } from "@/lib/types"
+import type { Reminder, ReminderKind, ReminderPriority, ReminderTrigger, Subject } from "@/lib/types"
+import { browserTimezone, defaultLocalDateAndTime, isoToLocalDateAndTime, validateReminderDateTimes } from "@/domain/reminder-datetime"
 
 export interface ReminderFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   subjects: Subject[]
   initial?: Reminder
+  timezone?: string
   onSubmit: (values: Omit<Reminder, "id" | "createdAt" | "notifiedTriggerIndexes">) => void
 }
 
@@ -36,15 +38,19 @@ export function ReminderForm({
   onOpenChange,
   subjects,
   initial,
+  timezone,
   onSubmit,
 }: ReminderFormProps) {
   const [title, setTitle] = useState(initial?.title ?? "")
   const [description, setDescription] = useState(initial?.description ?? "")
   const [subjectId, setSubjectId] = useState<string>(initial?.subjectId ?? "_none")
+  const zone = timezone || browserTimezone()
+  const initialEvent = initial ? isoToLocalDateAndTime(initial.targetDateTime, zone) : defaultLocalDateAndTime(zone)
   const [priority, setPriority] = useState<ReminderPriority>(initial?.priority ?? "media")
-  const [targetDateTime, setTargetDateTime] = useState(
-    initial?.targetDateTime ?? defaultLocalDateTime(),
-  )
+  const [kind, setKind] = useState<ReminderKind>(initial?.kind ?? "general")
+  const [eventDate, setEventDate] = useState(initialEvent.date)
+  const [eventTime, setEventTime] = useState(initialEvent.time)
+  const [error, setError] = useState("")
 
   const initialHours = initial?.triggers.find((t) => t.kind === "hoursBefore") as
     | { kind: "hoursBefore"; hours: number }
@@ -58,26 +64,29 @@ export function ReminderForm({
   const [hoursBefore, setHoursBefore] = useState(initialHours?.hours ?? 2)
   const [dayBeforeEnabled, setDayBeforeEnabled] = useState(initialDay)
   const [customEnabled, setCustomEnabled] = useState(!!initialCustom)
-  const [customDatetime, setCustomDatetime] = useState(
-    initialCustom?.datetime ?? defaultLocalDateTime(),
-  )
+  const initialCustomLocal = initialCustom ? isoToLocalDateAndTime(initialCustom.datetime, zone) : initialEvent
+  const [customDate, setCustomDate] = useState(initialCustomLocal.date)
+  const [customTime, setCustomTime] = useState(initialCustomLocal.time)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) return
+    const parsed = validateReminderDateTimes({ eventDate, eventTime, ...(customEnabled ? { customDate, customTime } : {}), timezone: zone })
+    if (!parsed.ok) { setError(parsed.error); return }
 
     const triggers: ReminderTrigger[] = []
     if (hoursBeforeEnabled) triggers.push({ kind: "hoursBefore", hours: hoursBefore })
     if (dayBeforeEnabled) triggers.push({ kind: "dayBefore" })
-    if (customEnabled) triggers.push({ kind: "customDateTime", datetime: customDatetime })
+    if (customEnabled && parsed.customDateTime) triggers.push({ kind: "customDateTime", datetime: parsed.customDateTime })
 
     onSubmit({
       title: title.trim(),
       description: description.trim() || undefined,
       subjectId: subjectId === "_none" ? undefined : subjectId,
       priority,
+      kind,
       triggers,
-      targetDateTime,
+      targetDateTime: parsed.targetDateTime,
     })
     onOpenChange(false)
   }
@@ -104,7 +113,19 @@ export function ReminderForm({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="rem-kind">Tipo</Label>
+              <Select value={kind} onValueChange={(value) => setKind(value as ReminderKind)}>
+                <SelectTrigger id="rem-kind"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="general">General</SelectItem>
+                  <SelectItem value="assessment">Evaluación / examen</SelectItem>
+                  <SelectItem value="assignment">Entrega / trabajo</SelectItem>
+                  <SelectItem value="event">Evento</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="rem-subject">Materia (opcional)</Label>
               <Select value={subjectId} onValueChange={setSubjectId}>
@@ -140,21 +161,15 @@ export function ReminderForm({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="rem-date">Fecha y hora del evento</Label>
-            <Input
-              id="rem-date"
-              type="datetime-local"
-              value={targetDateTime.slice(0, 16)}
-              onChange={(e) => setTargetDateTime(new Date(e.target.value).toISOString())}
-              required
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2"><Label htmlFor="rem-date">Fecha del evento</Label><Input id="rem-date" type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} required /></div>
+            <div className="space-y-2"><Label htmlFor="rem-time">Hora</Label><Input id="rem-time" type="time" step={60} value={eventTime} onChange={(e) => setEventTime(e.target.value)} required /></div>
           </div>
 
           <div className="space-y-2">
             <Label>¿Cuándo avisarte?</Label>
             <div className="space-y-2 rounded-md border border-input p-3">
-              <label className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Checkbox
                   checked={hoursBeforeEnabled}
                   onCheckedChange={(v) => setHoursBeforeEnabled(!!v)}
@@ -170,34 +185,29 @@ export function ReminderForm({
                   disabled={!hoursBeforeEnabled}
                 />
                 <span className="text-sm">horas antes</span>
-              </label>
+              </div>
 
-              <label className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Checkbox
                   checked={dayBeforeEnabled}
                   onCheckedChange={(v) => setDayBeforeEnabled(!!v)}
                 />
                 <span className="text-sm">Avisar 1 día antes</span>
-              </label>
+              </div>
 
-              <label className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Checkbox
                   checked={customEnabled}
                   onCheckedChange={(v) => setCustomEnabled(!!v)}
                 />
                 <span className="text-sm">En una fecha personalizada</span>
-                <Input
-                  type="datetime-local"
-                  value={customDatetime.slice(0, 16)}
-                  onChange={(e) =>
-                    setCustomDatetime(new Date(e.target.value).toISOString())
-                  }
-                  className="h-8 flex-1"
-                  disabled={!customEnabled}
-                />
-              </label>
+                <Input aria-label="Fecha personalizada" type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)} className="h-8 min-w-36 flex-1" disabled={!customEnabled} required={customEnabled} />
+                <Input aria-label="Hora personalizada" type="time" step={60} value={customTime} onChange={(e) => setCustomTime(e.target.value)} className="h-8 w-28" disabled={!customEnabled} required={customEnabled} />
+              </div>
             </div>
           </div>
+
+          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
           <div className="space-y-2">
             <Label htmlFor="rem-desc">Descripción</Label>
@@ -220,11 +230,4 @@ export function ReminderForm({
       </DialogContent>
     </Dialog>
   )
-}
-
-function defaultLocalDateTime() {
-  const d = new Date()
-  d.setMinutes(0, 0, 0)
-  d.setHours(d.getHours() + 1)
-  return d.toISOString()
 }

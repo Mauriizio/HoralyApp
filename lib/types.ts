@@ -156,6 +156,7 @@ export interface NoteDocumentV1 { version: 1; blocks: NoteBlock[] }
 export interface SubjectNoteAttachment { id: string; semesterId: string; subjectId: string; noteId: string; kind: "image" | "pdf" | "drawing"; filename: string; mimeType: "image/jpeg" | "image/png" | "image/webp" | "application/pdf"; sizeBytes: number; storagePath?: string; createdAt: number }
 
 export type ReminderPriority = "baja" | "media" | "alta"
+export type ReminderKind = "general" | "assessment" | "assignment" | "event"
 
 export type ReminderTrigger =
   | { kind: "hoursBefore"; hours: number }
@@ -170,6 +171,7 @@ export interface Reminder {
   title: string
   description?: string
   priority: ReminderPriority
+  kind?: ReminderKind
   triggers: ReminderTrigger[]
   targetDateTime: string
   createdAt: number

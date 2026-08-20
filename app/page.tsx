@@ -45,13 +45,14 @@ import { MigrationModal } from "@/components/migration-modal"
 import { InstallAppButton } from "@/components/install-app-button"
 import { HorarilySpeakingCard } from "@/components/HorarilySpeakingCard"
 import { HorarilyCompanion } from "@/components/horarily/horarily-companion"
+import { AcademicTicker } from "@/components/academic/academic-ticker"
 import { AcademicDashboard } from "@/components/dashboard/academic-dashboard"
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow"
 import { PluginsView } from "@/components/tools/plugins-view"
 import { NotebookView } from "@/components/notebook/notebook-view"
 import { I18nProvider, useI18n } from "@/components/i18n-provider"
 import type { DayKey, Subject } from "@/lib/types"
-import { getHorarilyCompanionMessage } from "@/domain/horarily-companion"
+import { getHorarilyCompanionMessages, weightUrgentCompanionMessages } from "@/domain/horarily-companion"
 import { AuthProvider, useAuth } from "@/lib/auth-context"
 import { GuestAuthActions } from "@/components/auth/guest-auth-actions"
 import { AppShell } from "@/components/app-shell/app-shell"
@@ -104,6 +105,12 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
   const [reminderOpen, setReminderOpen] = useState(false)
   const [studyOpen, setStudyOpen] = useState(false)
   const [gradeOpen, setGradeOpen] = useState(false)
+  const [now, setNow] = useState(() => new Date())
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   const todayKey = useMemo(() => DAY_INDEX_TO_KEY[new Date().getDay()], [])
   const focusDay =
@@ -218,19 +225,21 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
   const subjectCount = data.subjects.length
   const blockCount = data.blocks.length
 
-  const companion = useMemo(() => {
+  const companionMessages = useMemo(() => {
     const modules = new Map(data.modules.map((module) => [module.id, module]))
-    return getHorarilyCompanionMessage({
-      reminders: data.reminders,
+    return getHorarilyCompanionMessages({
+      reminders: data.reminders.map((reminder) => ({ ...reminder, subjectName: reminder.subjectId ? data.subjects.find((subject) => subject.id === reminder.subjectId)?.name : undefined })),
       assessments: data.grades,
       subjects: data.subjects.map((subject) => ({ name: subject.name, requiresAttention: subject.difficulty >= 4 })),
       classes: data.blocks.flatMap((block) => {
         const subject = data.subjects.find((item) => item.id === block.subjectId)
         const ordered = block.moduleIds.map((id) => modules.get(id)).filter((item): item is NonNullable<typeof item> => Boolean(item)).sort((a, b) => a.start.localeCompare(b.start))
-        return subject && ordered.length ? [{ subjectName: subject.name, day: block.day, start: ordered[0].start, end: ordered.at(-1)!.end }] : []
+        return subject && ordered.length ? [{ id: block.id, subjectName: subject.name, day: block.day, start: ordered[0].start, end: ordered.at(-1)!.end }] : []
       }),
-    }, new Date())
-  }, [data])
+    }, now)
+  }, [data, now])
+  const companion = companionMessages[0]
+  const rotatingCompanionMessages = useMemo(() => weightUrgentCompanionMessages(companionMessages), [companionMessages])
 
   const hasAnyData =
     data.subjects.length > 0 ||
@@ -314,6 +323,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         activeTab={tab}
         onNavigate={navigateTo}
         syncMessage={store.syncMessage}
+        ticker={<AcademicTicker messages={companionMessages} onNavigate={navigateTo} />}
         header={
         <header className="sticky top-0 z-30 border-b border-border/80 bg-background/88 backdrop-blur-xl">
           <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-2 px-3 sm:gap-3 sm:px-5 lg:px-8">
@@ -400,7 +410,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         </header>
         }
       >
-          {!activeTutorial && <HorarilyCompanion message={companion.message} action={companion.action} onNavigate={navigateTo} />}
+          {!activeTutorial && <HorarilyCompanion messages={rotatingCompanionMessages} suspended={Boolean(activeTutorial)} onNavigate={navigateTo} />}
 
           {/* Advanced console */}
           {data.settings.advancedModeEnabled && <div className="mb-4">
@@ -665,6 +675,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         open={reminderOpen}
         onOpenChange={setReminderOpen}
         subjects={data.subjects}
+        timezone={data.profile.timezone}
         onSubmit={(values) => addReminder(values)}
       />
       <StudyBlockForm

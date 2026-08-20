@@ -269,3 +269,16 @@ html[data-font="tech"] body {
     transition-duration: 0.01ms !important;
   }
 }
+@keyframes academic-ticker-scroll { to { transform: translateX(-50%); } }
+@keyframes horarily-message-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+.academic-ticker { height: 34px; overflow: hidden; width: 100%; }
+.academic-ticker-track { display: flex; width: max-content; animation: academic-ticker-scroll 36s linear infinite; }
+.academic-ticker:hover .academic-ticker-track, .academic-ticker:focus-within .academic-ticker-track { animation-play-state: paused; }
+.academic-ticker-static { display: none; }
+.horarily-message-in { animation: horarily-message-in 200ms ease-out; }
+@media (max-width: 640px) { .academic-ticker { height: 36px; } }
+@media (prefers-reduced-motion: reduce) {
+  .academic-ticker-track { display: none; animation: none; }
+  .academic-ticker-static { display: block; }
+  .horarily-message-in { animation: none; }
+}
