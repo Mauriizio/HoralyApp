@@ -93,7 +93,7 @@ export function ReminderForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{initial ? "Editar recordatorio" : "Nuevo recordatorio"}</DialogTitle>
           <DialogDescription>
@@ -113,11 +113,11 @@ export function ReminderForm({
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(8rem,0.45fr)]">
             <div className="space-y-2">
               <Label htmlFor="rem-kind">Tipo</Label>
               <Select value={kind} onValueChange={(value) => setKind(value as ReminderKind)}>
-                <SelectTrigger id="rem-kind"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="rem-kind" className="w-full min-w-0"><SelectValue className="truncate" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="general">General</SelectItem>
                   <SelectItem value="assessment">Evaluación / examen</SelectItem>
@@ -126,31 +126,26 @@ export function ReminderForm({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2 sm:col-span-2 sm:row-start-2">
               <Label htmlFor="rem-subject">Materia (opcional)</Label>
               <Select value={subjectId} onValueChange={setSubjectId}>
-                <SelectTrigger id="rem-subject">
-                  <SelectValue />
+                <SelectTrigger id="rem-subject" className="w-full min-w-0" title={subjects.find((subject) => subject.id === subjectId)?.name}>
+                  <SelectValue className="truncate" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_none">Sin materia</SelectItem>
-                  {subjects.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
+                  {subjects.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="space-y-2">
+            <div className="space-y-2 sm:col-start-2 sm:row-start-1">
               <Label htmlFor="rem-priority">Prioridad</Label>
               <Select
                 value={priority}
                 onValueChange={(v) => setPriority(v as ReminderPriority)}
               >
-                <SelectTrigger id="rem-priority">
-                  <SelectValue />
+                <SelectTrigger id="rem-priority" className="w-full min-w-0">
+                  <SelectValue className="truncate" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="baja">Baja</SelectItem>
@@ -195,14 +190,18 @@ export function ReminderForm({
                 <span className="text-sm">Avisar 1 día antes</span>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <Checkbox
-                  checked={customEnabled}
-                  onCheckedChange={(v) => setCustomEnabled(!!v)}
-                />
-                <span className="text-sm">En una fecha personalizada</span>
-                <Input aria-label="Fecha personalizada" type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)} className="h-8 min-w-36 flex-1" disabled={!customEnabled} required={customEnabled} />
-                <Input aria-label="Hora personalizada" type="time" step={60} value={customTime} onChange={(e) => setCustomTime(e.target.value)} className="h-8 w-28" disabled={!customEnabled} required={customEnabled} />
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={customEnabled}
+                    onCheckedChange={(v) => setCustomEnabled(!!v)}
+                  />
+                  <span className="text-sm">En una fecha personalizada</span>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_8rem]">
+                  <Input aria-label="Fecha personalizada" type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)} className="h-8 min-w-0 w-full" disabled={!customEnabled} required={customEnabled} />
+                  <Input aria-label="Hora personalizada" type="time" step={60} value={customTime} onChange={(e) => setCustomTime(e.target.value)} className="h-8 min-w-0 w-full" disabled={!customEnabled} required={customEnabled} />
+                </div>
               </div>
             </div>
           </div>

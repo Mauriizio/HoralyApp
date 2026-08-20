@@ -228,6 +228,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
   const companionMessages = useMemo(() => {
     const modules = new Map(data.modules.map((module) => [module.id, module]))
     return getHorarilyCompanionMessages({
+      timezone: data.profile.timezone,
       reminders: data.reminders.map((reminder) => ({ ...reminder, subjectName: reminder.subjectId ? data.subjects.find((subject) => subject.id === reminder.subjectId)?.name : undefined })),
       assessments: data.grades,
       subjects: data.subjects.map((subject) => ({ name: subject.name, requiresAttention: subject.difficulty >= 4 })),
@@ -325,7 +326,7 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
         syncMessage={store.syncMessage}
         ticker={<AcademicTicker messages={companionMessages} onNavigate={navigateTo} />}
         header={
-        <header className="sticky top-0 z-30 border-b border-border/80 bg-background/88 backdrop-blur-xl">
+        <header className="border-b border-border/80 bg-background/88 backdrop-blur-xl">
           <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-2 px-3 sm:gap-3 sm:px-5 lg:px-8">
             <div className="flex min-w-0 flex-1 items-center gap-2 font-semibold sm:flex-initial lg:hidden">
               <div className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-md bg-primary/10"><Image src="/logo/horarily_mascot_logo.svg" alt="" width={32} height={32} className="size-8 object-contain" /></div>

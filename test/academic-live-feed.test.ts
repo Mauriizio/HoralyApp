@@ -24,7 +24,7 @@ test("feed único ordena, humaniza, deduplica y asigna acciones", () => {
   assert.equal(messages[0].kind, "overdue")
   assert.equal(new Set(messages.map((item) => item.key)).size, messages.length)
   assert.equal(messages.filter((item) => item.key === "reminder:exam").length, 1)
-  assert.match(messages.find((item) => item.key === "reminder:exam")!.message, /Álgebra.*5 días/)
+  assert.match(messages.find((item) => item.key === "reminder:exam")!.message, /Prueba.*Álgebra.*24 de agosto.*14:00/)
   assert.equal(messages.find((item) => item.key === "reminder:work")!.action, "recordatorios")
   assert.ok(messages.every((item) => item.kind !== "attention"))
 })
@@ -33,7 +33,7 @@ test("una urgencia reaparece entre mensajes sin congelar el repertorio", () => {
   const urgent = { key: "u", kind: "overdue" as const, message: "Urgente", urgent: true }
   const next = { key: "n", kind: "reminder" as const, message: "Siguiente" }
   const third = { key: "t", kind: "event" as const, message: "Tercero" }
-  assert.deepEqual(weightUrgentCompanionMessages([urgent, next, third]).map((item) => item.key), ["u", "n", "u", "t", "u"])
+  assert.deepEqual(weightUrgentCompanionMessages([urgent, next, third]).map((item) => item.key), ["u", "n", "t", "u"])
 })
 
 test("ReminderKind persiste en cloud y legacy vuelve como general", () => {
