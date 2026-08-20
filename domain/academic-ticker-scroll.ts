@@ -1,5 +1,5 @@
 /** Constant physical speed keeps the ticker readable regardless of content width. */
-export const ACADEMIC_TICKER_SPEED = 34
+export const ACADEMIC_TICKER_SPEED = 40
 export const ACADEMIC_TICKER_DRAG_THRESHOLD = 6
 
 export function advanceAcademicTicker(scrollLeft: number, deltaMs: number, loopWidth: number, speed = ACADEMIC_TICKER_SPEED) {

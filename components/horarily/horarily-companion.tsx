@@ -39,6 +39,7 @@ export function HorarilyCompanion({ messages, onNavigate, suspended = false }: {
   useEffect(() => { setIndex(0) }, [messages])
   useEffect(() => startCompanionRotation({
     count,
+    intervalMs: 5_000,
     isPaused: () => interacting || suspended,
     onAdvance: () => setIndex((value) => (value + 1) % count),
   }), [count, interacting, rotationEpoch, suspended])
@@ -70,7 +71,7 @@ export function HorarilyCompanion({ messages, onNavigate, suspended = false }: {
     <div data-testid="horarily-message-card" className="relative flex h-[132px] min-w-0 w-full max-w-xl flex-col rounded-xl border border-primary/20 bg-card/75 px-3 py-2 shadow-sm sm:h-[116px]" aria-label="Mensaje de Horarily">
       <span className="absolute -left-1.5 top-5 size-3 rotate-45 border-b border-l border-primary/20 bg-card" aria-hidden="true" />
       <div key={message?.key} className="horarily-message-in min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1" onScroll={pauseForReading} tabIndex={0}>
-        <p className="text-[11px] leading-4 text-foreground sm:text-xs sm:leading-5">{message?.message}</p>
+        <p className="text-[13px] leading-[19px] text-foreground sm:text-sm sm:leading-5">{message?.message}</p>
       </div>
       <div className="flex h-9 shrink-0 items-end gap-1 border-t border-border/50 pt-1">
         {message?.action ? <button type="button" onClick={() => onNavigate(message.action!)} className="mr-auto inline-flex min-h-7 items-center gap-1 text-[11px] font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">

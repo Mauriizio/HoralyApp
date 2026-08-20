@@ -23,8 +23,8 @@ test("feed único ordena, humaniza, deduplica y asigna acciones", () => {
 
   assert.equal(messages[0].kind, "overdue")
   assert.equal(new Set(messages.map((item) => item.key)).size, messages.length)
-  assert.equal(messages.filter((item) => item.key === "reminder:exam").length, 1)
-  assert.match(messages.find((item) => item.key === "reminder:exam")!.message, /Prueba.*Álgebra.*24 de agosto.*14:00/)
+  assert.equal(messages.filter((item) => item.key === "reminder-assessments:2026-08-24").length, 1)
+  assert.match(messages.find((item) => item.key === "reminder-assessments:2026-08-24")!.message, /5 días.*Prueba.*Álgebra.*14:00/)
   assert.equal(messages.find((item) => item.key === "reminder:work")!.action, "recordatorios")
   assert.ok(messages.every((item) => item.kind !== "attention"))
 })
@@ -51,8 +51,8 @@ test("horizontes excluyen eventos demasiado lejanos y ticker admite máximo ocho
       { id: "event-far", title: "Seminario", targetDateTime: "2026-08-23T14:00:00.000Z", kind: "event" },
     ], assessments: [], subjects: [], classes: [],
   }, now)
-  assert.ok(messages.some((item) => item.key === "reminder:assessment-near"))
-  assert.ok(!messages.some((item) => item.key === "reminder:assessment-far"))
+  assert.ok(messages.some((item) => item.key === "reminder-assessments:2026-09-02"))
+  assert.ok(!messages.some((item) => item.key === "reminder-assessments:2026-09-03"))
   assert.ok(!messages.some((item) => item.key === "reminder:event-far"))
   assert.ok(messages.length <= 8)
 })
