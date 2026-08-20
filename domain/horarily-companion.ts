@@ -21,6 +21,15 @@ export const LIVE_FEED_HORIZONS_MS: Record<ReminderKind, number> = {
 const DAYS: DayKey[] = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"]
 const MINUTE = 60_000
 
+export function formatClassCountdown(totalMinutes: number) {
+  const minutes = Math.max(1, Math.round(totalMinutes))
+  if (minutes < 60) return `${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  const remainingMinutes = minutes % 60
+  const hoursText = `${hours} ${hours === 1 ? "hora" : "horas"}`
+  return remainingMinutes === 0 ? hoursText : `${hoursText} y ${remainingMinutes} min`
+}
+
 function atTime(now: Date, value: string) {
   const match = /^(\d{2}):(\d{2})$/.exec(value)
   if (!match) return null
@@ -65,8 +74,7 @@ export function getHorarilyCompanionMessages(data: HorarilyCompanionData, now: D
   const current = classes.find(({start,end}) => start <= now && now < end)
   if (current) add({ key: `class:${current.item.id ?? `${today}:${current.item.subjectName}:${current.item.start}`}`, kind: "current-class", message: `Estás en ${current.item.subjectName} hasta las ${current.item.end}.`, action: "horario", rank: 2, time: current.start.getTime() })
   const next = classes.find(({start}) => start > now)
-  if (next) add({ key: `class:${next.item.id ?? `${today}:${next.item.subjectName}:${next.item.start}`}`, kind: "next-class", message: `${next.item.subjectName} comienza en ${Math.max(1, Math.round((next.start.getTime()-now.getTime())/MINUTE))} minutos.`, action: "horario", rank: 4, time: next.start.getTime() })
-  for (const subject of data.subjects.filter((x) => x.requiresAttention)) add({ key: `subject:${subject.id ?? subject.name}`, kind: "attention", message: `${subject.name} necesita un poco de atención.`, action: "materias", rank: 9, time: Number.MAX_SAFE_INTEGER })
+  if (next) add({ key: `class:${next.item.id ?? `${today}:${next.item.subjectName}:${next.item.start}`}`, kind: "next-class", message: `${next.item.subjectName} comienza en ${formatClassCountdown((next.start.getTime()-now.getTime())/MINUTE)}.`, action: "horario", rank: 4, time: next.start.getTime() })
   if (classes.length) add({ key: `summary:${now.toISOString().slice(0,10)}`, kind: "day-summary", message: `Hoy tienes ${classes.length} clases.`, action: "horario", rank: 10, time: Number.MAX_SAFE_INTEGER })
   ranked.sort((a,b) => a.rank-b.rank || a.time-b.time || a.key.localeCompare(b.key))
   const result = ranked.slice(0, 8).map(({rank,time,...item}) => item)

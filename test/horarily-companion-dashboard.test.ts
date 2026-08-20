@@ -19,7 +19,7 @@ test("Horarily respeta prioridades y fechas reales", () => {
     classes: [{ subjectName: "Álgebra", start: "10:20", end: "11:20", day: "martes" as const }],
   }
   assert.equal(getHorarilyCompanionMessage(data, now).kind, "overdue")
-  assert.match(getHorarilyCompanionMessage({ ...data, reminders: [] }, now).message, /Álgebra.*20 minutos/)
+  assert.match(getHorarilyCompanionMessage({ ...data, reminders: [] }, now).message, /Álgebra.*20 min/)
 })
 
 test("clase actual supera futura; recordatorio supera evaluación", () => {
