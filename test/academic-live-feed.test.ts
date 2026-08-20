@@ -26,13 +26,13 @@ test("feed único ordena, humaniza, deduplica y asigna acciones", () => {
   assert.equal(messages.filter((item) => item.key === "reminder:exam").length, 1)
   assert.match(messages.find((item) => item.key === "reminder:exam")!.message, /Álgebra.*5 días/)
   assert.equal(messages.find((item) => item.key === "reminder:work")!.action, "recordatorios")
-  assert.equal(messages.find((item) => item.kind === "attention")!.action, "materias")
+  assert.ok(messages.every((item) => item.kind !== "attention"))
 })
 
 test("una urgencia reaparece entre mensajes sin congelar el repertorio", () => {
   const urgent = { key: "u", kind: "overdue" as const, message: "Urgente", urgent: true }
   const next = { key: "n", kind: "reminder" as const, message: "Siguiente" }
-  const third = { key: "t", kind: "attention" as const, message: "Tercero" }
+  const third = { key: "t", kind: "event" as const, message: "Tercero" }
   assert.deepEqual(weightUrgentCompanionMessages([urgent, next, third]).map((item) => item.key), ["u", "n", "u", "t", "u"])
 })
 
