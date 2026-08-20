@@ -32,5 +32,6 @@ test("ticker y companion declaran interacción, reduced motion y accesibilidad e
   assert.match(companion, /onMouseEnter/)
   assert.match(companion, /onFocusCapture/)
   assert.match(css, /prefers-reduced-motion: reduce/)
-  assert.match(css, /animation-play-state: paused/)
+  assert.match(ticker, /requestAnimationFrame/)
+  assert.doesNotMatch(css, /@keyframes academic-ticker-scroll/)
 })
