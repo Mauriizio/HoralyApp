@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Bell, Plus, Trash2, Pencil, AlertTriangle } from "lucide-react"
+import { Bell, Plus, Trash2, Pencil, AlertTriangle, CalendarDays, ClipboardCheck, GraduationCap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -102,6 +102,7 @@ export function RemindersPanel({ store }: { store: ScheduleStore }) {
                           <div className="flex items-center gap-2">
                             <span className="font-semibold truncate">{r.title}</span>
                             <PriorityBadge priority={r.priority} />
+                            <KindBadge kind={r.kind ?? "general"} />
                             {subject && (
                               <span
                                 className="inline-flex items-center gap-1 text-[11px] rounded-full px-2 py-0.5"
@@ -173,6 +174,7 @@ export function RemindersPanel({ store }: { store: ScheduleStore }) {
         onOpenChange={setOpen}
         subjects={data.subjects}
         initial={editing}
+        timezone={data.profile.timezone}
         onSubmit={(values) => {
           if (editing) updateReminder(editing.id, values)
           else addReminder(values)
@@ -180,6 +182,16 @@ export function RemindersPanel({ store }: { store: ScheduleStore }) {
       />
     </div>
   )
+}
+
+function KindBadge({ kind }: { kind: NonNullable<Reminder["kind"]> }) {
+  if (kind === "general") return null
+  const config = {
+    assessment: { label: "Evaluación", Icon: GraduationCap },
+    assignment: { label: "Entrega", Icon: ClipboardCheck },
+    event: { label: "Evento", Icon: CalendarDays },
+  }[kind]
+  return <Badge variant="outline" className="gap-1 text-[10px] font-normal"><config.Icon className="size-3" />{config.label}</Badge>
 }
 
 function PriorityBadge({ priority }: { priority: Reminder["priority"] }) {
