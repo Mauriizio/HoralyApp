@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from "react"
 import type { HorarilyCompanionMessage } from "@/domain/horarily-companion"
 import {
+  ACADEMIC_TICKER_REDUCED_SPEED,
+  ACADEMIC_TICKER_SPEED,
   ACADEMIC_TICKER_TOUCH_RESUME_DELAY_MS,
-  advanceAcademicTicker,
+  advanceAcademicTickerWithRemainder,
   academicTickerDragOffset,
   calculateAcademicTickerSideCopies,
   hasAcademicTickerInteractionMoved,
@@ -32,6 +34,7 @@ export function AcademicTicker({ messages, onNavigate }: { messages: HorarilyCom
   const suppressClickUntil = useRef(0)
   const loopWidthRef = useRef(0)
   const centerOffsetRef = useRef(0)
+  const autoplayRemainder = useRef(0)
   const [sideCopies, setSideCopies] = useState(2)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
 
@@ -70,7 +73,8 @@ export function AcademicTicker({ messages, onNavigate }: { messages: HorarilyCom
   }, [items.length, sideCopies])
 
   useEffect(() => {
-    if (prefersReducedMotion || items.length === 0) return
+    if (items.length === 0) return
+    const tickerSpeed = prefersReducedMotion ? ACADEMIC_TICKER_REDUCED_SPEED : ACADEMIC_TICKER_SPEED
     let frame = 0
     let previous = performance.now()
     const tick = (timestamp: number) => {
@@ -81,9 +85,13 @@ export function AcademicTicker({ messages, onNavigate }: { messages: HorarilyCom
         touchMomentumPending.current = false
         const centeredPosition = recenterAcademicTicker(scroller.scrollLeft, loopWidth, sideCopies)
         const centerOffset = loopWidth * sideCopies
-        scroller.scrollLeft = centerOffset + advanceAcademicTicker(centeredPosition - centerOffset, Math.min(timestamp - previous, 100), loopWidth)
+        const movement = advanceAcademicTickerWithRemainder(centeredPosition - centerOffset, autoplayRemainder.current, Math.min(timestamp - previous, 100), loopWidth, tickerSpeed)
+        autoplayRemainder.current = movement.remainder
+        scroller.scrollLeft = centerOffset + movement.scrollLeft
         loopWidthRef.current = loopWidth
         centerOffsetRef.current = centerOffset
+      } else if (!mayAutoplay) {
+        autoplayRemainder.current = 0
       }
       previous = timestamp
       frame = requestAnimationFrame(tick)
