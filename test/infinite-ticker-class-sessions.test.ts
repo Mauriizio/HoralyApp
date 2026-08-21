@@ -45,7 +45,7 @@ test("cinco bloques consecutivos de dos materias forman dos sesiones", () => {
     { subjectId: "a", firstModuleIndex: 0, lastModuleIndex: 1 },
     { subjectId: "b", firstModuleIndex: 2, lastModuleIndex: 4 },
   ])
-  const messages = getHorarilyCompanionMessages({ timezone: "America/Santiago", reminders: [], assessments: [], subjects: [], classes: sessions }, new Date("2026-08-21T10:30:00-04:00"))
+  const messages = getHorarilyCompanionMessages({ timezone: "America/Santiago", reminders: [], assessments: [], subjects: [], classes: sessions }, new Date(2026, 7, 21, 10, 30))
   assert.equal(messages.find((message) => message.kind === "day-summary")?.message, "Hoy tienes 2 clases.")
 })
 
@@ -58,7 +58,7 @@ test("bloques multimódulo cuentan una vez y misma materia separada cuenta dos v
 
 test("current usa fin de sesión y next omite segmentos de la misma sesión", () => {
   const sessions = buildAcademicClassSessions({ modules, subjects, blocks: [block("a1", "a", ["m1"]), block("a2", "a", ["m2"]), block("b1", "b", ["m3"]), block("b2", "b", ["m4", "m5"])] })
-  const messages = getHorarilyCompanionMessages({ timezone: "America/Santiago", reminders: [], assessments: [], subjects: [], classes: sessions }, new Date("2026-08-21T08:30:00-04:00"))
+  const messages = getHorarilyCompanionMessages({ timezone: "America/Santiago", reminders: [], assessments: [], subjects: [], classes: sessions }, new Date(2026, 7, 21, 8, 30))
   assert.equal(messages.find((message) => message.kind === "current-class")?.message, "Estás en Álgebra hasta las 10:00.")
   assert.match(messages.find((message) => message.kind === "next-class")?.message ?? "", /^Física comienza/)
 })
