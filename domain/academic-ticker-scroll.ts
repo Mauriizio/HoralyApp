@@ -1,5 +1,6 @@
 /** Constant physical speed keeps the ticker readable regardless of content width. */
 export const ACADEMIC_TICKER_SPEED = 40
+export const ACADEMIC_TICKER_REDUCED_SPEED = 14
 export const ACADEMIC_TICKER_DRAG_THRESHOLD = 6
 export const ACADEMIC_TICKER_TOUCH_RESUME_DELAY_MS = 100
 
@@ -22,6 +23,12 @@ export function recenterAcademicTicker(scrollLeft: number, loopWidth: number, si
 export function advanceAcademicTicker(scrollLeft: number, deltaMs: number, loopWidth: number, speed = ACADEMIC_TICKER_SPEED) {
   if (loopWidth <= 0) return scrollLeft
   return positiveModulo(scrollLeft + speed * deltaMs / 1_000, loopWidth)
+}
+
+export function advanceAcademicTickerWithRemainder(scrollLeft: number, remainder: number, deltaMs: number, loopWidth: number, speed: number) {
+  const position = advanceAcademicTicker(scrollLeft + remainder, deltaMs, loopWidth, speed)
+  const wholePixels = Math.floor(position + 1e-9)
+  return { scrollLeft: wholePixels, remainder: Math.max(0, position - wholePixels) }
 }
 
 export function isAcademicTickerDrag(movement: number) {
