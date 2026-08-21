@@ -18,3 +18,10 @@ test("toda promesa entregada a respondWith tiene fallback que no rechaza", async
   assert.match(source, /safeFetch/)
   assert.doesNotMatch(source, /cached \|\| fetch\(req\)/)
 })
+
+test("chunks versionados de Next usan red primero para no congelar bundles PWA", async () => {
+  const source = await readFile("public/sw.js", "utf8")
+  assert.match(source, /function isNextStaticAsset/)
+  assert.match(source, /if \(isNextStaticAsset\(url\)\) \{\s*event\.respondWith\(networkFirstAndCache\(request\)\)/)
+  assert.ok(source.indexOf("if (isNextStaticAsset(url))") < source.lastIndexOf("caches.match(request)"))
+})
