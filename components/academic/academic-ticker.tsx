@@ -6,7 +6,10 @@ import {
   ACADEMIC_TICKER_TOUCH_RESUME_DELAY_MS,
   advanceAcademicTicker,
   academicTickerDragOffset,
+  calculateAcademicTickerSideCopies,
   hasAcademicTickerInteractionMoved,
+  positiveModulo,
+  recenterAcademicTicker,
   shouldManuallyDragAcademicTicker,
 } from "@/domain/academic-ticker-scroll"
 import type { AppTab } from "@/components/app-shell/navigation"
@@ -16,8 +19,6 @@ const LABELS: Record<HorarilyCompanionMessage["kind"], string> = {
   event: "EVENTO", overdue: "URGENTE", reminder: "PENDIENTE", "day-summary": "HOY",
   attention: "PENDIENTE", motivation: "HOY", empty: "HOY",
 }
-const CENTER_COPY_INDEX = 2
-
 export function AcademicTicker({ messages, onNavigate }: { messages: HorarilyCompanionMessage[]; onNavigate: (tab: AppTab) => void }) {
   const items = messages.filter((item) => item.kind !== "empty" && item.kind !== "motivation").slice(0, 8)
   const scrollerRef = useRef<HTMLDivElement>(null)
@@ -29,6 +30,9 @@ export function AcademicTicker({ messages, onNavigate }: { messages: HorarilyCom
   const touchMomentumPending = useRef(false)
   const resumeAutoplayAt = useRef(0)
   const suppressClickUntil = useRef(0)
+  const loopWidthRef = useRef(0)
+  const centerOffsetRef = useRef(0)
+  const [sideCopies, setSideCopies] = useState(2)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
 
   useEffect(() => {
@@ -37,6 +41,33 @@ export function AcademicTicker({ messages, onNavigate }: { messages: HorarilyCom
     update(); query.addEventListener("change", update)
     return () => query.removeEventListener("change", update)
   }, [])
+
+  useEffect(() => {
+    const scroller = scrollerRef.current
+    const canonicalLoop = originalRef.current
+    if (!scroller || !canonicalLoop || typeof ResizeObserver === "undefined") return
+    const updateBuffer = () => {
+      const loopWidth = canonicalLoop.scrollWidth
+      if (loopWidth <= 0) return
+      setSideCopies(calculateAcademicTickerSideCopies(scroller.clientWidth, loopWidth))
+    }
+    const observer = new ResizeObserver(updateBuffer)
+    observer.observe(scroller)
+    observer.observe(canonicalLoop)
+    updateBuffer()
+    return () => observer.disconnect()
+  }, [items.length, sideCopies])
+
+  useEffect(() => {
+    const scroller = scrollerRef.current
+    const loopWidth = originalRef.current?.scrollWidth ?? 0
+    if (!scroller || loopWidth <= 0 || isTouching.current || isMouseDragging.current) return
+    const relative = positiveModulo(scroller.scrollLeft - centerOffsetRef.current, loopWidthRef.current || loopWidth)
+    const centerOffset = loopWidth * sideCopies
+    scroller.scrollLeft = centerOffset + relative
+    loopWidthRef.current = loopWidth
+    centerOffsetRef.current = centerOffset
+  }, [items.length, sideCopies])
 
   useEffect(() => {
     if (prefersReducedMotion || items.length === 0) return
@@ -48,22 +79,18 @@ export function AcademicTicker({ messages, onNavigate }: { messages: HorarilyCom
       const mayAutoplay = !isTouching.current && !isMouseDragging.current && timestamp >= resumeAutoplayAt.current
       if (scroller && loopWidth > 0 && mayAutoplay) {
         touchMomentumPending.current = false
-        const centerOffset = loopWidth * CENTER_COPY_INDEX
-        scroller.scrollLeft = centerOffset + advanceAcademicTicker(scroller.scrollLeft - centerOffset, Math.min(timestamp - previous, 100), loopWidth)
+        const centeredPosition = recenterAcademicTicker(scroller.scrollLeft, loopWidth, sideCopies)
+        const centerOffset = loopWidth * sideCopies
+        scroller.scrollLeft = centerOffset + advanceAcademicTicker(centeredPosition - centerOffset, Math.min(timestamp - previous, 100), loopWidth)
+        loopWidthRef.current = loopWidth
+        centerOffsetRef.current = centerOffset
       }
       previous = timestamp
       frame = requestAnimationFrame(tick)
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [items.length, prefersReducedMotion])
-
-  useEffect(() => {
-    const scroller = scrollerRef.current
-    const width = originalRef.current?.scrollWidth ?? 0
-    const centerOffset = width * CENTER_COPY_INDEX
-    if (scroller && width > 0 && scroller.scrollLeft < centerOffset) scroller.scrollLeft = centerOffset
-  }, [items.length])
+  }, [items.length, prefersReducedMotion, sideCopies])
 
   if (!items.length) return null
 
@@ -83,7 +110,9 @@ export function AcademicTicker({ messages, onNavigate }: { messages: HorarilyCom
     touch.current.id = -1
     resumeAutoplayAt.current = performance.now() + ACADEMIC_TICKER_TOUCH_RESUME_DELAY_MS
   }
-  const content = (duplicate: boolean) => <div ref={duplicate ? undefined : originalRef} className="flex shrink-0 items-center" aria-hidden={duplicate || undefined}>
+  const content = (copyIndex: number) => {
+    const duplicate = copyIndex !== sideCopies
+    return <div key={`loop-${copyIndex}`} ref={duplicate ? undefined : originalRef} className="flex shrink-0 items-center" aria-hidden={duplicate || undefined}>
     {items.map((item) => <button
       key={`${duplicate ? "duplicate" : "original"}-${item.key}`}
       type="button"
@@ -96,7 +125,8 @@ export function AcademicTicker({ messages, onNavigate }: { messages: HorarilyCom
     >
       <span className="mr-1 font-semibold text-primary">{item.tickerLabel ?? LABELS[item.kind]} ·</span>{item.tickerMessage ?? item.message}<span className="ml-4 text-muted-foreground" aria-hidden>•</span>
     </button>)}
-  </div>
+    </div>
+  }
 
   return <section className="academic-ticker flex min-w-0 border-b border-primary/15 bg-primary/[0.06]" aria-label={`Actualidad académica: ${items[0].message}`}>
     <div
@@ -157,7 +187,7 @@ export function AcademicTicker({ messages, onNavigate }: { messages: HorarilyCom
         if (event.pointerType !== "touch") finishMouseInteraction(true)
       }}
     >
-      <div className="academic-ticker-track flex w-max">{content(true)}{content(true)}{content(false)}{content(true)}{content(true)}</div>
+      <div className="academic-ticker-track flex w-max">{Array.from({ length: sideCopies * 2 + 1 }, (_, copyIndex) => content(copyIndex))}</div>
     </div>
   </section>
 }
