@@ -125,7 +125,9 @@ test("ticker V3 no tiene controles persistentes y usa interacción de banda comp
   assert.match(ticker, /onPointerDown/)
   assert.match(ticker, /onPointerUp/)
   assert.match(ticker, /onPointerCancel/)
-  assert.match(ticker, /setIsPointerInteracting\(false\)/)
+  assert.match(ticker, /onTouchStart/)
+  assert.match(ticker, /onTouchEnd/)
+  assert.match(ticker, /isTouching\.current = false/)
   assert.equal(ACADEMIC_TICKER_SPEED, 40)
 })
 
