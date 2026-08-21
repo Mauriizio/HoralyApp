@@ -53,6 +53,7 @@ import { NotebookView } from "@/components/notebook/notebook-view"
 import { I18nProvider, useI18n } from "@/components/i18n-provider"
 import type { DayKey, Subject } from "@/lib/types"
 import { getHorarilyCompanionMessages, weightUrgentCompanionMessages } from "@/domain/horarily-companion"
+import { buildAcademicClassSessions } from "@/domain/academic-class-sessions"
 import { getHorarilyDailyMotivation } from "@/domain/horarily-motivation"
 import { AuthProvider, useAuth } from "@/lib/auth-context"
 import { GuestAuthActions } from "@/components/auth/guest-auth-actions"
@@ -227,17 +228,13 @@ function HomePageInner({ store }: { store: ReturnType<typeof useScheduleStore> }
   const blockCount = data.blocks.length
 
   const academicMessages = useMemo(() => {
-    const modules = new Map(data.modules.map((module) => [module.id, module]))
+    const classSessions = buildAcademicClassSessions({ blocks: data.blocks, modules: data.modules, subjects: data.subjects })
     return getHorarilyCompanionMessages({
       timezone: data.profile.timezone,
       reminders: data.reminders.map((reminder) => ({ ...reminder, subjectName: reminder.subjectId ? data.subjects.find((subject) => subject.id === reminder.subjectId)?.name : undefined })),
       assessments: data.grades.map((assessment) => ({ ...assessment, subjectName: data.subjects.find((subject) => subject.id === assessment.subjectId)?.name })),
       subjects: data.subjects.map((subject) => ({ name: subject.name, requiresAttention: subject.difficulty >= 4 })),
-      classes: data.blocks.flatMap((block) => {
-        const subject = data.subjects.find((item) => item.id === block.subjectId)
-        const ordered = block.moduleIds.map((id) => modules.get(id)).filter((item): item is NonNullable<typeof item> => Boolean(item)).sort((a, b) => a.start.localeCompare(b.start))
-        return subject && ordered.length ? [{ id: block.id, subjectName: subject.name, day: block.day, start: ordered[0].start, end: ordered.at(-1)!.end }] : []
-      }),
+      classes: classSessions,
     }, now)
   }, [data, now])
   const companion = academicMessages[0]
