@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, useState } from "react"
 import type { HorarilyCompanionMessage } from "@/domain/horarily-companion"
-import { advanceAcademicTicker, academicTickerDragOffset, isAcademicTickerDrag } from "@/domain/academic-ticker-scroll"
+import {
+  ACADEMIC_TICKER_TOUCH_RESUME_DELAY_MS,
+  advanceAcademicTicker,
+  academicTickerDragOffset,
+  hasAcademicTickerInteractionMoved,
+  shouldManuallyDragAcademicTicker,
+} from "@/domain/academic-ticker-scroll"
 import type { AppTab } from "@/components/app-shell/navigation"
 
 const LABELS: Record<HorarilyCompanionMessage["kind"], string> = {
@@ -10,14 +16,19 @@ const LABELS: Record<HorarilyCompanionMessage["kind"], string> = {
   event: "EVENTO", overdue: "URGENTE", reminder: "PENDIENTE", "day-summary": "HOY",
   attention: "PENDIENTE", motivation: "HOY", empty: "HOY",
 }
+const CENTER_COPY_INDEX = 2
 
 export function AcademicTicker({ messages, onNavigate }: { messages: HorarilyCompanionMessage[]; onNavigate: (tab: AppTab) => void }) {
   const items = messages.filter((item) => item.kind !== "empty" && item.kind !== "motivation").slice(0, 8)
   const scrollerRef = useRef<HTMLDivElement>(null)
   const originalRef = useRef<HTMLDivElement>(null)
   const pointer = useRef({ id: -1, x: 0, scrollLeft: 0, moved: false })
-  const suppressClick = useRef(false)
-  const [isPointerInteracting, setIsPointerInteracting] = useState(false)
+  const touch = useRef({ id: -1, x: 0, scrollLeft: 0, moved: false })
+  const isTouching = useRef(false)
+  const isMouseDragging = useRef(false)
+  const touchMomentumPending = useRef(false)
+  const resumeAutoplayAt = useRef(0)
+  const suppressClickUntil = useRef(0)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
 
   useEffect(() => {
@@ -28,33 +39,49 @@ export function AcademicTicker({ messages, onNavigate }: { messages: HorarilyCom
   }, [])
 
   useEffect(() => {
-    if (isPointerInteracting || prefersReducedMotion || items.length === 0) return
+    if (prefersReducedMotion || items.length === 0) return
     let frame = 0
     let previous = performance.now()
     const tick = (timestamp: number) => {
       const scroller = scrollerRef.current
       const loopWidth = originalRef.current?.scrollWidth ?? 0
-      if (scroller && loopWidth > 0) scroller.scrollLeft = loopWidth + advanceAcademicTicker(scroller.scrollLeft - loopWidth, Math.min(timestamp - previous, 100), loopWidth)
+      const mayAutoplay = !isTouching.current && !isMouseDragging.current && timestamp >= resumeAutoplayAt.current
+      if (scroller && loopWidth > 0 && mayAutoplay) {
+        touchMomentumPending.current = false
+        const centerOffset = loopWidth * CENTER_COPY_INDEX
+        scroller.scrollLeft = centerOffset + advanceAcademicTicker(scroller.scrollLeft - centerOffset, Math.min(timestamp - previous, 100), loopWidth)
+      }
       previous = timestamp
       frame = requestAnimationFrame(tick)
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [isPointerInteracting, items.length, prefersReducedMotion])
+  }, [items.length, prefersReducedMotion])
 
   useEffect(() => {
     const scroller = scrollerRef.current
     const width = originalRef.current?.scrollWidth ?? 0
-    if (scroller && width > 0 && scroller.scrollLeft < width) scroller.scrollLeft = width
+    const centerOffset = width * CENTER_COPY_INDEX
+    if (scroller && width > 0 && scroller.scrollLeft < centerOffset) scroller.scrollLeft = centerOffset
   }, [items.length])
 
   if (!items.length) return null
 
-  const finishInteraction = (moved: boolean) => {
-    suppressClick.current = moved
-    setIsPointerInteracting(false)
+  const suppressNavigationAfterDrag = (moved: boolean) => {
+    if (moved) suppressClickUntil.current = performance.now() + 350
+  }
+  const finishMouseInteraction = (moved: boolean) => {
+    suppressNavigationAfterDrag(moved)
+    isMouseDragging.current = false
     pointer.current.id = -1
-    globalThis.setTimeout(() => { suppressClick.current = false }, 0)
+    resumeAutoplayAt.current = performance.now()
+  }
+  const finishTouchInteraction = () => {
+    suppressNavigationAfterDrag(touch.current.moved)
+    isTouching.current = false
+    touchMomentumPending.current = true
+    touch.current.id = -1
+    resumeAutoplayAt.current = performance.now() + ACADEMIC_TICKER_TOUCH_RESUME_DELAY_MS
   }
   const content = (duplicate: boolean) => <div ref={duplicate ? undefined : originalRef} className="flex shrink-0 items-center" aria-hidden={duplicate || undefined}>
     {items.map((item) => <button
@@ -62,7 +89,7 @@ export function AcademicTicker({ messages, onNavigate }: { messages: HorarilyCom
       type="button"
       tabIndex={duplicate ? -1 : 0}
       onClick={() => {
-        if (suppressClick.current) return
+        if (performance.now() < suppressClickUntil.current) return
         if (item.action) onNavigate(item.action)
       }}
       className="academic-ticker-item min-h-11 shrink-0 whitespace-nowrap px-4 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
@@ -74,27 +101,63 @@ export function AcademicTicker({ messages, onNavigate }: { messages: HorarilyCom
   return <section className="academic-ticker flex min-w-0 border-b border-primary/15 bg-primary/[0.06]" aria-label={`Actualidad académica: ${items[0].message}`}>
     <div
       ref={scrollerRef}
-      className="academic-ticker-scroller min-w-0 flex-1 touch-pan-y overflow-x-auto"
+      className="academic-ticker-scroller min-w-0 flex-1 touch-auto overflow-x-auto"
+      onTouchStart={(event) => {
+        const scroller = scrollerRef.current
+        const contact = event.changedTouches[0]
+        if (!scroller || !contact) return
+        isTouching.current = true
+        touchMomentumPending.current = false
+        touch.current = { id: contact.identifier, x: contact.clientX, scrollLeft: scroller.scrollLeft, moved: false }
+      }}
+      onTouchMove={(event) => {
+        const contact = Array.from(event.changedTouches).find((entry) => entry.identifier === touch.current.id)
+        if (!contact || !scrollerRef.current) return
+        touch.current.moved ||= hasAcademicTickerInteractionMoved(
+          touch.current.x,
+          contact.clientX,
+          scrollerRef.current.scrollLeft - touch.current.scrollLeft,
+        )
+      }}
+      onTouchEnd={(event) => {
+        if (event.touches.length === 0) finishTouchInteraction()
+      }}
+      onTouchCancel={finishTouchInteraction}
+      onScroll={(event) => {
+        if (isTouching.current) {
+          touch.current.moved ||= hasAcademicTickerInteractionMoved(
+            touch.current.x,
+            touch.current.x,
+            event.currentTarget.scrollLeft - touch.current.scrollLeft,
+          )
+        }
+        if (touchMomentumPending.current) {
+          resumeAutoplayAt.current = performance.now() + ACADEMIC_TICKER_TOUCH_RESUME_DELAY_MS
+        }
+      }}
       onPointerDown={(event) => {
+        if (event.pointerType === "touch" || !shouldManuallyDragAcademicTicker(event.pointerType)) return
         const scroller = scrollerRef.current
         if (!scroller) return
         pointer.current = { id: event.pointerId, x: event.clientX, scrollLeft: scroller.scrollLeft, moved: false }
-        setIsPointerInteracting(true)
+        isMouseDragging.current = true
         event.currentTarget.setPointerCapture(event.pointerId)
       }}
       onPointerMove={(event) => {
         if (pointer.current.id !== event.pointerId) return
         const movement = event.clientX - pointer.current.x
-        if (isAcademicTickerDrag(movement)) pointer.current.moved = true
-        if (pointer.current.moved && scrollerRef.current) scrollerRef.current.scrollLeft = academicTickerDragOffset(pointer.current.x, event.clientX, pointer.current.scrollLeft)
+        pointer.current.moved ||= hasAcademicTickerInteractionMoved(pointer.current.x, event.clientX, 0)
+        if (movement !== 0 && scrollerRef.current) scrollerRef.current.scrollLeft = academicTickerDragOffset(pointer.current.x, event.clientX, pointer.current.scrollLeft)
       }}
       onPointerUp={(event) => {
         if (pointer.current.id !== event.pointerId) return
-        finishInteraction(pointer.current.moved)
+        finishMouseInteraction(pointer.current.moved)
       }}
-      onPointerCancel={() => finishInteraction(true)}
+      onPointerCancel={(event) => {
+        if (event.pointerType !== "touch") finishMouseInteraction(true)
+      }}
     >
-      <div className="academic-ticker-track flex w-max">{content(true)}{content(false)}{content(true)}</div>
+      <div className="academic-ticker-track flex w-max">{content(true)}{content(true)}{content(false)}{content(true)}{content(true)}</div>
     </div>
   </section>
 }
