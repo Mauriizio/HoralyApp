@@ -31,6 +31,10 @@ function isVercelFeedback(url) {
     || url.pathname.startsWith("/_vercel/speed-insights")
 }
 
+function isNextStaticAsset(url) {
+  return url.pathname.startsWith("/_next/static/")
+}
+
 function canHandle(request) {
   let url
   try {
@@ -61,6 +65,19 @@ async function safeFetch(request, fallback) {
   } catch {
     return (await fallback()) || Response.error()
   }
+}
+
+async function networkFirstAndCache(request) {
+  const response = await safeFetch(request, () => caches.match(request))
+  if (isPublicCacheable(response)) {
+    try {
+      const cache = await caches.open(CACHE_NAME)
+      await cache.put(request, response.clone())
+    } catch {
+      // El asset de red sigue siendo utilizable aunque falle Cache Storage.
+    }
+  }
+  return response
 }
 
 self.addEventListener("install", (event) => {
@@ -99,6 +116,12 @@ self.addEventListener("fetch", (event) => {
       }
       return response
     }).catch(() => Response.error()))
+    return
+  }
+
+  const url = new URL(request.url)
+  if (isNextStaticAsset(url)) {
+    event.respondWith(networkFirstAndCache(request))
     return
   }
 
