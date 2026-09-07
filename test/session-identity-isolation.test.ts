@@ -31,9 +31,19 @@ test("regresión A/B: la barrera de identidad está presente en Auth, Store, Rep
   assert.match(app, /Cambiando de cuenta…/)
 })
 
-test("AuthProvider sale de transición de forma segura si falla la sesión inicial", async () => {
+test("AuthProvider no degrada una sesión válida a invitado por timeout o error inicial", async () => {
   const source = await readFile("lib/auth-context.tsx", "utf8")
-  assert.match(source, /getSession\(\)[\s\S]*?\.catch\([\s\S]*?applySession\(null,\s*"INITIAL_SESSION_ERROR"\)/)
+  assert.match(source, /sessionResolvedRef/)
+  assert.match(source, /INITIAL_SESSION_TIMEOUT/)
+  assert.match(source, /previousUserId !== nextUserId/)
+  assert.doesNotMatch(source, /applySession\(null,\s*"INITIAL_SESSION_ERROR"\)/)
+})
+
+test("AuthProvider no reinicia generación por eventos repetidos del mismo usuario", async () => {
+  const source = await readFile("lib/auth-context.tsx", "utf8")
+  assert.match(source, /const identityChanged = previousUserId !== nextUserId/)
+  assert.match(source, /if \(identityChanged\) \{[\s\S]*?setAuthGeneration/)
+  assert.doesNotMatch(source, /\["INITIAL_SESSION",\s*"SIGNED_IN",\s*"SIGNED_OUT",\s*"USER_UPDATED"\]/)
 })
 
 test("repositoryOwner=A y expected=B rechaza operaciones cloud", () => {
