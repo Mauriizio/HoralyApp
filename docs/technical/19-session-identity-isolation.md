@@ -16,11 +16,15 @@ Si algún valor no coincide, la operación aborta con `SessionIdentityMismatchEr
 
 ## AuthProvider
 
-`AuthProvider` expone `userId`, `authGeneration`, `transitioning` y `verifyCurrentUser()`. La generación cambia en eventos `INITIAL_SESSION`, `SIGNED_IN`, `SIGNED_OUT`, `USER_UPDATED` y cambios reales de usuario. `verifyCurrentUser()` usa `supabase.auth.getUser()` para validar contra Supabase y no depende solamente de `getSession` o `localStorage`.
+`AuthProvider` expone `userId`, `authGeneration`, `transitioning` y `verifyCurrentUser()`. La generación cambia únicamente cuando cambia realmente la identidad efectiva (`previousUserId !== nextUserId`). Los eventos repetidos `SIGNED_IN`, `INITIAL_SESSION`, `USER_UPDATED` o refrescos de token del mismo usuario actualizan la sesión, pero no remontan ni rehidratan todo el workspace. Esto es importante porque Supabase puede confirmar o restablecer una sesión ya iniciada más de una vez durante la vida de una pestaña.
+
+El arranque tampoco convierte un timeout o error transitorio de `getSession()` en un cierre de sesión artificial. Después del tiempo de espera la UI deja de quedar bloqueada, pero el listener de Auth continúa activo y aplica la sesión real cuando Supabase la resuelve.
+
+`verifyCurrentUser()` usa `supabase.auth.getUser()` para validar contra Supabase y no depende solamente de `getSession` o almacenamiento del navegador.
 
 ## Remontaje por usuario
 
-El workspace privado vive dentro de un boundary montado con `key={userId ?? "guest"}`. Durante `transitioning` no se monta el workspace, por lo que se desmontan diálogos, stores, referencias de repositorio y previews del usuario anterior.
+El workspace privado vive dentro de un boundary montado con `key={userId ?? "guest"}`. Solo una transición real de identidad debe provocar el remontaje completo. Durante una transición explícita no se monta el workspace, por lo que se desmontan diálogos, stores, referencias de repositorio y previews del usuario anterior.
 
 ## Store con propietario explícito
 
