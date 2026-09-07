@@ -300,6 +300,8 @@ function validateRelations(data: AppData): string[] {
   const errors: string[] = []
   const subjectIds = new Set(data.subjects.map((subject) => subject.id))
   const moduleIds = new Set(data.modules.map((module) => module.id))
+  const studyBlockIds = new Set(data.studyBlocks.map((block) => block.id))
+  const noteById = new Map(data.subjectNotes.map((note) => [note.id, note]))
   const subjectKeys = new Set<string>()
 
   for (const subject of data.subjects) {
@@ -329,6 +331,9 @@ function validateRelations(data: AppData): string[] {
     if (reminder.subjectId && !subjectIds.has(reminder.subjectId)) {
       errors.push(`Recordatorio ${reminder.id} referencia una materia inexistente.`)
     }
+    if (reminder.studyBlockId && !studyBlockIds.has(reminder.studyBlockId)) {
+      errors.push(`Recordatorio ${reminder.id} referencia un bloque de estudio inexistente.`)
+    }
   }
 
   const groupKeys = new Set(data.assessmentGroups.map((group) => `${group.semesterId}:${group.subjectId}:${group.id}`))
@@ -345,6 +350,17 @@ function validateRelations(data: AppData): string[] {
     if (!subjectIds.has(note.subjectId)) errors.push(`Apunte ${note.id} referencia una materia inexistente.`)
     const subject = data.subjects.find((item) => item.id === note.subjectId)
     if (subject?.semesterId && subject.semesterId !== note.semesterId) errors.push(`Apunte ${note.id} no pertenece al semestre de su materia.`)
+  }
+  for (const attachment of data.subjectNoteAttachments) {
+    const note = noteById.get(attachment.noteId)
+    if (!note) {
+      errors.push(`Adjunto ${attachment.id} referencia un apunte inexistente.`)
+      continue
+    }
+    if (!subjectIds.has(attachment.subjectId)) errors.push(`Adjunto ${attachment.id} referencia una materia inexistente.`)
+    if (note.subjectId !== attachment.subjectId || note.semesterId !== attachment.semesterId) {
+      errors.push(`Adjunto ${attachment.id} no pertenece al mismo apunte, materia y semestre.`)
+    }
   }
 
   return errors
@@ -421,6 +437,36 @@ export function importFromJson(json: string): AppData {
     throw new Error(validation.errors.join("\n"))
   }
   return validation.data
+}
+
+/**
+ * Builds a recipient-safe academic setup from another user's JSON backup.
+ * Identity, appearance, tutorials and personal content remain owned by the
+ * recipient; only portable semester/subject/schedule configuration is copied.
+ */
+export function prepareSharedAcademicImport(imported: AppData, current: AppData): AppData {
+  const importedSettings = imported.settings
+  return {
+    ...imported,
+    profile: current.profile,
+    settings: {
+      ...current.settings,
+      timeFormat: importedSettings.timeFormat,
+      enableSaturday: importedSettings.enableSaturday,
+      visibleScheduleDays: importedSettings.visibleScheduleDays,
+      gradeScale: importedSettings.gradeScale,
+      onboarding: current.settings.onboarding,
+      tutorialProgress: current.settings.tutorialProgress,
+      googleCalendarConnected: current.settings.googleCalendarConnected,
+    },
+    // These are personal records and/or reference account-owned cloud files.
+    // A shared timetable must never copy them into another person's account.
+    studyBlocks: [],
+    reminders: [],
+    grades: [],
+    subjectNotes: [],
+    subjectNoteAttachments: [],
+  }
 }
 
 export function downloadJson(filename: string, json: string) {
