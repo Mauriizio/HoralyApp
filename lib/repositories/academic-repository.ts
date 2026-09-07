@@ -57,7 +57,10 @@ export class LocalAcademicRepository implements AcademicRepository {
 }
 
 const DATA_TABLES = ["semesters", "subjects", "schedule_blocks", "study_blocks", "reminders", "assessment_groups", "grades", "subject_notes", "subject_note_attachments", "user_settings", "profiles"] as const
-const REPLACE_DELETE_TABLES = ["schedule_blocks", "study_blocks", "reminders", "grades", "assessment_groups", "subject_note_attachments", "subject_notes", "subjects", "semesters"] as const
+// Delete dependants before their parents. `reminders.study_block_id` references
+// `study_blocks`, and note attachments reference notes/subjects/semesters. Keeping
+// this order prevents full JSON restore/import from failing halfway on FKs.
+const REPLACE_DELETE_TABLES = ["schedule_blocks", "reminders", "study_blocks", "grades", "assessment_groups", "subject_note_attachments", "subject_notes", "subjects", "semesters"] as const
 
 export class SupabaseAcademicRepository implements AcademicRepository {
   readonly kind = "supabase" as const
