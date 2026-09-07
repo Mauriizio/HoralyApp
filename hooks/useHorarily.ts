@@ -11,6 +11,20 @@ export const REQUIRED_HORARILY_MASTER_IDS = [
   "cejas", "cejas-riendo", "cejas-triste", "boca", "boca-riendo", "boca-triste", "lapiz",
 ] as const
 
+/**
+ * The source master historically paints both arm groups before `cuerpo`, which
+ * puts the moving hands behind the calendar body. Normalize the paint order at
+ * the injection boundary so every Horarily instance renders arms above body.
+ */
+export function normalizeHorarilyLayerOrder(svg: SVGSVGElement) {
+  const body = svg.getElementById("cuerpo")
+  const leftArm = svg.getElementById("brazo-izq")
+  const rightArm = svg.getElementById("brazo-der")
+  if (!body || !leftArm || !rightArm) return false
+  body.after(leftArm, rightArm)
+  return true
+}
+
 export async function loadHorarilyMasterSvg(target: SVGSVGElement): Promise<boolean> {
   try {
     const response = await fetch("/logo/horarily-master.svg")
@@ -22,6 +36,7 @@ export async function loadHorarilyMasterSvg(target: SVGSVGElement): Promise<bool
     target.innerHTML = sourceSvg.innerHTML
     const viewBox = sourceSvg.getAttribute("viewBox")
     if (viewBox) target.setAttribute("viewBox", viewBox)
+    if (!normalizeHorarilyLayerOrder(target)) return false
     return true
   } catch {
     return false

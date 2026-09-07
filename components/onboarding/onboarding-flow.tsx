@@ -43,7 +43,10 @@ export function OnboardingFlow({
     () => commandKeyForSubjectName(subjectName || "Materia", store.allData.subjects),
     [store.allData.subjects, subjectName],
   )
-  const givenName = displayGivenName(store.data.profile.displayName || name)
+  // The local wizard value is the source of truth while onboarding is in progress.
+  // Cloud-confirmed profile state can lag behind by a network round trip.
+  const normalizedName = name.trim().replace(/\s+/g, " ")
+  const givenName = displayGivenName(normalizedName || store.data.profile.displayName)
   const messages = [
     "Hola, soy Horarily. Voy a preparar tu espacio académico. Tardaremos menos de dos minutos.",
     "¿Cómo quieres que te llame?",
@@ -70,14 +73,22 @@ export function OnboardingFlow({
     setStep(1)
   }
 
-  const saveName = () => {
-    const value = name.trim().replace(/\s+/g, " ")
+  const saveName = async () => {
+    const value = normalizedName
     if (!value) return setNotice("Escribe tu nombre o un alias para continuar.")
     if (value.length > 60) return setNotice("Usa un nombre de hasta 60 caracteres.")
+    setBusy(true)
     setNotice(null)
-    store.updateProfile({ displayName: value })
-    persistStep(2)
-    setStep(2)
+    try {
+      // Do not advance until the exact name shown by the wizard is confirmed.
+      await store.updateProfileConfirmed({ displayName: value })
+      persistStep(2)
+      setStep(2)
+    } catch {
+      setNotice("No pudimos guardar tu nombre. Revisa la conexión e inténtalo nuevamente.")
+    } finally {
+      setBusy(false)
+    }
   }
 
   const saveSemester = () => {
@@ -89,7 +100,7 @@ export function OnboardingFlow({
     } else {
       store.createSemester({ name: value, status: "active" })
     }
-    persistStep(3)
+    persistStep(3, subjectName, value)
     setStep(3)
   }
 
@@ -114,7 +125,8 @@ export function OnboardingFlow({
   }
 
   const finish = async () => {
-    if (!store.data.profile.displayName.trim() || !store.data.activeSemesterId || store.data.subjects.length === 0) {
+    const finalName = normalizedName || store.data.profile.displayName.trim()
+    if (!finalName || !store.data.activeSemesterId || store.data.subjects.length === 0) {
       setNotice("Falta confirmar tu nombre, semestre o primera materia.")
       return
     }
@@ -122,7 +134,9 @@ export function OnboardingFlow({
     setBusy(true)
     setNotice(null)
     try {
-      await store.updateProfileConfirmed({ onboardingCompletedAt: completedAt })
+      // Re-confirm the identity field at the final transaction boundary as well;
+      // this prevents stale profile snapshots from winning a race with onboarding.
+      await store.updateProfileConfirmed({ displayName: finalName, onboardingCompletedAt: completedAt })
       await store.updateSettingsConfirmed({
         onboarding: {
           currentStep: 4,
@@ -185,7 +199,7 @@ export function OnboardingFlow({
             {step === 1 && (
               <div className="space-y-2">
                 <Label htmlFor="activation-name">Nombre o alias</Label>
-                <Input id="activation-name" value={name} maxLength={60} autoFocus onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") saveName() }} placeholder="Ej: Maurizio" />
+                <Input id="activation-name" value={name} maxLength={60} autoFocus disabled={busy} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !busy) void saveName() }} placeholder="Ej: Maurizio" />
               </div>
             )}
 
@@ -193,7 +207,7 @@ export function OnboardingFlow({
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">Aquí agruparemos tus materias, horarios y notas.</p>
                 <Label htmlFor="activation-semester">Semestre</Label>
-                <Input id="activation-semester" value={semesterName} autoFocus onChange={(event) => { setSemesterName(event.target.value); persistStep(2, subjectName, event.target.value) }} onKeyDown={(event) => { if (event.key === "Enter") saveSemester() }} />
+                <Input id="activation-semester" value={semesterName} autoFocus onChange={(event) => setSemesterName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") saveSemester() }} />
                 {activeSemester && <p className="text-sm text-muted-foreground">Usaremos tu semestre activo existente; no se creará otro.</p>}
               </div>
             )}
@@ -203,7 +217,7 @@ export function OnboardingFlow({
                 <p className="text-sm text-muted-foreground">Escribe una materia para preparar tu espacio académico.</p>
                 <div className="space-y-2">
                   <Label htmlFor="activation-subject">Nombre de la materia</Label>
-                  <Input id="activation-subject" value={subjectName} maxLength={80} autoFocus onChange={(event) => { setSubjectName(event.target.value); persistStep(3, event.target.value) }} onKeyDown={(event) => { if (event.key === "Enter") createFirstSubject() }} placeholder="Matemáticas" />
+                  <Input id="activation-subject" value={subjectName} maxLength={80} autoFocus onChange={(event) => setSubjectName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") createFirstSubject() }} placeholder="Matemáticas" />
                 </div>
                 {subjectName.trim() && (
                   <div className="rounded-xl border bg-muted/30 p-4">
@@ -217,7 +231,7 @@ export function OnboardingFlow({
 
             {step === 4 && (
               <div className="space-y-3 rounded-xl border bg-muted/30 p-4 text-sm">
-                <p><Check className="mr-2 inline h-4 w-4 text-primary" />Nombre: {store.data.profile.displayName}</p>
+                <p><Check className="mr-2 inline h-4 w-4 text-primary" />Nombre: {normalizedName || store.data.profile.displayName || "Estudiante"}</p>
                 <p><Check className="mr-2 inline h-4 w-4 text-primary" />Semestre: {activeSemester?.name ?? semesterName}</p>
                 <p><Check className="mr-2 inline h-4 w-4 text-primary" />Primera materia: {activeSubject?.name ?? subjectName}</p>
                 <p>{authenticated ? "Tus datos se guardan en tu cuenta sincronizada." : "Tus datos están guardados en este dispositivo."}</p>
@@ -228,8 +242,8 @@ export function OnboardingFlow({
 
             {step > 0 && (
               <div className="flex items-center justify-between gap-3">
-                {step < 4 ? <Button variant="ghost" onClick={goBack}><ArrowLeft className="mr-2 h-4 w-4" />Atrás</Button> : <span />}
-                {step === 1 && <Button onClick={saveName}>Continuar</Button>}
+                {step < 4 ? <Button variant="ghost" onClick={goBack} disabled={busy}><ArrowLeft className="mr-2 h-4 w-4" />Atrás</Button> : <span />}
+                {step === 1 && <Button onClick={() => void saveName()} disabled={busy}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Continuar</Button>}
                 {step === 2 && <Button onClick={saveSemester}>Continuar</Button>}
                 {step === 3 && <Button onClick={createFirstSubject} disabled={busy || !subjectName.trim()}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Crear materia</Button>}
                 {step === 4 && <div className="grid gap-2 sm:grid-cols-2"><Button size="lg" onClick={() => void finish().then((saved) => { if (saved) onDone(true) })} disabled={busy}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Ver recorrido básico</Button><Button size="lg" variant="outline" onClick={() => void finish().then((saved) => { if (saved) onDone(false) })} disabled={busy}>Explorar por mi cuenta</Button></div>}
