@@ -72,7 +72,7 @@ test("Horarily normaliza brazos por encima del cuerpo y CommandDialog reserva la
 
 test("full replace elimina dependencias antes de padres", async () => {
   const repository = await readFile("lib/repositories/academic-repository.ts", "utf8")
-  const match = repository.match(/REPLACE_DELETE_TABLES = \[(.*?)\] as const/s)
+  const match = repository.match(/REPLACE_DELETE_TABLES = \[([\s\S]*?)\] as const/)
   assert.ok(match)
   const list = match![1]
   assert.ok(list.indexOf('"reminders"') < list.indexOf('"study_blocks"'))
@@ -83,7 +83,7 @@ test("full replace elimina dependencias antes de padres", async () => {
 test("exportación desde Ajustes usa allData y ofrece modo seguro para compañeros", async () => {
   const source = await readFile("components/settings-view.tsx", "utf8")
   assert.match(source, /exportAsJson\(allData\)/)
-  assert.match(source, /prepareSharedAcademicImport\(imported, allData\)/)
+  assert.match(source, /importSharedAcademicJson\(raw, allData\)/)
   assert.match(source, /Importar horario y materias/)
   assert.match(source, /accept="\.json,application\/json,text\/json"/)
 })
