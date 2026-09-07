@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import type { Session, User } from "@supabase/supabase-js"
 import { createSupabaseBrowserClient } from "@/lib/supabase/client"
 import { logIdentity, SessionIdentityMismatchError } from "@/lib/session-identity"
@@ -25,18 +25,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(Boolean(supabase))
   const [transitioning, setTransitioning] = useState(Boolean(supabase))
   const [authGeneration, setAuthGeneration] = useState(0)
+  const currentUserIdRef = useRef<string | null>(null)
+  const sessionResolvedRef = useRef(false)
 
   const applySession = useCallback((nextSession: Session | null, authEvent: string) => {
-    setTransitioning(true)
-    setSession((previous) => {
-      const previousUserId = previous?.user?.id ?? null
-      const nextUserId = nextSession?.user?.id ?? null
-      if (previousUserId !== nextUserId || ["INITIAL_SESSION", "SIGNED_IN", "SIGNED_OUT", "USER_UPDATED"].includes(authEvent)) {
-        setAuthGeneration((value) => value + 1)
-        logIdentity({ authEvent, authUserId: nextUserId, operation: "auth.applySession" })
-      }
-      return nextSession
-    })
+    const previousUserId = currentUserIdRef.current
+    const nextUserId = nextSession?.user?.id ?? null
+    const identityChanged = previousUserId !== nextUserId
+
+    currentUserIdRef.current = nextUserId
+    sessionResolvedRef.current = true
+
+    // Supabase may emit SIGNED_IN again when an existing session is confirmed or
+    // re-established. Re-hydrating the whole workspace for the same user causes
+    // dialogs/forms to close and makes the app feel as if the session restarted.
+    // Only a real identity boundary advances the generation.
+    if (identityChanged) {
+      setAuthGeneration((value) => value + 1)
+      logIdentity({ authEvent, authUserId: nextUserId, operation: "auth.applySession" })
+    }
+
+    setSession(nextSession)
     setLoading(false)
     setTransitioning(false)
   }, [])
@@ -48,23 +57,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setTransitioning(false)
       return
     }
+
     setTransitioning(true)
-    const initialSessionTimeout = new Promise<never>((_, reject) => {
-      window.setTimeout(() => reject(new Error("INITIAL_SESSION_TIMEOUT")), 5000)
-    })
-    Promise.race([supabase.auth.getSession(), initialSessionTimeout]).then(({ data }) => {
-      if (!mounted) return
+
+    // A slow refresh/network must not be interpreted as a real sign-out. We stop
+    // blocking the UI after a bounded wait, but keep listening for the real auth
+    // event instead of replacing a valid stored session with null.
+    const initialSessionTimer = window.setTimeout(() => {
+      if (!mounted || sessionResolvedRef.current) return
+      setLoading(false)
+      setTransitioning(false)
+      logIdentity({ authEvent: "INITIAL_SESSION_TIMEOUT", operation: "auth.initialSession" })
+    }, 8000)
+
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (!mounted || sessionResolvedRef.current) return
+      if (error) {
+        setLoading(false)
+        setTransitioning(false)
+        logIdentity({ authEvent: "INITIAL_SESSION_ERROR", operation: "auth.initialSession" })
+        return
+      }
       applySession(data.session, "INITIAL_SESSION")
     }).catch(() => {
-      if (!mounted) return
-      applySession(null, "INITIAL_SESSION_ERROR")
+      if (!mounted || sessionResolvedRef.current) return
+      setLoading(false)
+      setTransitioning(false)
+      logIdentity({ authEvent: "INITIAL_SESSION_ERROR", operation: "auth.initialSession" })
     })
+
     const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!mounted) return
       applySession(nextSession, event)
     })
+
     return () => {
       mounted = false
+      window.clearTimeout(initialSessionTimer)
       listener.subscription.unsubscribe()
     }
   }, [applySession, supabase])
@@ -80,15 +109,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     if (!supabase) return
     setTransitioning(true)
-    setSession(null)
-    setAuthGeneration((value) => value + 1)
-    logIdentity({ authEvent: "SIGNED_OUT", operation: "auth.signOut" })
-    await supabase.auth.signOut()
-    setSession(null)
-    setAuthGeneration((value) => value + 1)
-    setLoading(false)
-    setTransitioning(false)
-  }, [supabase])
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      setTransitioning(false)
+      throw error
+    }
+    // onAuthStateChange normally applies SIGNED_OUT first; this fallback keeps the
+    // local provider coherent if the callback arrives late. It does not double
+    // increment authGeneration because identityChanged will already be false.
+    applySession(null, "SIGNED_OUT")
+  }, [applySession, supabase])
 
   const value = useMemo<AuthContextValue>(() => ({
     user: session?.user ?? null,
