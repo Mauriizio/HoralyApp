@@ -173,6 +173,7 @@ export function OnboardingFlow({
         </header>
 
         <section className="grid flex-1 items-center gap-6 rounded-3xl border bg-card/95 p-5 shadow-sm md:grid-cols-[minmax(220px,0.8fr)_minmax(0,1.2fr)] md:p-10">
+          {/* HorarilyGuide reutiliza exclusivamente /logo/horarily-master.svg. */}
           <HorarilyGuide message={messages[step]} state={step === 4 ? "success" : step === 3 ? "writing" : "attentive"} />
 
           <div className="mx-auto w-full max-w-xl space-y-6">
