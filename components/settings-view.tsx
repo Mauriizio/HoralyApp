@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge"
 import { Bell, Download, Upload, RotateCcw, Calendar, Languages } from "lucide-react"
 import { DAYS } from "@/lib/types"
 import type { ScheduleStore } from "@/hooks/use-schedule-store"
-import { downloadJson, exportAsJson, importFromJson } from "@/lib/storage"
+import { downloadJson, exportAsJson, importFromJson, prepareSharedAcademicImport } from "@/lib/storage"
 import { getPermission, requestPermission } from "@/lib/notifications"
 import { toast } from "sonner"
 import { useI18n } from "@/components/i18n-provider"
@@ -39,37 +39,47 @@ const ACCENT_PRESETS = [
   { hex: "#475569", label: "Pizarra" },
 ]
 
+type ImportMode = "academic" | "restore"
+
 export function SettingsView({ store, onRestartTutorial, onAdvancedModeFirstEnabled }: { store: ScheduleStore; onRestartTutorial?: (id: TutorialId) => void; onAdvancedModeFirstEnabled?: () => void }) {
   const { t } = useI18n()
-  const { data, updateProfile, updateSettings, replaceAll, resetSettings, storageRecovery, clearStorageRecovery } = store
+  const { data, allData, updateProfile, updateSettings, replaceAll, resetSettings, storageRecovery, clearStorageRecovery, syncStatus } = store
   const { settings } = data
-  const fileInput = useRef<HTMLInputElement>(null)
+  const academicFileInput = useRef<HTMLInputElement>(null)
+  const restoreFileInput = useRef<HTMLInputElement>(null)
   const [permission, setPermission] = useState<string>(() => getPermission())
+  const [importing, setImporting] = useState(false)
 
   const handleExport = () => {
-    const json = exportAsJson(data)
-    downloadJson(`horario-escolar-${new Date().toISOString().slice(0, 10)}.json`, json)
-    toast.success(t("settings.data.export"))
+    const json = exportAsJson(allData)
+    downloadJson(`horarily-respaldo-completo-${new Date().toISOString().slice(0, 10)}.json`, json)
+    toast.success("Respaldo completo exportado.")
   }
 
-  const handleImport = (file: File) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      try {
-        const next = importFromJson(String(reader.result))
-        const confirmed = window.confirm(
-          `Se importarán ${next.subjects.length} materia(s), ${next.blocks.length} bloque(s), ${next.grades.length} nota(s) y ${next.reminders.length} recordatorio(s). Se descargará un respaldo antes de reemplazar tus datos actuales. ¿Continuar?`,
-        )
-        if (!confirmed) return
-        downloadJson(`horario-escolar-respaldo-${new Date().toISOString().slice(0, 10)}.json`, exportAsJson(data))
-        replaceAll(next)
-        toast.success(t("settings.data.import"))
-      } catch (err) {
-        toast.error("No se pudo importar el archivo. Tus datos actuales se conservaron.")
-        console.warn("[Horaly] Error importando datos:", err)
-      }
+  const handleImport = async (file: File, mode: ImportMode) => {
+    setImporting(true)
+    try {
+      const imported = importFromJson(await file.text())
+      const next = mode === "academic" ? prepareSharedAcademicImport(imported, allData) : imported
+      const description = mode === "academic"
+        ? `Se copiarán ${next.subjects.length} materia(s), ${next.blocks.length} bloque(s) de horario y ${next.semesters.length} semestre(s). Tu nombre, perfil, notas, recordatorios y apuntes personales NO se reemplazarán.`
+        : `Se restaurarán ${next.subjects.length} materia(s), ${next.blocks.length} bloque(s), ${next.grades.length} nota(s), ${next.reminders.length} recordatorio(s) y el resto del respaldo.`
+      const confirmed = window.confirm(`${description}\n\nAntes de continuar se descargará un respaldo de tu estado actual. ¿Continuar?`)
+      if (!confirmed) return
+
+      downloadJson(
+        `horarily-respaldo-antes-de-importar-${new Date().toISOString().slice(0, 10)}.json`,
+        exportAsJson(allData),
+      )
+      replaceAll(next)
+      toast.success(mode === "academic" ? "Horario y materias importados. Sincronizando con tu cuenta…" : "Respaldo restaurado. Sincronizando con tu cuenta…")
+    } catch (err) {
+      const detail = err instanceof Error ? err.message.split("\n")[0] : "Archivo JSON inválido."
+      toast.error(`No se pudo importar: ${detail}`)
+      console.warn("[Horaly] Error importando datos:", err)
+    } finally {
+      setImporting(false)
     }
-    reader.readAsText(file)
   }
 
   const handleRequestPermission = async () => {
@@ -134,7 +144,6 @@ export function SettingsView({ store, onRestartTutorial, onAdvancedModeFirstEnab
         </Card>
       )}
 
-
       <SemesterManager store={store} />
 
       <Card data-tour="preferences-academic-setup">
@@ -167,11 +176,13 @@ export function SettingsView({ store, onRestartTutorial, onAdvancedModeFirstEnab
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Sincronización en la nube</CardTitle>
-          <CardDescription>Si inicias sesión, puedes migrar tus datos locales a tu cuenta sin borrar el respaldo del navegador.</CardDescription>
+          <CardDescription>Si inicias sesión, tus cambios se guardan en Supabase y quedan disponibles en tus otros dispositivos con la misma cuenta.</CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
+        <CardContent className="flex flex-wrap items-center gap-2">
           <Button variant="outline" onClick={() => toast.info("Inicia sesión y confirma la migración desde el aviso de tu cuenta. Tus datos locales no se eliminarán automáticamente.")}>Migrar datos locales a mi cuenta</Button>
-          <Badge variant="secondary">Guardado local disponible</Badge>
+          <Badge variant={syncStatus === "error" || syncStatus === "offline" ? "destructive" : "secondary"}>
+            {syncStatus === "syncing" ? "Sincronizando…" : syncStatus === "synced" ? "Sincronizado" : syncStatus === "offline" ? "Sin conexión" : syncStatus === "error" ? "Error de sincronización" : "Guardado local disponible"}
+          </Badge>
         </CardContent>
       </Card>
 
@@ -392,13 +403,9 @@ export function SettingsView({ store, onRestartTutorial, onAdvancedModeFirstEnab
         </CardContent>
       </Card>
 
-      {/* Time modules */}
       <div data-tour="preferences-time-modules"><TimeModulesEditor store={store} /></div>
-
-      {/* Grade scale */}
       <div data-tour="preferences-grade-scale"><GradeScaleEditor store={store} /></div>
 
-      {/* Notifications */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -424,7 +431,6 @@ export function SettingsView({ store, onRestartTutorial, onAdvancedModeFirstEnab
         </CardContent>
       </Card>
 
-      {/* Google Calendar */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -448,41 +454,53 @@ export function SettingsView({ store, onRestartTutorial, onAdvancedModeFirstEnab
         </CardContent>
       </Card>
 
-      {/* Data + focus */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{t("settings.data")}</CardTitle>
+          <CardDescription>Exporta un respaldo completo o copia solo la configuración académica desde el JSON de otro compañero sin copiar su identidad ni sus datos personales.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between gap-4">
-            <div>
-              <div className="text-sm font-medium">{t("header.focusMode")}</div>
-            </div>
-            <Switch
-              checked={settings.focusMode}
-              onCheckedChange={(v) => updateSettings({ focusMode: v })}
-            />
+            <div><div className="text-sm font-medium">{t("header.focusMode")}</div></div>
+            <Switch checked={settings.focusMode} onCheckedChange={(v) => updateSettings({ focusMode: v })} />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 pt-2">
-            <Button variant="outline" onClick={handleExport}>
-              <Download className="h-4 w-4 mr-2" /> {t("settings.data.export")}
+          <div className="grid gap-2 pt-2 sm:grid-cols-3">
+            <Button variant="outline" onClick={handleExport} disabled={importing}>
+              <Download className="h-4 w-4 mr-2" /> Exportar respaldo completo
             </Button>
-            <Button variant="outline" onClick={() => fileInput.current?.click()}>
-              <Upload className="h-4 w-4 mr-2" /> {t("settings.data.import")}
+            <Button variant="outline" onClick={() => academicFileInput.current?.click()} disabled={importing}>
+              <Upload className="h-4 w-4 mr-2" /> Importar horario y materias
             </Button>
-            <input
-              ref={fileInput}
-              type="file"
-              accept="application/json"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0]
-                if (f) handleImport(f)
-                e.target.value = ""
-              }}
-            />
+            <Button variant="outline" onClick={() => restoreFileInput.current?.click()} disabled={importing}>
+              <Upload className="h-4 w-4 mr-2" /> Restaurar copia completa
+            </Button>
           </div>
+          <p className="text-xs text-muted-foreground">
+            “Importar horario y materias” conserva tu nombre, perfil, notas, recordatorios y apuntes. “Restaurar copia completa” reemplaza los datos de la cuenta con el contenido del respaldo.
+          </p>
+          <input
+            ref={academicFileInput}
+            type="file"
+            accept=".json,application/json,text/json"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) void handleImport(f, "academic")
+              e.target.value = ""
+            }}
+          />
+          <input
+            ref={restoreFileInput}
+            type="file"
+            accept=".json,application/json,text/json"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) void handleImport(f, "restore")
+              e.target.value = ""
+            }}
+          />
         </CardContent>
       </Card>
     </div>
