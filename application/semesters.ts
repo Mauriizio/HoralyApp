@@ -53,6 +53,8 @@ export function filterDataByActiveSemester(data: AppData): AppData {
   if (!active) return data
   const subjects = data.subjects.filter((s) => s.semesterId === active)
   const subjectIds = new Set(subjects.map((s) => s.id))
+  const subjectNotes = data.subjectNotes.filter((note) => note.semesterId === active && subjectIds.has(note.subjectId))
+  const noteIds = new Set(subjectNotes.map((note) => note.id))
   return {
     ...data,
     subjects,
@@ -61,6 +63,7 @@ export function filterDataByActiveSemester(data: AppData): AppData {
     reminders: data.reminders.filter((r) => r.semesterId === active),
     grades: data.grades.filter((g) => g.semesterId === active && subjectIds.has(g.subjectId)),
     assessmentGroups: data.assessmentGroups.filter((g) => g.semesterId === active && subjectIds.has(g.subjectId)),
-    subjectNotes: data.subjectNotes.filter((note) => note.semesterId === active && subjectIds.has(note.subjectId)),
+    subjectNotes,
+    subjectNoteAttachments: data.subjectNoteAttachments.filter((attachment) => attachment.semesterId === active && subjectIds.has(attachment.subjectId) && noteIds.has(attachment.noteId)),
   }
 }
