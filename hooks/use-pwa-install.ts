@@ -80,7 +80,12 @@ export function usePwaInstall(): PwaInstallState {
   }, [deferred])
 
   const canPrompt = !installed && deferred !== null
-  const showInstructions = !installed && !canPrompt && (platform === "ios" || platform === "desktop" || platform === "other")
+  const showInstructions = !installed && !canPrompt && (
+    platform === "android"
+    || platform === "ios"
+    || platform === "desktop"
+    || platform === "other"
+  )
 
   return { installed, canPrompt, showInstructions, platform, install }
 }
