@@ -76,7 +76,8 @@ function isMissingReminderKindColumn(error: unknown) {
 
 function withoutReminderKind(values: object[]) {
   return values.map((value) => {
-    const { reminder_kind: _ignored, ...legacy } = value as Record<string, unknown>
+    const legacy = { ...(value as Record<string, unknown>) }
+    delete legacy.reminder_kind
     return legacy
   })
 }
