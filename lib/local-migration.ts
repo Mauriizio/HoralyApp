@@ -17,7 +17,11 @@ function isMissingReminderKindColumn(error: unknown) {
 }
 
 function withoutReminderKind(values: Record<string, unknown>[]) {
-  return values.map(({ reminder_kind: _ignored, ...legacy }) => legacy)
+  return values.map((value) => {
+    const legacy = { ...value }
+    delete legacy.reminder_kind
+    return legacy
+  })
 }
 
 const MIGRATION_DATA_TABLES = [
