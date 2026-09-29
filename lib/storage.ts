@@ -441,31 +441,137 @@ export function importFromJson(json: string): AppData {
 
 /**
  * Builds a recipient-safe academic setup from another user's JSON backup.
- * Identity, appearance, tutorials and personal content remain owned by the
- * recipient; only portable semester/subject/schedule configuration is copied.
+ *
+ * The imported timetable becomes the active academic setup, but the recipient's
+ * personal records are never deleted. Subjects/semesters required by those
+ * records are retained as history. Imported IDs and command keys are remapped
+ * only when they collide with retained recipient data.
  */
 export function prepareSharedAcademicImport(imported: AppData, current: AppData): AppData {
-  const importedSettings = imported.settings
+  const personalSubjectIds = new Set<string>()
+  const personalSemesterIds = new Set<string>()
+
+  for (const item of current.studyBlocks) {
+    if (item.subjectId) personalSubjectIds.add(item.subjectId)
+    if (item.semesterId) personalSemesterIds.add(item.semesterId)
+  }
+  for (const item of current.reminders) {
+    if (item.subjectId) personalSubjectIds.add(item.subjectId)
+    if (item.semesterId) personalSemesterIds.add(item.semesterId)
+  }
+  for (const item of current.assessmentGroups) {
+    personalSubjectIds.add(item.subjectId)
+    personalSemesterIds.add(item.semesterId)
+  }
+  for (const item of current.grades) {
+    personalSubjectIds.add(item.subjectId)
+    if (item.semesterId) personalSemesterIds.add(item.semesterId)
+  }
+  for (const item of current.subjectNotes) {
+    personalSubjectIds.add(item.subjectId)
+    personalSemesterIds.add(item.semesterId)
+  }
+  for (const item of current.subjectNoteAttachments) {
+    personalSubjectIds.add(item.subjectId)
+    personalSemesterIds.add(item.semesterId)
+  }
+
+  const preservedSubjects = current.subjects.filter((subject) => personalSubjectIds.has(subject.id))
+  for (const subject of preservedSubjects) {
+    if (subject.semesterId) personalSemesterIds.add(subject.semesterId)
+  }
+  const preservedSemesters = current.semesters.filter((semester) => personalSemesterIds.has(semester.id))
+
+  const uniqueId = (original: string, used: Set<string>, prefix: string) => {
+    if (!used.has(original)) {
+      used.add(original)
+      return original
+    }
+    let index = 1
+    let candidate = `${prefix}-${original}`
+    while (used.has(candidate)) {
+      index += 1
+      candidate = `${prefix}${index}-${original}`
+    }
+    used.add(candidate)
+    return candidate
+  }
+
+  const usedSemesterIds = new Set(preservedSemesters.map((semester) => semester.id))
+  const semesterIdMap = new Map<string, string>()
+  const importedSemesters = imported.semesters.map((semester) => {
+    const id = uniqueId(semester.id, usedSemesterIds, "shared-sem")
+    semesterIdMap.set(semester.id, id)
+    return { ...semester, id }
+  })
+
+  const targetActiveSemesterId =
+    (imported.activeSemesterId ? semesterIdMap.get(imported.activeSemesterId) : undefined)
+    ?? importedSemesters.find((semester) => semester.status === "active")?.id
+    ?? importedSemesters[0]?.id
+
+  const normalizedImportedSemesters = importedSemesters.map((semester) => ({
+    ...semester,
+    status: semester.id === targetActiveSemesterId
+      ? "active" as const
+      : semester.status === "active"
+        ? "planned" as const
+        : semester.status,
+  }))
+  const normalizedPreservedSemesters = preservedSemesters.map((semester) => ({
+    ...semester,
+    status: targetActiveSemesterId && semester.status === "active" ? "archived" as const : semester.status,
+  }))
+
+  const usedSubjectIds = new Set(preservedSubjects.map((subject) => subject.id))
+  const subjectIdMap = new Map<string, string>()
+  const accumulatedSubjects = [...preservedSubjects]
+  const importedSubjects = imported.subjects.map((subject) => {
+    const id = uniqueId(subject.id, usedSubjectIds, "shared-sub")
+    subjectIdMap.set(subject.id, id)
+    const semesterId = subject.semesterId ? semesterIdMap.get(subject.semesterId) ?? subject.semesterId : undefined
+    const commandKey = ensureUniqueCommandKey(subject.commandKey ?? "", accumulatedSubjects, {
+      fallbackName: subject.name,
+    })
+    const next: Subject = {
+      ...subject,
+      id,
+      semesterId,
+      commandKey,
+      notes: undefined,
+    }
+    accumulatedSubjects.push(next)
+    return next
+  })
+
+  const importedBlocks = imported.blocks.map((block) => ({
+    ...block,
+    subjectId: subjectIdMap.get(block.subjectId) ?? block.subjectId,
+    semesterId: block.semesterId ? semesterIdMap.get(block.semesterId) ?? block.semesterId : undefined,
+  }))
+
   return {
     ...imported,
     profile: current.profile,
     settings: {
       ...current.settings,
-      timeFormat: importedSettings.timeFormat,
-      enableSaturday: importedSettings.enableSaturday,
-      visibleScheduleDays: importedSettings.visibleScheduleDays,
-      gradeScale: importedSettings.gradeScale,
+      enableSaturday: imported.settings.enableSaturday,
+      visibleScheduleDays: imported.settings.visibleScheduleDays,
       onboarding: current.settings.onboarding,
       tutorialProgress: current.settings.tutorialProgress,
       googleCalendarConnected: current.settings.googleCalendarConnected,
     },
-    // These are personal records and/or reference account-owned cloud files.
-    // A shared timetable must never copy them into another person's account.
-    studyBlocks: [],
-    reminders: [],
-    grades: [],
-    subjectNotes: [],
-    subjectNoteAttachments: [],
+    semesters: [...normalizedPreservedSemesters, ...normalizedImportedSemesters],
+    activeSemesterId: targetActiveSemesterId ?? current.activeSemesterId,
+    subjects: [...preservedSubjects, ...importedSubjects],
+    blocks: importedBlocks,
+    // Personal/account-owned records always stay with the recipient.
+    studyBlocks: current.studyBlocks,
+    reminders: current.reminders,
+    assessmentGroups: current.assessmentGroups,
+    grades: current.grades,
+    subjectNotes: current.subjectNotes,
+    subjectNoteAttachments: current.subjectNoteAttachments,
   }
 }
 
