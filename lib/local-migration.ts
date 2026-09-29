@@ -87,6 +87,7 @@ export async function migrateLocalStorageToSupabase(client: SupabaseClient, user
   }
 
   const rows = appDataToSupabaseRows(snapshot, userId)
+  const expectedPersisted = supabaseRowsToAppData(rows)
   for (const [table, values] of Object.entries(rows) as [keyof SupabaseDataset, Record<string, unknown>[]][]) {
     if (!values.length) continue
     const { error } = await client.from(table).upsert(values, { onConflict: table === "profiles" ? "id" : "id,user_id" })
@@ -94,7 +95,7 @@ export async function migrateLocalStorageToSupabase(client: SupabaseClient, user
   }
 
   const migrated = await loadMigratedData(client, userId)
-  if (!verifyMigratedData(snapshot, migrated)) {
+  if (!verifyMigratedData(expectedPersisted, migrated)) {
     throw new Error("La verificación de migración no coincide. Tus datos locales se conservaron y puedes reintentar.")
   }
 
