@@ -470,11 +470,18 @@ export function prepareSharedAcademicImport(imported: AppData, current: AppData)
 }
 
 export function downloadJson(filename: string, json: string) {
-  const blob = new Blob([json], { type: "application/json" })
+  const blob = new Blob([json], { type: "application/json;charset=utf-8" })
   const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
+  const anchor = document.createElement("a")
+  anchor.href = url
+  anchor.download = filename
+  anchor.rel = "noopener"
+  anchor.style.display = "none"
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+
+  // Safari/iOS/PWA pueden cancelar la descarga si el ObjectURL se revoca
+  // en el mismo tick del click. Liberarlo después mantiene compatibilidad.
+  window.setTimeout(() => URL.revokeObjectURL(url), 1_000)
 }
