@@ -64,7 +64,7 @@ test("módulos personalizados sobreviven round-trip en user_settings", () => {
 
 test("resumen de migración cuenta materias, bloques, notas, recordatorios y estudio", () => {
   const summary = summarizeLocalData({ ...EMPTY_APP_DATA, subjects: [{} as never], blocks: [{} as never], grades: [{} as never], reminders: [{} as never], studyBlocks: [{} as never] })
-  assert.deepEqual(summary, { materias: 1, bloques: 1, notas: 1, apuntes: 0, recordatorios: 1, bloquesDeEstudio: 1 })
+  assert.deepEqual(summary, { semestres: 0, materias: 1, bloques: 1, notas: 1, grupos: 0, apuntes: 0, adjuntos: 0, recordatorios: 1, bloquesDeEstudio: 1 })
 })
 
 test("validación básica de sesión, email, contraseña y avatar", () => {
@@ -188,7 +188,16 @@ test("no hay service role pública", async () => {
   const content = (await Promise.all(files.map((f) => readFile(f, "utf8")))).join("\n")
   assert.equal(content.includes("NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY"), false)
 })
-import { MIGRATION_BACKUP_KEY, cloudCacheKey, loadMigrationBackup, saveCloudCache, saveMigrationBackup } from "../lib/local-cloud-storage.ts"
+import {
+  MIGRATION_BACKUP_KEY,
+  cloudCacheKey,
+  loadMigrationBackup,
+  loadMigrationDecision,
+  migrationBackupKey,
+  saveCloudCache,
+  saveMigrationBackup,
+  saveMigrationDecision,
+} from "../lib/local-cloud-storage.ts"
 import { migrateLocalStorageToSupabase } from "../lib/local-migration.ts"
 import { transitionDeleteModule, transitionMoveBlock, transitionSetModules, transitionUpdateSubject, transitionUpsertBlock } from "../lib/schedule-transitions.ts"
 
@@ -218,17 +227,36 @@ test("snapshot de migración permanece intacto aunque cambie localStorage", asyn
     saveMigrationBackup("u1", snapshot)
     storage.set("horario-escolar:v1", JSON.stringify({ ...EMPTY_APP_DATA, subjects: [] }))
     assert.equal(loadMigrationBackup("u1")?.data.subjects[0]?.id, "s-original")
-    assert.equal(storage.has(MIGRATION_BACKUP_KEY), true)
+    assert.equal(storage.has(migrationBackupKey("u1")), true)
   })
 })
 
-test("continuar sin migrar y cancelar conservan respaldo y datos invitados", async () => {
+test("continuar sin migrar conserva respaldo, datos invitados y decisión por cuenta", async () => {
   await withLocalStorage((storage) => {
     const guest = { ...EMPTY_APP_DATA, subjects: [{ id: "guest", name: "Invitado", color: "#fff", difficulty: 3 as const, createdAt: 1 }] }
     storage.set("horario-escolar:v1", JSON.stringify(guest))
     saveMigrationBackup("u1", guest)
+    saveMigrationDecision("u1", "deferred")
     assert.equal(storage.get("horario-escolar:v1")?.includes("guest"), true)
-    assert.equal(storage.get(MIGRATION_BACKUP_KEY)?.includes("guest"), true)
+    assert.equal(storage.get(migrationBackupKey("u1"))?.includes("guest"), true)
+    assert.equal(loadMigrationDecision("u1"), "deferred")
+  })
+})
+
+test("respaldos de migración quedan aislados por cuenta y conservan compatibilidad legacy", async () => {
+  await withLocalStorage((storage) => {
+    const first = { ...EMPTY_APP_DATA, profile: { ...EMPTY_APP_DATA.profile, displayName: "Cuenta A" } }
+    const second = { ...EMPTY_APP_DATA, profile: { ...EMPTY_APP_DATA.profile, displayName: "Cuenta B" } }
+    saveMigrationBackup("user-a", first)
+    saveMigrationBackup("user-b", second)
+    assert.equal(loadMigrationBackup("user-a")?.data.profile.displayName, "Cuenta A")
+    assert.equal(loadMigrationBackup("user-b")?.data.profile.displayName, "Cuenta B")
+    assert.notEqual(migrationBackupKey("user-a"), migrationBackupKey("user-b"))
+
+    const legacy = { createdAt: new Date().toISOString(), version: 1, userId: "legacy-user", data: first }
+    storage.set(MIGRATION_BACKUP_KEY, JSON.stringify(legacy))
+    assert.equal(loadMigrationBackup("legacy-user")?.data.profile.displayName, "Cuenta A")
+    assert.equal(storage.has(migrationBackupKey("legacy-user")), true)
   })
 })
 
@@ -247,8 +275,14 @@ function createRepositoryClient(seed: Record<string, Record<string, unknown>[]>,
         update(values: unknown) { calls.push({ table, action: "update", args: [values] }); this.action = "update"; return this },
         eq(column: string, value: unknown) { calls.push({ table, action: "eq", args: [column, value] }); this.filters.push([column, value]); return this },
         not(column: string, operator: string, value: unknown) { calls.push({ table, action: "not", args: [column, operator, value] }); return Promise.resolve({ error: null }) },
-        maybeSingle() { return Promise.resolve({ data: null, error: null }) },
-        then(resolve: (value: { data?: Record<string, unknown>[]; error: null }) => void) { resolve({ data: byTable[table] ?? [], error: null }) },
+        maybeSingle() {
+          const rows = (byTable[table] ?? []).filter((row) => this.filters.every(([column, value]) => row[column] === value))
+          return Promise.resolve({ data: rows[0] ?? null, error: null })
+        },
+        then(resolve: (value: { data?: Record<string, unknown>[]; error: null }) => void) {
+          const rows = (byTable[table] ?? []).filter((row) => this.filters.every(([column, value]) => row[column] === value))
+          resolve({ data: rows, error: null })
+        },
       }
       return builder
     },
