@@ -62,6 +62,25 @@ const DATA_TABLES = ["semesters", "subjects", "schedule_blocks", "study_blocks",
 // this order prevents full JSON restore/import from failing halfway on FKs.
 const REPLACE_DELETE_TABLES = ["schedule_blocks", "reminders", "study_blocks", "grades", "assessment_groups", "subject_note_attachments", "subject_notes", "subjects", "semesters"] as const
 
+function isMissingReminderKindColumn(error: unknown) {
+  if (!error || typeof error !== "object") return false
+  const value = error as { code?: unknown; message?: unknown; details?: unknown; hint?: unknown }
+  const raw = [value.code, value.message, value.details, value.hint].filter(Boolean).join(" ").toLowerCase()
+  return raw.includes("reminder_kind") && (
+    raw.includes("pgrst204")
+    || raw.includes("column")
+    || raw.includes("schema cache")
+    || raw.includes("does not exist")
+  )
+}
+
+function withoutReminderKind(values: object[]) {
+  return values.map((value) => {
+    const { reminder_kind: _ignored, ...legacy } = value as Record<string, unknown>
+    return legacy
+  })
+}
+
 export class SupabaseAcademicRepository implements AcademicRepository {
   readonly kind = "supabase" as const
   constructor(private client: SupabaseClient, public readonly userIdForCache: string) {}
@@ -74,7 +93,17 @@ export class SupabaseAcademicRepository implements AcademicRepository {
     if (!values.length) return
     const conflict = table === "profiles" ? "id" : onConflict
     const { error } = await this.client.from(table).upsert(values, { onConflict: conflict })
-    if (error) throw new Error("No se pudieron sincronizar tus datos.")
+    if (!error) return
+
+    // Compatibilidad temporal con instalaciones productivas que todavía no
+    // hayan aplicado 202608190001_reminder_kind.sql. La sincronización sigue
+    // funcionando; esos recordatorios vuelven como "general" hasta migrar DB.
+    if (table === "reminders" && isMissingReminderKindColumn(error)) {
+      const { error: legacyError } = await this.client.from(table).upsert(withoutReminderKind(values), { onConflict: conflict })
+      if (!legacyError) return
+    }
+
+    throw new Error(`No se pudieron sincronizar ${String(table)}.`)
   }
 
   private async deleteById(table: string, id: string) {
