@@ -17,15 +17,29 @@ test("importación académica entre compañeros conserva identidad y datos perso
     },
     semesters: [{ id: "s1", name: "Segundo semestre", status: "active" as const, createdAt: 1 }],
     activeSemesterId: "s1",
-    subjects: [{ id: "sub1", semesterId: "s1", name: "Electrotecnia", color: "#2563eb", commandKey: "electrotecnia", difficulty: 3 as const, createdAt: 1 }],
+    subjects: [{ id: "sub1", semesterId: "s1", name: "Electrotecnia", color: "#2563eb", commandKey: "ELECTRO", notes: "nota privada de origen", difficulty: 3 as const, createdAt: 1 }],
     blocks: [{ id: "b1", semesterId: "s1", subjectId: "sub1", day: "lunes" as const, moduleIds: [EMPTY_APP_DATA.modules[0].id] }],
-    reminders: [{ id: "r1", semesterId: "s1", title: "Prueba", priority: "alta" as const, kind: "assessment" as const, triggers: [], targetDateTime: "2026-09-10T10:00", createdAt: 1, notifiedTriggerIndexes: [] }],
-    subjectNotes: [{ id: "n1", semesterId: "s1", subjectId: "sub1", title: "Privado", content: "contenido", createdAt: 1, updatedAt: 1 }],
+    reminders: [{ id: "r-origin", semesterId: "s1", subjectId: "sub1", title: "Prueba origen", priority: "alta" as const, kind: "assessment" as const, triggers: [], targetDateTime: "2026-09-10T10:00", createdAt: 1, notifiedTriggerIndexes: [] }],
+    subjectNotes: [{ id: "n-origin", semesterId: "s1", subjectId: "sub1", title: "Privado origen", content: "contenido", createdAt: 1, updatedAt: 1 }],
   }
+  const currentReminder = { id: "r-current", semesterId: "old-sem", subjectId: "old-sub", title: "Mi prueba", priority: "alta" as const, kind: "assessment" as const, triggers: [], targetDateTime: "2026-09-15T10:00", createdAt: 1, notifiedTriggerIndexes: [] }
+  const currentGroup = { id: "g-current", semesterId: "old-sem", subjectId: "old-sub", name: "Parciales", kind: "continuous" as const, courseWeight: 100, position: 1, createdAt: 1 }
+  const currentGrade = { id: "grade-current", semesterId: "old-sem", subjectId: "old-sub", groupId: "g-current", title: "P1", score: 6, weight: 100, weightWithinGroup: 100, status: "graded" as const, date: "2026-09-01", createdAt: 1 }
+  const currentNote = { id: "n-current", semesterId: "old-sem", subjectId: "old-sub", title: "Mi apunte", content: "privado", createdAt: 1, updatedAt: 1 }
+  const currentAttachment = { id: "a-current", semesterId: "old-sem", subjectId: "old-sub", noteId: "n-current", kind: "pdf" as const, filename: "mio.pdf", mimeType: "application/pdf" as const, sizeBytes: 10, storagePath: "private/a-current", createdAt: 1 }
   const current = {
     ...EMPTY_APP_DATA,
     profile: { displayName: "Persona receptora", institution: "Duoc UC" },
     settings: { ...EMPTY_APP_DATA.settings, theme: "dark" as const, googleCalendarConnected: false, onboarding: { currentStep: 4, completed: true } },
+    semesters: [{ id: "old-sem", name: "Semestre anterior", status: "active" as const, createdAt: 1 }],
+    activeSemesterId: "old-sem",
+    subjects: [{ id: "old-sub", semesterId: "old-sem", name: "Electrotecnia anterior", color: "#111111", commandKey: "ELECTRO", difficulty: 3 as const, createdAt: 1 }],
+    studyBlocks: [{ id: "study-current", semesterId: "old-sem", subjectId: "old-sub", title: "Repaso", day: "martes" as const, start: "10:00", end: "10:30" }],
+    reminders: [currentReminder],
+    assessmentGroups: [currentGroup],
+    grades: [currentGrade],
+    subjectNotes: [currentNote],
+    subjectNoteAttachments: [currentAttachment],
   }
 
   const result = prepareSharedAcademicImport(imported, current)
@@ -33,13 +47,25 @@ test("importación académica entre compañeros conserva identidad y datos perso
   assert.equal(result.profile.institution, "Duoc UC")
   assert.equal(result.settings.theme, "dark")
   assert.equal(result.settings.googleCalendarConnected, false)
-  assert.equal(result.settings.timeFormat, "12h")
-  assert.equal(result.subjects[0]?.name, "Electrotecnia")
-  assert.equal(result.blocks.length, 1)
-  assert.deepEqual(result.reminders, [])
-  assert.deepEqual(result.grades, [])
-  assert.deepEqual(result.subjectNotes, [])
-  assert.deepEqual(result.subjectNoteAttachments, [])
+  assert.equal(result.settings.timeFormat, current.settings.timeFormat)
+  assert.equal(result.settings.enableSaturday, true)
+
+  const importedSubject = result.subjects.find((subject) => subject.name === "Electrotecnia")
+  assert.ok(importedSubject)
+  assert.equal(importedSubject?.notes, undefined)
+  assert.notEqual(importedSubject?.commandKey, "ELECTRO")
+  assert.equal(result.blocks[0]?.subjectId, importedSubject?.id)
+  assert.equal(result.activeSemesterId, "s1")
+  assert.equal(result.semesters.find((semester) => semester.id === "old-sem")?.status, "archived")
+
+  assert.equal(result.subjects.some((subject) => subject.id === "old-sub"), true)
+  assert.deepEqual(result.reminders, [currentReminder])
+  assert.deepEqual(result.assessmentGroups, [currentGroup])
+  assert.deepEqual(result.grades, [currentGrade])
+  assert.deepEqual(result.subjectNotes, [currentNote])
+  assert.deepEqual(result.subjectNoteAttachments, [currentAttachment])
+  assert.equal(result.reminders.some((reminder) => reminder.id === "r-origin"), false)
+  assert.equal(result.subjectNotes.some((note) => note.id === "n-origin"), false)
 })
 
 test("validador rechaza adjuntos huérfanos antes de llegar a Supabase", () => {
