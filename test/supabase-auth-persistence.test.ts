@@ -353,9 +353,12 @@ test("retrySync mediante replaceAll no resucita datos eliminados", async () => {
   assert.equal(calls.some((call) => call.table === "grades" && call.action === "delete"), true)
 })
 
-test("ningún error cloud cambia syncStatus a synced", async () => {
+test("ningún error de persistCloud cambia syncStatus a synced", async () => {
   const source = await readFile("hooks/use-schedule-store.ts", "utf8")
-  const catchBlock = source.slice(source.indexOf("} catch (error) {", source.indexOf("const persistCloud")))
+  const start = source.indexOf("const persistCloud")
+  const end = source.indexOf("const replaceAll", start)
+  const persistCloudSource = source.slice(start, end)
+  const catchBlock = persistCloudSource.slice(persistCloudSource.indexOf("} catch (error) {"))
   assert.equal(catchBlock.includes('setSyncStatus("synced")'), false)
 })
 
