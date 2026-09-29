@@ -44,7 +44,23 @@ type ImportMode = "academic" | "restore"
 
 export function SettingsView({ store, onRestartTutorial, onAdvancedModeFirstEnabled }: { store: ScheduleStore; onRestartTutorial?: (id: TutorialId) => void; onAdvancedModeFirstEnabled?: () => void }) {
   const { t } = useI18n()
-  const { data, allData, updateProfile, updateSettings, replaceAll, resetSettings, storageRecovery, clearStorageRecovery, syncStatus } = store
+  const {
+    data,
+    allData,
+    hydrated,
+    identityReady,
+    dataOwnerUserId,
+    syncStatus,
+    syncError,
+    updateProfile,
+    updateSettings,
+    replaceAll,
+    refreshFromCloud,
+    retrySync,
+    resetSettings,
+    storageRecovery,
+    clearStorageRecovery,
+  } = store
   const { settings } = data
   const academicFileInput = useRef<HTMLInputElement>(null)
   const restoreFileInput = useRef<HTMLInputElement>(null)
@@ -52,15 +68,39 @@ export function SettingsView({ store, onRestartTutorial, onAdvancedModeFirstEnab
   const [importing, setImporting] = useState(false)
 
   const handleExport = () => {
-    const json = exportAsJson(allData)
-    downloadJson(`horarily-respaldo-completo-${new Date().toISOString().slice(0, 10)}.json`, json)
-    toast.success("Respaldo completo exportado.")
+    if (!hydrated) {
+      toast.error("Espera a que Horaly termine de cargar tus datos antes de exportar.")
+      return
+    }
+    try {
+      const json = exportAsJson(allData)
+      downloadJson(`horarily-respaldo-completo-${new Date().toISOString().slice(0, 10)}.json`, json)
+      toast.success("Respaldo completo exportado.")
+    } catch (error) {
+      console.warn("[Horaly] Error exportando datos:", error)
+      toast.error("No se pudo generar el respaldo.")
+    }
+  }
+
+  const readFileText = async (file: File) => {
+    if (typeof file.text === "function") return file.text()
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onerror = () => reject(new Error("No se pudo leer el archivo seleccionado."))
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "")
+      reader.readAsText(file)
+    })
   }
 
   const handleImport = async (file: File, mode: ImportMode) => {
+    if (!hydrated || !identityReady) {
+      toast.error("Espera a que Horaly termine de cargar y verificar tu sesión.")
+      return
+    }
+
     setImporting(true)
     try {
-      const raw = await file.text()
+      const raw = await readFileText(file)
       const next = mode === "academic" ? importSharedAcademicJson(raw, allData) : importFromJson(raw)
       const description = mode === "academic"
         ? `Se copiarán ${next.subjects.length} materia(s), ${next.blocks.length} bloque(s) de horario y ${next.semesters.length} semestre(s). Tu nombre, perfil, notas, recordatorios y apuntes personales NO se reemplazarán.`
@@ -72,14 +112,37 @@ export function SettingsView({ store, onRestartTutorial, onAdvancedModeFirstEnab
         `horarily-respaldo-antes-de-importar-${new Date().toISOString().slice(0, 10)}.json`,
         exportAsJson(allData),
       )
-      replaceAll(next)
-      toast.success(mode === "academic" ? "Horario y materias importados. Sincronizando con tu cuenta…" : "Respaldo restaurado. Sincronizando con tu cuenta…")
+
+      await replaceAll(next)
+      toast.success(
+        dataOwnerUserId
+          ? mode === "academic"
+            ? "Horario y materias importados y verificados en tu cuenta."
+            : "Respaldo restaurado y verificado en tu cuenta."
+          : mode === "academic"
+            ? "Horario y materias importados en este dispositivo."
+            : "Respaldo restaurado en este dispositivo.",
+      )
     } catch (err) {
       const detail = err instanceof Error ? err.message.split("\n")[0] : "Archivo JSON inválido."
       toast.error(`No se pudo importar: ${detail}`)
       console.warn("[Horaly] Error importando datos:", err)
     } finally {
       setImporting(false)
+    }
+  }
+
+  const handleRefreshCloud = async () => {
+    if (!dataOwnerUserId) {
+      toast.info("Inicia sesión para actualizar tus datos desde la nube.")
+      return
+    }
+    try {
+      await refreshFromCloud()
+      toast.success("Datos actualizados desde la nube.")
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "No se pudo actualizar desde la nube."
+      toast.error(detail)
     }
   }
 
@@ -177,13 +240,29 @@ export function SettingsView({ store, onRestartTutorial, onAdvancedModeFirstEnab
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Sincronización en la nube</CardTitle>
-          <CardDescription>Si inicias sesión, tus cambios se guardan en Supabase y quedan disponibles en tus otros dispositivos con la misma cuenta.</CardDescription>
+          <CardDescription>
+            Con una cuenta iniciada, Horaly guarda tus cambios en Supabase. También puedes traer la versión más reciente de la nube cuando cambies de dispositivo.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" onClick={() => toast.info("Inicia sesión y confirma la migración desde el aviso de tu cuenta. Tus datos locales no se eliminarán automáticamente.")}>Migrar datos locales a mi cuenta</Button>
-          <Badge variant={syncStatus === "error" || syncStatus === "offline" ? "destructive" : "secondary"}>
-            {syncStatus === "syncing" ? "Sincronizando…" : syncStatus === "synced" ? "Sincronizado" : syncStatus === "offline" ? "Sin conexión" : syncStatus === "error" ? "Error de sincronización" : "Guardado local disponible"}
-          </Badge>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => window.dispatchEvent(new Event("horarily:open-migration"))} disabled={!dataOwnerUserId || importing}>
+              Migrar datos locales a mi cuenta
+            </Button>
+            <Button variant="outline" onClick={() => void handleRefreshCloud()} disabled={!dataOwnerUserId || importing || syncStatus === "syncing"}>
+              Actualizar desde la nube
+            </Button>
+            {(syncStatus === "error" || syncStatus === "offline") && (
+              <Button variant="outline" onClick={() => void retrySync()} disabled={!dataOwnerUserId || importing}>
+                Reintentar subida
+              </Button>
+            )}
+            <Badge variant={syncStatus === "error" || syncStatus === "offline" ? "destructive" : "secondary"}>
+              {syncStatus === "syncing" ? "Sincronizando…" : syncStatus === "synced" ? "Sincronizado" : syncStatus === "offline" ? "Sin conexión" : syncStatus === "error" ? "Error de sincronización" : "Guardado local disponible"}
+            </Badge>
+          </div>
+          {syncError && <p className="text-xs text-destructive" role="status">{syncError}</p>}
+          {!dataOwnerUserId && <p className="text-xs text-muted-foreground">Inicia sesión para activar sincronización entre dispositivos.</p>}
         </CardContent>
       </Card>
 
@@ -281,9 +360,9 @@ export function SettingsView({ store, onRestartTutorial, onAdvancedModeFirstEnab
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between gap-4"><div><div className="text-sm font-medium">{t("header.focusMode")}</div></div><Switch checked={settings.focusMode} onCheckedChange={(v) => updateSettings({ focusMode: v })} /></div>
           <div className="grid gap-2 pt-2 sm:grid-cols-3">
-            <Button variant="outline" onClick={handleExport} disabled={importing}><Download className="h-4 w-4 mr-2" /> Exportar respaldo completo</Button>
-            <Button variant="outline" onClick={() => academicFileInput.current?.click()} disabled={importing}><Upload className="h-4 w-4 mr-2" /> Importar horario y materias</Button>
-            <Button variant="outline" onClick={() => restoreFileInput.current?.click()} disabled={importing}><Upload className="h-4 w-4 mr-2" /> Restaurar copia completa</Button>
+            <Button variant="outline" onClick={handleExport} disabled={importing || !hydrated}><Download className="h-4 w-4 mr-2" /> Exportar respaldo completo</Button>
+            <Button variant="outline" onClick={() => academicFileInput.current?.click()} disabled={importing || !hydrated || !identityReady}><Upload className="h-4 w-4 mr-2" /> Importar horario y materias</Button>
+            <Button variant="outline" onClick={() => restoreFileInput.current?.click()} disabled={importing || !hydrated || !identityReady}><Upload className="h-4 w-4 mr-2" /> Restaurar copia completa</Button>
           </div>
           <p className="text-xs text-muted-foreground">“Importar horario y materias” conserva tu nombre, perfil, notas, recordatorios y apuntes. “Restaurar copia completa” reemplaza los datos de la cuenta con el contenido del respaldo.</p>
           <input ref={academicFileInput} type="file" accept=".json,application/json,text/json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImport(f, "academic"); e.target.value = "" }} />
