@@ -4,6 +4,22 @@ import { appDataToSupabaseRows, supabaseRowsToAppData, type SupabaseDataset } fr
 
 export const LOCAL_STORAGE_MIGRATION_ID = "localstorage-v1"
 
+function isMissingReminderKindColumn(error: unknown) {
+  if (!error || typeof error !== "object") return false
+  const value = error as { code?: unknown; message?: unknown; details?: unknown; hint?: unknown }
+  const raw = [value.code, value.message, value.details, value.hint].filter(Boolean).join(" ").toLowerCase()
+  return raw.includes("reminder_kind") && (
+    raw.includes("pgrst204")
+    || raw.includes("column")
+    || raw.includes("schema cache")
+    || raw.includes("does not exist")
+  )
+}
+
+function withoutReminderKind(values: Record<string, unknown>[]) {
+  return values.map(({ reminder_kind: _ignored, ...legacy }) => legacy)
+}
+
 const MIGRATION_DATA_TABLES = [
   "semesters",
   "subjects",
@@ -90,8 +106,16 @@ export async function migrateLocalStorageToSupabase(client: SupabaseClient, user
   const expectedPersisted = supabaseRowsToAppData(rows)
   for (const [table, values] of Object.entries(rows) as [keyof SupabaseDataset, Record<string, unknown>[]][]) {
     if (!values.length) continue
-    const { error } = await client.from(table).upsert(values, { onConflict: table === "profiles" ? "id" : "id,user_id" })
-    if (error) throw new Error(`Falló la migración al guardar ${table}. Tus datos locales se conservaron y puedes reintentar.`)
+    const onConflict = table === "profiles" ? "id" : "id,user_id"
+    const { error } = await client.from(table).upsert(values, { onConflict })
+    if (!error) continue
+
+    if (table === "reminders" && isMissingReminderKindColumn(error)) {
+      const { error: legacyError } = await client.from(table).upsert(withoutReminderKind(values), { onConflict })
+      if (!legacyError) continue
+    }
+
+    throw new Error(`Falló la migración al guardar ${table}. Tus datos locales se conservaron y puedes reintentar.`)
   }
 
   const migrated = await loadMigratedData(client, userId)
