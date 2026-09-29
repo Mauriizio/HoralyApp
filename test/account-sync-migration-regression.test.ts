@@ -58,3 +58,13 @@ test("PWA invalida el shell anterior para recibir la reparación", async () => {
   assert.match(sw, /isNextStaticAsset/)
   assert.match(sw, /networkFirstAndCache/)
 })
+
+test("sincronización tolera temporalmente una DB productiva sin reminder_kind", async () => {
+  const repository = await readFile("lib/repositories/academic-repository.ts", "utf8")
+  const migration = await readFile("lib/local-migration.ts", "utf8")
+  assert.match(repository, /isMissingReminderKindColumn/)
+  assert.match(repository, /delete legacy\.reminder_kind/)
+  assert.match(repository, /table === "reminders"/)
+  assert.match(migration, /isMissingReminderKindColumn/)
+  assert.match(migration, /delete legacy\.reminder_kind/)
+})
