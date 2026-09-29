@@ -62,6 +62,7 @@ export function useScheduleStore() {
   const identityReadyRef = useRef(false)
   const dataOwnerUserIdRef = useRef<string | null>(null)
   const authGenerationRef = useRef(authGeneration)
+  const lastCloudRefreshAtRef = useRef(0)
 
   useEffect(() => { identityReadyRef.current = identityReady }, [identityReady])
   useEffect(() => { dataOwnerUserIdRef.current = dataOwnerUserId }, [dataOwnerUserId])
@@ -192,15 +193,87 @@ export function useScheduleStore() {
     }
   }, [assertCloudIdentity, authenticated, setSyncFailure])
 
-  const retrySync = useCallback(() => {
-    void persistCloud(dataOwnerUserId, (repository) => repository.replaceAll(data))
-  }, [data, dataOwnerUserId, persistCloud])
-
-  const replaceAll = useCallback((next: AppData) => {
+  const replaceAll = useCallback(async (next: AppData): Promise<AppData> => {
     setStorageRecovery(null)
-    setData(next)
-    void persistCloud(dataOwnerUserId, (repository) => repository.replaceAll(next))
-  }, [dataOwnerUserId, persistCloud])
+
+    if (!authenticated) {
+      dataRef.current = next
+      setData(next)
+      saveData(next)
+      setSyncStatus("local")
+      setSyncError(null)
+      return next
+    }
+
+    const expectedUserId = dataOwnerUserId
+    let confirmed = next
+    await persistCloud(expectedUserId, async (repository) => {
+      await repository.replaceAll(next)
+      confirmed = await repository.loadData()
+    }, { throwOnError: true, operationName: "dataset.replaceAll" })
+
+    dataRef.current = confirmed
+    setData(confirmed)
+    if (expectedUserId) saveCloudCache(expectedUserId, confirmed)
+    lastCloudRefreshAtRef.current = Date.now()
+    return confirmed
+  }, [authenticated, dataOwnerUserId, persistCloud])
+
+  const retrySync = useCallback(async () => {
+    try {
+      await replaceAll(dataRef.current)
+    } catch {
+      // replaceAll ya deja syncStatus/syncError listos para la UI.
+    }
+  }, [replaceAll])
+
+  const refreshFromCloud = useCallback(async (): Promise<AppData> => {
+    if (!authenticated || !dataOwnerUserId) return dataRef.current
+    const expectedUserId = dataOwnerUserId
+    const expectedGeneration = authGenerationRef.current
+    setSyncStatus("syncing")
+    setSyncError(null)
+
+    try {
+      const repository = assertCloudIdentity(expectedUserId, expectedGeneration, "dataset.refreshFromCloud")
+      const loaded = await repository.loadData()
+      assertCloudIdentity(expectedUserId, expectedGeneration, "dataset.refreshFromCloud")
+
+      const refreshed = backfillLegacyActivationMarker(loaded, new Date().toISOString())
+      if (refreshed !== loaded) await repository.updateSettings(refreshed.settings, refreshed.modules)
+      assertCloudIdentity(expectedUserId, expectedGeneration, "dataset.refreshFromCloud")
+
+      dataRef.current = refreshed
+      setData(refreshed)
+      saveCloudCache(expectedUserId, refreshed)
+      lastCloudRefreshAtRef.current = Date.now()
+      setSyncStatus("synced")
+      setSyncError(null)
+      return refreshed
+    } catch (error) {
+      if (!(error instanceof SessionIdentityMismatchError)) setSyncFailure(error)
+      throw error
+    }
+  }, [assertCloudIdentity, authenticated, dataOwnerUserId, setSyncFailure])
+
+  useEffect(() => {
+    if (!authenticated || !identityReady || syncStatus !== "synced") return
+
+    const refreshIfStale = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return
+      const now = Date.now()
+      if (now - lastCloudRefreshAtRef.current < 30_000) return
+      lastCloudRefreshAtRef.current = now
+      void refreshFromCloud().catch(() => {})
+    }
+
+    window.addEventListener("focus", refreshIfStale)
+    document.addEventListener("visibilitychange", refreshIfStale)
+    return () => {
+      window.removeEventListener("focus", refreshIfStale)
+      document.removeEventListener("visibilitychange", refreshIfStale)
+    }
+  }, [authenticated, identityReady, refreshFromCloud, syncStatus])
 
   const clearStorageRecovery = useCallback(() => setStorageRecovery(null), [])
 
@@ -672,6 +745,7 @@ export function useScheduleStore() {
     repositoryOwnerUserId,
     authGeneration,
     retrySync,
+    refreshFromCloud,
     migrationSnapshot,
     storageRecovery,
     clearStorageRecovery,
