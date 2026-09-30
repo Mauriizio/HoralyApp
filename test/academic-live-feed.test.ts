@@ -21,7 +21,8 @@ test("feed único ordena, humaniza, deduplica y asigna acciones", () => {
     ],
   }, now)
 
-  assert.equal(messages[0].kind, "overdue")
+  assert.ok(messages.every((item) => item.kind !== "overdue"))
+  assert.ok(!messages.some((item) => item.key === "reminder:over"))
   assert.equal(new Set(messages.map((item) => item.key)).size, messages.length)
   assert.equal(messages.filter((item) => item.key === "reminder-assessments:2026-08-24").length, 1)
   assert.match(messages.find((item) => item.key === "reminder-assessments:2026-08-24")!.message, /5 días.*Prueba.*Álgebra.*14:00/)
