@@ -2,6 +2,8 @@ import test from "node:test"
 import assert from "node:assert/strict"
 import { getHorarilyCompanionMessages, weightUrgentCompanionMessages } from "../domain/horarily-companion.ts"
 import { reminderToSupabaseRow, supabaseRowsToAppData } from "../lib/repositories/supabase-mappers.ts"
+import { EXPIRED_REMINDER_RETENTION_DAYS, getReminderLifecycle, splitRemindersByLifecycle } from "../domain/reminder-lifecycle.ts"
+import type { Reminder } from "../lib/types.ts"
 
 const now = new Date("2026-08-19T14:00:00.000Z")
 
@@ -56,4 +58,33 @@ test("horizontes excluyen eventos demasiado lejanos y ticker admite máximo ocho
   assert.ok(!messages.some((item) => item.key === "reminder-assessments:2026-09-03"))
   assert.ok(!messages.some((item) => item.key === "reminder:event-far"))
   assert.ok(messages.length <= 8)
+})
+
+
+test("recordatorios vencidos duran 15 días fuera del ticker", () => {
+  const reference = new Date("2026-09-29T12:00:00.000Z")
+  const makeReminder = (id: string, targetDateTime: string): Reminder => ({
+    id,
+    semesterId: "s1",
+    title: id,
+    priority: "media",
+    kind: "assessment",
+    triggers: [],
+    targetDateTime,
+    createdAt: 1,
+    notifiedTriggerIndexes: [],
+  })
+  const upcoming = makeReminder("upcoming", "2026-09-29T13:00:00.000Z")
+  const recentExpired = makeReminder("recent", "2026-09-28T12:00:00.000Z")
+  const oldExpired = makeReminder("old", "2026-09-14T12:00:00.000Z")
+
+  assert.equal(EXPIRED_REMINDER_RETENTION_DAYS, 15)
+  assert.equal(getReminderLifecycle(upcoming, reference), "upcoming")
+  assert.equal(getReminderLifecycle(recentExpired, reference), "expired")
+  assert.equal(getReminderLifecycle(oldExpired, reference), "stale")
+
+  const split = splitRemindersByLifecycle([oldExpired, upcoming, recentExpired], reference)
+  assert.deepEqual(split.upcoming.map((item) => item.id), ["upcoming"])
+  assert.deepEqual(split.expired.map((item) => item.id), ["recent"])
+  assert.deepEqual(split.stale.map((item) => item.id), ["old"])
 })
