@@ -72,7 +72,7 @@ test("service worker no se registra en development y limpia solo caches Horaly",
   assert.match(register, /process\.env\.NODE_ENV !== "production"/)
   assert.match(register, /cleanupDevelopmentWorkers/)
   assert.match(register, /key\.startsWith\(HORALY_CACHE_PREFIX\)/)
-  assert.match(sw, /horaly-shell-v5/)
+  assert.match(sw, /horaly-shell-v6/)
   assert.match(sw, /isSupabaseRequest/)
   assert.match(sw, /isAvatarRequest/)
   assert.match(sw, /!isSameOrigin/)
