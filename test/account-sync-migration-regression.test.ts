@@ -54,7 +54,7 @@ test("importación espera confirmación cloud y exportación usa descarga compat
 
 test("PWA invalida el shell anterior para recibir la reparación", async () => {
   const sw = await readFile("public/sw.js", "utf8")
-  assert.match(sw, /horaly-shell-v5/)
+  assert.match(sw, /horaly-shell-v6/)
   assert.match(sw, /isNextStaticAsset/)
   assert.match(sw, /networkFirstAndCache/)
 })
