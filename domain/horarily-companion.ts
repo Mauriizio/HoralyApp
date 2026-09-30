@@ -199,12 +199,9 @@ export function getHorarilyCompanionMessages(data: HorarilyCompanionData, now: D
     if (Number.isNaN(date.getTime())) continue
     const distance = date.getTime() - now.getTime()
     const kind = reminder.kind ?? "general"
-    if (distance < 0) {
-      const subject = reminder.subjectName ? ` de ${reminder.subjectName}` : ""
-      const message = kind === "assessment" ? `Evaluación vencida: ${reminder.title}${subject}, el ${formatAcademicEventDate(date, now, data.timezone)}.` : `Tienes pendiente: ${reminder.title}.`
-      add({ key: `reminder:${reminder.id ?? `${reminder.title}:${reminder.targetDateTime}`}`, kind: "overdue", message, tickerMessage: reminder.title, action: "recordatorios", actionLabel: kind === "assessment" ? "Ver evaluación" : kind === "assignment" ? "Ver entrega" : "Ver pendiente", urgent: true, rank: 0, time: date.getTime() })
-      continue
-    }
+    // Los vencidos viven únicamente en la bandeja "Vencidos". No deben
+    // contaminar el ticker móvil ni competir con próximos exámenes/clases.
+    if (distance < 0) continue
     if (kind === "assessment") continue
     if (distance > LIVE_FEED_HORIZONS_MS[kind]) continue
     const rank = kind === "assignment" ? 4 : kind === "event" ? 7 : reminder.priority === "alta" ? 6 : 7

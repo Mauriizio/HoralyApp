@@ -32,6 +32,7 @@ import { addGradeTransition, applyGradingPresetTransition, deleteAssessmentGroup
 import { assertSameGeneration, assertSameIdentity, logIdentity, type OperationIdentityContext, SessionIdentityMismatchError } from "@/lib/session-identity"
 import { evaluateSubjectCreation, type SubjectCreationGate } from "@/application/subject-creation"
 import { backfillLegacyActivationMarker } from "@/application/activation"
+import { splitRemindersByLifecycle } from "@/domain/reminder-lifecycle"
 
 export { validateModules }
 
@@ -192,6 +193,35 @@ export function useScheduleStore() {
       if (options.throwOnError || error instanceof SessionIdentityMismatchError) throw error
     }
   }, [assertCloudIdentity, authenticated, setSyncFailure])
+
+
+  useEffect(() => {
+    if (!hydrated || !identityReady || storageRecovery) return
+
+    const { stale } = splitRemindersByLifecycle(dataRef.current.reminders, new Date())
+    if (stale.length === 0) return
+
+    const staleIds = new Set(stale.map((reminder) => reminder.id))
+    const nextData = {
+      ...dataRef.current,
+      reminders: dataRef.current.reminders.filter((reminder) => !staleIds.has(reminder.id)),
+    }
+    dataRef.current = nextData
+    setData(nextData)
+
+    if (!authenticated) {
+      saveData(nextData)
+      return
+    }
+
+    void persistCloud(
+      dataOwnerUserId,
+      async (repository) => {
+        await Promise.all([...staleIds].map((id) => repository.deleteReminder(id)))
+      },
+      { operationName: "reminder.expiryCleanup" },
+    ).catch(() => {})
+  }, [authenticated, dataOwnerUserId, hydrated, identityReady, persistCloud, storageRecovery])
 
   const replaceAll = useCallback(async (next: AppData): Promise<AppData> => {
     setStorageRecovery(null)

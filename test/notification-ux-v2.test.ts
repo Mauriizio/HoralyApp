@@ -59,15 +59,15 @@ test("una evaluación dentro de 24 horas es urgente", () => {
   assert.equal(assessment.urgent, true)
 })
 
-test("una evaluación vencida conserva título, materia, fecha y acción", () => {
-  const [assessment] = getHorarilyCompanionMessages({
+test("una evaluación vencida desaparece del ticker académico", () => {
+  const messages = getHorarilyCompanionMessages({
     timezone: "America/Santiago",
     reminders: [{ id: "exam", title: "Control 1", subjectName: "Física", targetDateTime: "2026-09-02T09:00:00.000Z", kind: "assessment" }],
     assessments: [], subjects: [], classes: [],
   }, now)
-  assert.equal(assessment.kind, "overdue")
-  assert.match(assessment.message, /Control 1.*Física.*2 de septiembre.*05:00/)
-  assert.equal(assessment.actionLabel, "Ver evaluación")
+  assert.ok(!messages.some((item) => item.key === "reminder:exam"))
+  assert.ok(messages.every((item) => item.kind !== "overdue"))
+  assert.equal(messages[0]?.kind, "empty")
 })
 
 test("weighting limita la urgencia a dos apariciones por ciclo", () => {
