@@ -1,6 +1,6 @@
 // Service worker conservador: shell offline sin interceptar datos privados.
 
-const CACHE_NAME = "horaly-shell-v5"
+const CACHE_NAME = "horaly-shell-v6"
 const SHELL_URLS = [
   "/",
   "/manifest.webmanifest",
